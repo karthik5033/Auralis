@@ -19,11 +19,11 @@ For full product vision, design philosophies, operational user personas, and hac
 
 ```mermaid
 graph TD
-    subgraph External Data
+    subgraph ExternalData ["External Data"]
         CT["CelesTrak API<br/>(Active Satellites & Debris TLEs)"]
     end
 
-    subgraph Data Layer ["Data & Physics Layer (BRIEF_DATA.md)"]
+    subgraph DataLayer ["Data & Physics Layer (BRIEF_DATA.md)"]
         Ingest["TLE Ingestion Engine"]
         SGP4["SGP4 Orbit Propagator"]
         SIR["SIR Epidemiological<br/>Debris Cascade Model"]
@@ -34,11 +34,11 @@ graph TD
         Shells --> SIR
     end
 
-    subgraph Backend Layer ["Agent & API Layer (BRIEF_BACKEND.md)"]
+    subgraph BackendLayer ["Agent & API Layer (BRIEF_BACKEND.md)"]
         API["FastAPI / Express Server<br/>(:8000)"]
         WS["WebSocket Hub<br/>(/ws)"]
         
-        subgraph Multi-Agent Mesh
+        subgraph AgentMesh ["Multi-Agent Mesh"]
             TrackerAgent["Tracker Agent<br/>(State & Screening)"]
             RiskAgent["Risk Assessor Agent<br/>(3D Covariance & Pc)"]
             ForecasterAgent["Epidemic Forecaster<br/>(R0 & Cascade Spread)"]
@@ -48,10 +48,12 @@ graph TD
         end
 
         API --- WS
-        WS <--> Multi-Agent Mesh
+        WS <--> TrackerAgent
+        WS <--> RiskAgent
+        WS <--> AdvisoryAgent
     end
 
-    subgraph Frontend Layer ["Mission Control UI (BRIEF_FRONTEND.md)"]
+    subgraph FrontendLayer ["Mission Control UI (BRIEF_FRONTEND.md)"]
         Next["Next.js 16 Dashboard<br/>(:3000)"]
         Globe["3D WebGL / Globe.gl<br/>(Orbit & Conjunction View)"]
         MockLive["API Client / Switcher<br/>(Mock ⇄ Live REST/WS)"]
@@ -61,8 +63,10 @@ graph TD
     end
 
     CT --> Ingest
-    DataLayer --> BackendLayer
-    BackendLayer <== "REST /api/v1 & WebSockets" ==> FrontendLayer
+    SGP4 --> TrackerAgent
+    Shells --> ForecasterAgent
+    API <-->|"REST /api/v1"| MockLive
+    WS <-->|"WebSockets /ws"| MockLive
 ```
 
 ---
