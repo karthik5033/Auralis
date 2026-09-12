@@ -419,9 +419,9 @@ export default function Home() {
 
         {/* Bottom Section: Real Charts & Live Screening Feeds */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 font-sans">
-          {/* Main Chart: Orbital Conjunction Risk Index - Clean Monochrome with Semantic Red */}
+          {/* Main Chart: Orbital Conjunction Risk Index - Precision Scientific Telemetry */}
           <div className="col-span-1 md:col-span-6 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex justify-between items-start mb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-bold text-lg text-foreground">Orbital Conjunction Risk Index</h3>
@@ -440,10 +440,10 @@ export default function Home() {
               </Link>
             </div>
             
-            {/* Dynamic Real SVG Area Chart for Kessler Cascade R0 */}
-            <div className="relative h-64 w-full pt-2">
-              {/* Y Axis Labels (Real Reproduction Numbers R0) */}
-              <div className="absolute left-0 top-0 bottom-6 w-12 flex flex-col justify-between text-[11px] font-mono text-muted-foreground select-none">
+            {/* Dynamic Precision SVG Area Chart for Kessler Cascade R0 */}
+            <div className="relative h-64 w-full pt-2 select-none">
+              {/* Y Axis Labels */}
+              <div className="absolute left-0 top-0 bottom-6 w-12 flex flex-col justify-between text-[11px] font-mono text-muted-foreground">
                 <span>R₀ 30.0</span>
                 <span>R₀ 20.0</span>
                 <span>R₀ 10.0</span>
@@ -451,54 +451,84 @@ export default function Home() {
                 <span>R₀ 0.0</span>
               </div>
               
+              {/* Chart Plot Area */}
               <div className="absolute left-14 right-2 top-2 bottom-6">
                 {/* Horizontal Grid lines */}
-                <div className="w-full h-full flex flex-col justify-between">
-                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/80" />
-                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/80" />
-                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/80" />
+                <div className="w-full h-full flex flex-col justify-between pointer-events-none">
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/60" />
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/60" />
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/60" />
                   {/* Critical R0 = 1.0 Boundary */}
-                  <div className="w-full h-px border-t border-red-500/50 relative">
-                    <span className="absolute right-0 -top-3 text-[9px] font-mono text-red-500 dark:text-red-400 bg-card px-1.5 py-0.5 rounded border border-red-500/30">
+                  <div className="w-full h-px border-t border-dashed border-red-500/40 relative">
+                    <span className="absolute right-0 -top-2.5 text-[9px] font-mono text-red-500 dark:text-red-400 bg-white dark:bg-zinc-950 px-1.5 py-0.5 rounded border border-red-500/30 shadow-sm">
                       Critical Threshold (R₀ = 1.0)
                     </span>
                   </div>
-                  <div className="w-full h-px border-t border-zinc-200 dark:border-zinc-800/80" />
+                  <div className="w-full h-px border-t border-zinc-200 dark:border-zinc-800/60" />
                 </div>
+
+                {/* Vertical Reference Marker for Peak Shell (780km) */}
+                <div 
+                  className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500/25 pointer-events-none"
+                  style={{ left: "68.33%" }}
+                />
                 
-                {/* Dynamic SVG Area Graph - Refined Monochrome with Red Peak */}
-                <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
+                {/* Smooth Continuous SVG Area & Hairline Path */}
+                <svg 
+                  className="absolute inset-0 w-full h-full overflow-visible" 
+                  preserveAspectRatio="none" 
+                  viewBox="0 0 600 200"
+                >
                   <defs>
                     <linearGradient id="gradientCascadeR0" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
-                      <stop offset="60%" stopColor="#ffffff" stopOpacity="0.04" />
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity="0.2" />
+                      <stop offset="35%" stopColor="#ffffff" stopOpacity="0.06" />
                       <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
-                  {/* Area fill */}
+                  {/* Silky Smooth Area Fill */}
                   <path 
-                    d="M 0,88 L 15,87 L 30,85 L 45,80 L 58,40 L 72,25 L 85,45 L 100,60 L 100,95 L 0,95 Z" 
+                    d="M 0,188 C 60,188 120,185 180,180 C 240,175 290,165 330,125 C 370,85 390,42 410,42 C 430,42 450,85 480,120 C 515,155 550,170 600,174 L 600,200 L 0,200 Z" 
                     fill="url(#gradientCascadeR0)" 
                   />
                   
-                  {/* Line - Sleek zinc/silver */}
+                  {/* Crisp Hairline Curve (Exact 1.5px screen width everywhere via non-scaling-stroke) */}
                   <path 
-                    d="M 0,88 L 15,87 L 30,85 L 45,80 L 58,40 L 72,25 L 85,45 L 100,60" 
+                    d="M 0,188 C 60,188 120,185 180,180 C 240,175 290,165 330,125 C 370,85 390,42 410,42 C 430,42 450,85 480,120 C 515,155 550,170 600,174" 
                     fill="none" 
                     stroke="currentColor" 
-                    strokeWidth="2" 
+                    strokeWidth="1.5" 
+                    strokeLinecap="round" 
                     strokeLinejoin="round" 
+                    vectorEffect="non-scaling-stroke"
                     className="text-zinc-700 dark:text-zinc-200"
                   />
-
-                  {/* Supercritical Peak Warning Dot at 750-800km */}
-                  <circle cx="72" cy="25" r="3" fill="#ef4444" />
-                  <circle cx="72" cy="25" r="6" fill="#ef4444" opacity="0.3" className="animate-ping" />
                 </svg>
+
+                {/* Exact Proportional Circular Peak Focal Marker (No distortion/oval) */}
+                <div 
+                  className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center"
+                  style={{ left: "68.33%", top: "21%" }}
+                >
+                  <span className="absolute w-5 h-5 rounded-full bg-red-500/20 animate-ping" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-950 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                </div>
+
+                {/* Floating Precision Telemetry Badge on Peak */}
+                <div 
+                  className="absolute -translate-x-1/2 -translate-y-full -mt-2 pointer-events-none"
+                  style={{ left: "68.33%", top: "21%" }}
+                >
+                  <div className="px-2 py-0.5 rounded bg-zinc-900/90 dark:bg-black/90 border border-red-500/40 text-[10px] font-mono text-red-400 font-bold shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    <span>R₀ 25.25</span>
+                    <span className="text-zinc-500 font-normal">| 780km</span>
+                  </div>
+                </div>
               </div>
 
-              {/* X Axis Labels (Real Orbital Altitudes) */}
+              {/* X Axis Labels */}
               <div className="absolute left-14 right-2 bottom-0 h-5 flex justify-between text-[11px] font-mono text-muted-foreground select-none">
                 <span>200km</span>
                 <span>400km</span>
