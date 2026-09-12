@@ -35,6 +35,7 @@ import type {
 } from '@/types/contract';
 
 import * as mockApi from './mockApi';
+import { mockWs } from './mockWs';
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
@@ -270,7 +271,19 @@ export async function injectCrisis(
   req: CrisisInjectionRequest
 ): Promise<CrisisInjectionResponse> {
   if (isMockMode()) {
-    return mockApi.injectCrisis(req);
+    const res = await mockApi.injectCrisis(req);
+    // Broadcast real-time cascade across the entire nervous system
+    mockWs.emit('crisis:injected', res);
+    const newConj = mockApi.mockConjunctions[0];
+    if (newConj) {
+      mockWs.emit('conjunction:created', newConj);
+    }
+    const newAdv = mockApi.mockAdvisories[0];
+    if (newAdv) {
+      mockWs.emit('advisory:new', newAdv);
+    }
+    mockWs.emit('objects:updated', { objects: mockApi.mockObjects });
+    return res;
   }
   return fetchJson<CrisisInjectionResponse>('/crisis/inject', {
     method: 'POST',

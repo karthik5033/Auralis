@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import Globe, { GlobeInstance } from "globe.gl";
 import type { TrackedObject, ConjunctionEvent } from "@/types/contract";
 import { mockWs } from "@/lib/mockWs";
+import { getObjects, getConjunctions } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -434,9 +435,20 @@ export default function GlobeView({
       );
     });
 
+    // Listen for crisis injection to burst new debris fragments onto globe
+    const unsubCrisis = mockWs.on("crisis:injected", () => {
+      getObjects({ limit: 800 }).then((res) => {
+        setObjects(res.data);
+      });
+      getConjunctions({ limit: 50 }).then((res) => {
+        setConjunctions(res.data);
+      });
+    });
+
     return () => {
       unsubObjects();
       unsubConjunction();
+      unsubCrisis();
     };
   }, []);
 

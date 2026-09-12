@@ -31,7 +31,10 @@ import {
   ExternalLink,
   ShieldAlert,
   Trash2,
-  Satellite
+  Satellite,
+  Bomb,
+  Flame,
+  X
 } from "lucide-react";
 import { CrimeTrendChart } from "@/components/charts/CrimeTrendChart";
 import { LiveMap } from "@/components/dashboard/LiveMap";
@@ -39,9 +42,10 @@ import { LiveEventFeed } from "@/components/dashboard/LiveEventFeed";
 import { EarlyWarningSection } from "@/components/dashboard/EarlyWarningSection";
 import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { QuickMLBar } from "@/components/dashboard/QuickMLBar";
+import { CrisisInjectionModal } from "@/components/dashboard/CrisisInjectionModal";
 import { getDashboardSummary, getConjunctions, getObjects } from "@/lib/api";
 import { mockWs } from "@/lib/mockWs";
-import type { DashboardSummary, ConjunctionEvent, TrackedObject } from "@/types/contract";
+import type { DashboardSummary, ConjunctionEvent, TrackedObject, CrisisInjectionResponse } from "@/types/contract";
 import { downloadDataAsCsv } from "@/lib/utils";
 import Link from "next/link";
 
@@ -50,6 +54,8 @@ export default function DashboardPage() {
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>([]);
   const [objectsMap, setObjectsMap] = useState<Record<string, TrackedObject>>({});
   const [loading, setLoading] = useState(true);
+  const [isCrisisModalOpen, setIsCrisisModalOpen] = useState(false);
+  const [crisisAlert, setCrisisAlert] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -104,12 +110,17 @@ export default function DashboardPage() {
     });
 
     const unsubCrisis = mockWs.on("crisis:injected", (crisis) => {
+      setCrisisAlert(
+        `Injected ${crisis.injectedObjectCount} fragments into ${crisis.affectedShellIds.join(" & ")}. +${crisis.newConjunctionEventCount} critical conjunction geometries generated.`
+      );
       setSummary((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
           totalTrackedObjects: prev.totalTrackedObjects + crisis.injectedObjectCount,
           debrisObjects: prev.debrisObjects + crisis.injectedObjectCount,
+          activeConjunctions: prev.activeConjunctions + crisis.newConjunctionEventCount,
+          criticalConjunctions: prev.criticalConjunctions + crisis.newConjunctionEventCount,
           shellsAtRisk: Math.max(prev.shellsAtRisk, crisis.affectedShellIds.length),
         };
       });
@@ -141,8 +152,40 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 space-y-6 p-6 lg:p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-300 font-sans">
-      {/* Quick AI Search Copilot Bar */}
-      <QuickMLBar />
+      {/* Top Header & Crisis Injection Trigger */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex-1">
+          <QuickMLBar />
+        </div>
+        <Button
+          type="button"
+          onClick={() => setIsCrisisModalOpen(true)}
+          className="h-10 px-4 font-mono font-bold text-xs uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white shadow-lg border border-red-500/60 gap-2 shrink-0 cursor-pointer animate-pulse"
+        >
+          <Bomb className="h-4 w-4" />
+          Inject Crisis
+        </Button>
+      </div>
+
+      {/* Dynamic Crisis Alert Banner */}
+      {crisisAlert && (
+        <div className="p-4 rounded-xl border border-red-500/50 bg-red-950/40 text-red-200 flex items-center justify-between gap-3 shadow-lg animate-in slide-in-from-top duration-300 font-mono text-xs">
+          <div className="flex items-center gap-2.5">
+            <Flame className="h-5 w-5 text-red-500 animate-pulse shrink-0" />
+            <div>
+              <span className="font-bold text-red-400 uppercase">KINETIC BREAKUP CASCADE DETECTED: </span>
+              <span>{crisisAlert}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCrisisAlert(null)}
+            className="p-1 rounded text-red-400 hover:text-white hover:bg-red-900/50 cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Autonomous Agent Orchestration Mesh Status Bar */}
       <AgentStatusBar />
@@ -446,6 +489,17 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Crisis Injection Modal */}
+      <CrisisInjectionModal
+        isOpen={isCrisisModalOpen}
+        onClose={() => setIsCrisisModalOpen(false)}
+        onInjected={(res: CrisisInjectionResponse) => {
+          setCrisisAlert(
+            `Injected ${res.injectedObjectCount} fragments into ${res.affectedShellIds.join(" & ")}. +${res.newConjunctionEventCount} critical conjunction geometries generated.`
+          );
+        }}
+      />
     </div>
   );
 }

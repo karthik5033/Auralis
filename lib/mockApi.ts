@@ -1001,12 +1001,136 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 export async function injectCrisis(
   req: CrisisInjectionRequest
 ): Promise<CrisisInjectionResponse> {
-  await delay(100);
+  await delay(150);
 
   // Derive affected shells based on injection altitude
   const altMin = Math.floor(req.altitude / 50) * 50;
   const primaryShell = `LEO_${altMin}_${altMin + 50}`;
   const secondaryShell = `LEO_${altMin + 50}_${altMin + 100}`;
+
+  // 1. Generate synthetic debris fragments centered at altitude
+  const newDebrisObjects: TrackedObject[] = [];
+  const baseRadius = 6371 + req.altitude;
+  const createdNoradBase = 90000 + Math.floor(Math.random() * 9000);
+
+  for (let i = 0; i < Math.min(req.fragmentCount, 200); i++) {
+    const theta = Math.random() * 2 * Math.PI;
+    const phi = (Math.random() - 0.5) * Math.PI * 0.8;
+    const r = baseRadius + (Math.random() - 0.5) * 35;
+    const x = r * Math.cos(phi) * Math.cos(theta);
+    const y = r * Math.cos(phi) * Math.sin(theta);
+    const z = r * Math.sin(phi);
+
+    const speed = Math.sqrt(398600.4418 / r);
+    const vx = -speed * Math.sin(theta) + (Math.random() - 0.5) * 0.4;
+    const vy = speed * Math.cos(theta) + (Math.random() - 0.5) * 0.4;
+    const vz = (Math.random() - 0.5) * 0.6;
+
+    const fragObj: TrackedObject = {
+      id: `frag-${Date.now()}-${i}`,
+      noradId: createdNoradBase + i,
+      name: `${req.label || "CRISIS"} DEB #${i + 1}`,
+      type: "debris",
+      altitude: Number((r - 6371).toFixed(2)),
+      shellId: primaryShell,
+      position: { x: Number(x.toFixed(2)), y: Number(y.toFixed(2)), z: Number(z.toFixed(2)) },
+      velocity: { vx: Number(vx.toFixed(4)), vy: Number(vy.toFixed(4)), vz: Number(vz.toFixed(4)) },
+      covarianceUpperTriangle: [1.2e-4, 4.5e-5, -2.1e-5, 8.8e-5, 1.4e-5, 2.3e-4],
+      orbitalElements: {
+        semiMajorAxis: Number(r.toFixed(2)),
+        eccentricity: Number((0.001 + Math.random() * 0.015).toFixed(6)),
+        inclination: Number((51.6 + (Math.random() - 0.5) * 15).toFixed(4)),
+        raan: Number((Math.random() * 360).toFixed(4)),
+        argOfPerigee: Number((Math.random() * 360).toFixed(4)),
+        meanAnomaly: Number((Math.random() * 360).toFixed(4)),
+      },
+      status: "active",
+      operatorId: null,
+      epoch: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+    };
+    newDebrisObjects.push(fragObj);
+  }
+
+  // Prepend new debris to mockObjects
+  mockObjects.unshift(...newDebrisObjects);
+
+  // 2. Update dashboard summary counters
+  mockDashboardSummary.totalTrackedObjects += req.fragmentCount;
+  mockDashboardSummary.debrisObjects += req.fragmentCount;
+  mockDashboardSummary.activeConjunctions += Math.round(req.fragmentCount * 0.12);
+  mockDashboardSummary.criticalConjunctions += Math.max(2, Math.round(req.fragmentCount * 0.056));
+  mockDashboardSummary.shellsAtRisk = Math.max(mockDashboardSummary.shellsAtRisk, 2);
+  mockDashboardSummary.lastUpdated = new Date().toISOString();
+
+  // 3. Update or insert critical shell dynamics (R0 spike!)
+  let shell = mockShells.find((s) => s.shellId === primaryShell);
+  if (!shell) {
+    shell = {
+      shellId: primaryShell,
+      altitudeMin: altMin,
+      altitudeMax: altMin + 50,
+      timestamp: new Date().toISOString(),
+      susceptibleCount: 450,
+      infectedCount: 120,
+      removedCount: 40,
+      totalObjectCount: 610,
+      debrisDensity: 6.4e-9,
+      r0: 0.92,
+      trend: "stable",
+      projectionYears: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
+      projectedS: [450, 410, 360, 300, 240, 180, 130, 95, 70, 50, 40],
+      projectedI: [120, 180, 270, 380, 490, 560, 590, 580, 540, 490, 430],
+      projectedR: [40, 50, 70, 110, 170, 250, 340, 430, 510, 580, 640],
+    };
+    mockShells.unshift(shell);
+  }
+
+  // Elevate shell to supercritical cascade state
+  shell.r0 = Math.max(shell.r0, 2.48);
+  shell.trend = "increasing";
+  shell.infectedCount += req.fragmentCount;
+  shell.totalObjectCount += req.fragmentCount;
+  shell.debrisDensity = shell.debrisDensity * 4.2;
+  shell.projectedI = shell.projectedI.map((val, idx) =>
+    Math.round(val + req.fragmentCount * (1.2 + idx * 0.35))
+  );
+
+  // 4. Inject a new critical close approach with the ISS or active satellite
+  const primaryVictim = mockObjects.find((o) => o.type === "satellite") || mockObjects[0];
+  const attackerDebris = newDebrisObjects[0];
+
+  const newConj: ConjunctionEvent = {
+    id: `ce-crisis-${Date.now().toString(36)}`,
+    primaryObjectId: primaryVictim.id,
+    secondaryObjectId: attackerDebris ? attackerDebris.id : "b2c3d4e5-6789-abcd-ef01-222222222222",
+    tca: new Date(Date.now() + 24 * 60 * 1000).toISOString(), // T-24m
+    missDistance: 0.038, // 38m
+    relativeVelocity: 14.85,
+    collisionProbability: 5.2e-3,
+    maxCollisionProbability: 5.9e-3,
+    riskLevel: "critical",
+    status: "active",
+    screeningWindowStart: new Date().toISOString(),
+    screeningWindowEnd: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
+    maneuverProposalId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  mockConjunctions.unshift(newConj);
+
+  // 5. Inject a synthesized mission advisory
+  const newAdv: Advisory = {
+    id: `adv-crisis-${Date.now().toString(36)}`,
+    timestamp: new Date().toISOString(),
+    severity: "critical",
+    title: `EMERGENCY CASCADE ALERT: ${req.label}`,
+    body: `Simulated ${req.type.toUpperCase()} injection generated ${req.fragmentCount} high-velocity debris bodies at ${req.altitude} km. Shell ${primaryShell} has crossed critical percolation threshold (R₀ = ${shell.r0.toFixed(2)}). Immediate autonomous evasion trajectory initiated for ${primaryVictim.name}.`,
+    relatedEventIds: [newConj.id],
+    relatedObjectIds: [primaryVictim.id, attackerDebris ? attackerDebris.id : ""].filter(Boolean),
+    agentSource: "advisory",
+  };
+  mockAdvisories.unshift(newAdv);
 
   return {
     success: true,
