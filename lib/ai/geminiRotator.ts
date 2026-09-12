@@ -32,12 +32,13 @@ export class GeminiRotator {
   private readonly cooldowns = new Map<number, number>(); // index -> timestamp ms
   private readonly callCounts = new Map<number, number>();
   private readonly failCounts = new Map<number, number>();
-  private readonly quarantined = new Set<number>(); // permanent 24h quarantine for 400/403
+  private readonly quarantined = new Set<number>();
   private readonly candidateModels = [
-    "gemini-flash-latest",
     "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
     "gemini-2.5-flash",
   ];
+  private readonly loggedQuarantines = new Set<number>();
 
   constructor() {
     this.loadKeys();
@@ -151,7 +152,10 @@ export class GeminiRotator {
     this.quarantined.add(index);
     this.cooldowns.set(index, Date.now() + 24 * 60 * 60 * 1000);
     this.failCounts.set(index, (this.failCounts.get(index) ?? 0) + 1);
-    console.warn(`[GeminiRotator] Key #${index + 1} permanently quarantined (reason: ${reason}). Key will not be retried.`);
+    if (!this.loggedQuarantines.has(index)) {
+      this.loggedQuarantines.add(index);
+      console.warn(`[GeminiRotator] Key #${index + 1} permanently quarantined (reason: ${reason}). Key will not be retried.`);
+    }
   }
 
   /**
