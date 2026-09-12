@@ -205,7 +205,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
-              {summary ? summary.totalTrackedObjects.toLocaleString() : "1,847"}
+              {summary ? summary.totalTrackedObjects.toLocaleString() : "—"}
             </div>
             <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">
               Catalog SGP4 synched
@@ -225,7 +225,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-emerald-400 font-mono">
-              {summary ? summary.activeSatellites.toLocaleString() : "623"}
+              {summary ? summary.activeSatellites.toLocaleString() : "—"}
             </div>
             <p className="text-[10px] text-emerald-500/80 mt-1 font-mono truncate">
               Active LEO payloads
@@ -245,7 +245,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
-              {summary ? summary.debrisObjects.toLocaleString() : "1,189"}
+              {summary ? summary.debrisObjects.toLocaleString() : "—"}
             </div>
             <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">
               Non-steerable bodies
@@ -265,7 +265,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
-              {summary ? summary.activeConjunctions : 23}
+              {summary ? summary.activeConjunctions : "—"}
             </div>
             <p className="text-[10px] text-amber-500 mt-1 font-mono truncate">
               Approaches in 72h
@@ -285,7 +285,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-red-400 font-mono">
-              {summary ? summary.criticalConjunctions : 2}
+              {summary ? summary.criticalConjunctions : "—"}
             </div>
             <p className="text-[10px] text-red-400 mt-1 font-mono truncate">
               Pc &ge; 10⁻³ action trigger
@@ -305,7 +305,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-amber-400 font-mono">
-              {summary ? summary.shellsAtRisk : 1}
+              {summary ? summary.shellsAtRisk : "—"}
             </div>
             <p className="text-[10px] text-amber-400 mt-1 font-mono truncate">
               R₀ &ge; 1.0 Supercritical

@@ -8,6 +8,7 @@ function assert(condition: boolean, message: string): void {
 }
 
 const store = new InMemoryStore();
+store.clear();
 const object = { id: "object-1" } as Parameters<InMemoryStore["setObject"]>[0];
 store.setObject(object);
 assert(store.getObject("object-1") === object, "store retrieves inserted objects");

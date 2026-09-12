@@ -139,6 +139,7 @@ export interface ConjunctionEvent {
   screeningWindowStart: string;        // ISO 8601 UTC
   screeningWindowEnd: string;          // ISO 8601 UTC
   maneuverProposalId: string | null;   // linked ManeuverProposal.id, if one exists
+  confidenceScore?: number;            // 0-100% autonomous decision confidence (Phase 2.9)
   createdAt: string;                   // ISO 8601 UTC
   updatedAt: string;                   // ISO 8601 UTC
 }

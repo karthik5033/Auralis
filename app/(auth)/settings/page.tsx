@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import Link from "next/link";
 import { useTheme } from "@/lib/ThemeContext";
+import { getObjects } from "@/lib/api";
 
 type SettingsTab = "profile" | "security" | "appearance" | "alerts" | "diagnostics";
 
@@ -43,6 +44,13 @@ export default function SettingsPage() {
   const { theme, toggleTheme } = useTheme();
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [playingSiren, setPlayingSiren] = useState(false);
+  const [synchronizedObjectCount, setSynchronizedObjectCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    getObjects({ limit: 1000 })
+      .then((response) => setSynchronizedObjectCount(response.total))
+      .catch((error) => console.error("Failed loading synchronization count:", error));
+  }, []);
 
   // Form State initialized from AuthContext
   const [profileForm, setProfileForm] = useState({
@@ -770,7 +778,7 @@ export default function SettingsPage() {
                   <div className="p-3.5 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                     <span className="text-[10px] text-muted-foreground uppercase block">CelesTrak Ephemerides Feed</span>
                     <span className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
-                      <CheckCircle2 className="h-4 w-4" /> 639 OBJECTS SYNCHRONIZED
+                      <CheckCircle2 className="h-4 w-4" /> {synchronizedObjectCount?.toLocaleString() ?? "—"} OBJECTS SYNCHRONIZED
                     </span>
                     <p className="text-[11px] text-muted-foreground">General Perturbations (GP) TLE data parsed & validated.</p>
                   </div>

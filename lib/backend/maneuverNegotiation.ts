@@ -11,6 +11,7 @@ import { messageBus } from "@/lib/messageBus";
 import { geminiRotator } from "@/lib/ai/geminiRotator";
 import { recordAuditEntry } from "./audit";
 import { store } from "./store";
+import { evaluateNegotiationStrategy, NegotiationStrategyType } from "./negotiationStrategies";
 
 interface AINegotiationResult {
   winnerOperator: string;
@@ -98,14 +99,16 @@ Return strict JSON:
         console.warn("[ManeuverNegotiation] AI negotiation fell back to deterministic solver:", llmErr instanceof Error ? llmErr.message : llmErr);
       }
 
-      // Fallback deterministic calculation if AI call was unavailable
-      const winnerOp = aiResult?.winnerOperator || primaryOp;
-      const opposingOp = aiResult?.opposingOperator || secondaryOp;
-      const maneuveringObjId = aiResult?.maneuveringObjectId || (primaryManeuverable ? primary.id : secondary.id);
-      const deltaVMagnitude = aiResult?.deltaVMagnitude || 0.42;
-      const direction = aiResult?.direction || { x: 0.6, y: 0.3, z: 0.7416 };
-      const fuelCost = aiResult?.fuelCostKg || (deltaVMagnitude * 2.8);
-      const rationale = aiResult?.rationale || `Assigned to ${winnerOp} based on maneuverability and collision geometry.`;
+      // Fallback to advanced game-theoretic negotiation strategy (Phase 2.7)
+      const strategyResult = evaluateNegotiationStrategy("cooperative", conj, primary, secondary, 0.42);
+
+      const winnerOp = aiResult?.winnerOperator || strategyResult.winnerOperator;
+      const opposingOp = aiResult?.opposingOperator || strategyResult.opposingOperator;
+      const maneuveringObjId = aiResult?.maneuveringObjectId || strategyResult.maneuveringObjectId;
+      const deltaVMagnitude = aiResult?.deltaVMagnitude || strategyResult.deltaVMagnitude;
+      const direction = aiResult?.direction || strategyResult.direction;
+      const fuelCost = aiResult?.fuelCostKg || strategyResult.fuelCostKg;
+      const rationale = aiResult?.rationale || strategyResult.rationale;
 
       const negotiationLog: NegotiationLogEntry[] = aiResult?.negotiationLog?.map((entry) => ({
         timestamp: now,
@@ -113,12 +116,20 @@ Return strict JSON:
         action: entry.action,
         message: entry.message,
         deltaVBid: entry.deltaVBid,
-      })) || [
-        { timestamp: now, agentId: "maneuver-negotiation", action: "INITIATE", message: `Opened negotiation for ${conj.id}`, deltaVBid: null },
-        { timestamp: now, agentId: opposingOp, action: "BID", message: `${opposingOp} bids 0.58 m/s`, deltaVBid: 0.58 },
-        { timestamp: now, agentId: winnerOp, action: "BID", message: `${winnerOp} bids ${deltaVMagnitude.toFixed(2)} m/s`, deltaVBid: deltaVMagnitude },
-        { timestamp: now, agentId: winnerOp, action: "ACCEPT", message: `${winnerOp} agreed to execute avoidance maneuver`, deltaVBid: deltaVMagnitude },
-      ];
+      })) || strategyResult.protocolTranscript.map((t) => ({
+        timestamp: now,
+        agentId: t.agentId,
+        action: t.action,
+        message: t.message,
+        deltaVBid: t.deltaVBid,
+      }));
+
+      // Compute resulting collision probability after clearance burn (B-plane exponential decay)
+      const targetClearanceKm = 15.0;
+      const combinedSigmaKm = 2.5;
+      const resultingPc = parseFloat(
+        (conj.collisionProbability * Math.exp(-Math.pow(targetClearanceKm / combinedSigmaKm, 2))).toExponential(2)
+      ) || 1.8e-8;
 
       const proposal: ManeuverProposal = {
         id: crypto.randomUUID(),
@@ -132,7 +143,7 @@ Return strict JSON:
         rationale,
         negotiationStatus: "accepted",
         negotiationLog,
-        resultingPc: null,
+        resultingPc,
         createdAt: now,
         resolvedAt: now,
       };

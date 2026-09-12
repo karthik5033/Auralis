@@ -47,6 +47,7 @@ export default function AlertsPage() {
   const [search, setSearch] = useState("");
   const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [simulatingCrisis, setSimulatingCrisis] = useState(false);
   const [crisisNotification, setCrisisNotification] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
@@ -59,6 +60,7 @@ export default function AlertsPage() {
 
   const loadAlerts = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [conjRes, objRes, shellRes] = await Promise.all([
         getConjunctions({ limit: 100 }),
@@ -67,23 +69,28 @@ export default function AlertsPage() {
       ]);
 
       // Filter critical and elevated conjunctions only, sort by TCA (soonest first)
-      const filtered = (conjRes.data || [])
+      const filtered = conjRes.data
         .filter((c) => c.riskLevel === "critical" || c.riskLevel === "elevated")
         .sort((a, b) => new Date(a.tca).getTime() - new Date(b.tca).getTime());
 
       setConjunctions(filtered);
 
       const map: Record<string, TrackedObject> = {};
-      (objRes.data || []).forEach((obj) => {
+      objRes.data.forEach((obj) => {
         map[obj.id] = obj;
       });
       setObjectsMap(map);
 
-      const shells = shellRes.data || [];
+      const shells = shellRes.data;
       setAllShells(shells);
       setCriticalShells(shells.filter((s) => s.r0 >= 1.0));
     } catch (err) {
       console.error("Failed loading alerts telemetry:", err);
+      setConjunctions([]);
+      setObjectsMap({});
+      setAllShells([]);
+      setCriticalShells([]);
+      setLoadError(err instanceof Error ? err.message : "Unable to load risk telemetry from the API");
     } finally {
       setLoading(false);
     }
@@ -104,9 +111,9 @@ export default function AlertsPage() {
   });
 
   useWebSocket("crisis:injected", (payload) => {
-    const affected = payload?.affectedShellIds?.join(", ") || "LEO_750_800";
+    const affected = payload.affectedShellIds.join(", ");
     setCrisisNotification(
-      `CRISIS ALERT: Breakup injected into ${affected}! +${payload?.injectedObjectCount || 150} hypervelocity fragments tracked.`
+      `CRISIS ALERT: Breakup injected into ${affected}! +${payload.injectedObjectCount} hypervelocity fragments tracked.`
     );
     loadAlerts();
     setTimeout(() => setCrisisNotification(null), 10000);
@@ -206,9 +213,22 @@ export default function AlertsPage() {
     });
   }, [criticalShells, activeTab, shellFilter, search]);
 
+  const activeCriticalCount = conjunctions.filter((c) => c.riskLevel === "critical" && c.status === "active").length;
   const criticalCount = conjunctions.filter((c) => c.riskLevel === "critical").length;
   const elevatedCount = conjunctions.filter((c) => c.riskLevel === "elevated").length;
   const ackedCount = conjunctions.filter((c) => acknowledgedIds.has(c.id)).length;
+  const validTelemetryCount = Object.values(objectsMap).filter((object) =>
+    Number.isFinite(object.position.x) &&
+    Number.isFinite(object.position.y) &&
+    Number.isFinite(object.position.z) &&
+    Number.isFinite(object.velocity.vx) &&
+    Number.isFinite(object.velocity.vy) &&
+    Number.isFinite(object.velocity.vz) &&
+    object.lastUpdated.length > 0,
+  ).length;
+  const propagationFidelity = Object.values(objectsMap).length > 0
+    ? (validTelemetryCount / Object.values(objectsMap).length) * 100
+    : 0;
 
   const handleExport = () => {
     const exportRows = filteredConjunctions.map((c) => {
@@ -308,6 +328,12 @@ export default function AlertsPage() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="rounded-xl border border-rose-500/40 bg-rose-950/20 px-4 py-3 text-xs font-mono text-rose-300">
+          Unable to load risk telemetry from the API. {loadError}
+        </div>
+      )}
+
       {/* Emergency Situational Warning Banner */}
       {criticalCount > 0 && highestUrgencyEvent && (
         <Card className="border-red-500/50 bg-gradient-to-r from-red-950/40 via-red-950/20 to-transparent shadow-md">
@@ -356,7 +382,7 @@ export default function AlertsPage() {
           <CardContent>
             <div className="text-2xl font-black text-red-400 flex items-center gap-2 font-mono">
               <ShieldAlert className="h-5 w-5 animate-pulse" />
-              {criticalCount} ACTIVE
+              {activeCriticalCount} ACTIVE
             </div>
             <p className="text-xs text-muted-foreground mt-1 font-mono">Emergency autonomous yield protocol active.</p>
           </CardContent>
@@ -389,9 +415,9 @@ export default function AlertsPage() {
           <CardContent>
             <div className="text-2xl font-black text-emerald-400 flex items-center gap-2 font-mono">
               <Activity className="h-5 w-5" />
-              99.4%
+              {propagationFidelity.toFixed(1)}%
             </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">CelesTrak ephemerides synchronized (639 assets).</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">{Object.values(objectsMap).length.toLocaleString()} API telemetry records synchronized.</p>
           </CardContent>
         </Card>
       </div>
@@ -512,7 +538,11 @@ export default function AlertsPage() {
                     <div>
                       <span className="text-[10px] text-muted-foreground block">10-Yr Projection</span>
                       <span className="font-bold text-amber-400">
-                        {shell.projectedI[2] ? `+${(shell.projectedI[2] - shell.infectedCount)} frag` : "Elevated"}
+                        {(() => {
+                          const tenYearIndex = shell.projectionYears.findIndex((year) => year === 10);
+                          const projected = tenYearIndex >= 0 ? shell.projectedI[tenYearIndex] : undefined;
+                          return projected !== undefined ? `+${projected - shell.infectedCount} frag` : "Elevated";
+                        })()}
                       </span>
                     </div>
                   </div>

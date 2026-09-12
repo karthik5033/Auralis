@@ -30,11 +30,13 @@ export default function AuditPage() {
   const [search, setSearch] = useState("");
   const [agentFilter, setAgentFilter] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     async function loadLogs() {
       try {
+        setLoadError(null);
         const queryParams: any = { limit: 100 };
         if (agentFilter !== "ALL") {
           queryParams.agentType = agentFilter.toLowerCase();
@@ -44,6 +46,8 @@ export default function AuditPage() {
         setLogs(res.data);
       } catch (err) {
         console.error("Failed loading audit logs:", err);
+        setLogs([]);
+        setLoadError(err instanceof Error ? err.message : "Unable to load audit records from the API");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -67,6 +71,18 @@ export default function AuditPage() {
 
     return target.includes(query);
   });
+
+  const latestAuditTimestamp = logs.reduce<string | null>((latest, log) => {
+    if (!latest || Date.parse(log.timestamp) > Date.parse(latest)) return log.timestamp;
+    return latest;
+  }, null);
+  const maneuverOutcomes = logs.filter((log) =>
+    ["maneuver_accepted", "maneuver_rejected"].includes(log.action),
+  );
+  const acceptedManeuvers = maneuverOutcomes.filter((log) => log.action === "maneuver_accepted").length;
+  const consensusRate = maneuverOutcomes.length > 0
+    ? `${((acceptedManeuvers / maneuverOutcomes.length) * 100).toFixed(1)}%`
+    : "NO MANEUVER OUTCOMES";
 
   const handleExport = () => {
     const rows = filteredLogs.map((l) => ({
@@ -158,50 +174,60 @@ export default function AuditPage() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="rounded-xl border border-rose-500/40 bg-rose-950/20 px-4 py-3 text-xs font-mono text-rose-300">
+          Unable to load audit records from the API. {loadError}
+        </div>
+      )}
+
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-border/80 bg-card/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">
-              Cryptographic Chaining
+              Audit Records
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold text-emerald-400 flex items-center gap-1.5 font-mono">
               <Lock className="h-4 w-4" />
-              SHA-256 Immutable
+              {logs.length.toLocaleString()} Records
             </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">Zero unilateral operator tampering possible.</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">
+              Latest: {latestAuditTimestamp ? new Date(latestAuditTimestamp).toLocaleString() : "No records"}
+            </p>
           </CardContent>
         </Card>
 
         <Card className="border-border/80 bg-card/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">
-              Compliance Standard
+              Audit Coverage
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold text-foreground flex items-center gap-1.5 font-mono">
               <ShieldCheck className="h-4 w-4 text-primary" />
-              CCSDS 508.0-B-1
+              {new Set(logs.map((log) => log.agentType)).size} Agent Sources
             </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">International Space Debris Mitigation compliant.</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">Derived from the live audit API response.</p>
           </CardContent>
         </Card>
 
         <Card className="border-border/80 bg-card/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">
-              Autonomous Consensus
+              Maneuver Outcomes
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold text-foreground flex items-center gap-1.5 font-mono">
               <Cpu className="h-4 w-4 text-emerald-400" />
-              100% Validated
+              {consensusRate}
             </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">All maneuvers resolved via game theory.</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">
+              {acceptedManeuvers} accepted of {maneuverOutcomes.length} recorded outcomes.
+            </p>
           </CardContent>
         </Card>
       </div>

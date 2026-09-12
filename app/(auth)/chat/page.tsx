@@ -71,18 +71,21 @@ export default function ChatPage() {
     setIsThinking(true);
     setInput("");
 
-    // Simulate Advisory Copilot response synthesized from current state
+    // Synthesize from advisories currently returned by the backend.
     setTimeout(() => {
+      const latest = advisories[0];
+      const relatedEventIds = latest?.relatedEventIds ?? [];
+      const relatedObjectIds = latest?.relatedObjectIds ?? [];
       const generatedAdv: Advisory = {
         id: `adv-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        severity: text.toLowerCase().includes("critical") || text.toLowerCase().includes("iss") ? "critical" : "nominal",
-        title: `Advisory Synthesis: ${text.slice(0, 45)}...`,
-        body: `Autonomous Advisory Synthesis generated for mission controllers:
-
-SGP4 covariance screening and bilateral game-theoretic protocols indicate orbital safety thresholds are maintained across active payloads. For close-approaches in the 500-800 km band, autonomous yield protocols have successfully scheduled low-thrust avoidance burns, preserving mission operational lifetime and mitigating Kessler percolation risks.`,
-        relatedEventIds: ["ce-9f8e7d6c-5b4a-3210-fedc-ba9876543210"],
-        relatedObjectIds: ["a1b2c3d4-5678-9abc-def0-111111111111"],
+        severity: latest?.severity ?? "nominal",
+        title: latest ? `Backend briefing: ${text.slice(0, 45)}` : "No backend advisories available",
+        body: latest
+          ? `Current backend advisory context for this query:\n\n${latest.title}\n${latest.body}`
+          : "The backend returned no advisory records for this briefing. Refresh the live telemetry and try again.",
+        relatedEventIds,
+        relatedObjectIds,
         agentSource: "advisory",
       };
 

@@ -6,21 +6,27 @@
 
 import type { ShellRiskSnapshot, CascadeTrend, TrackedObject } from "./types";
 import { computeShellVolume, parseShellBounds } from "./shells";
+import { getAtmosphericDecayMultiplier } from "./atmosphere";
 
 export const PROJECTION_YEARS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
 
 /**
- * Atmospheric drag decay rate (gamma) as a function of shell mean altitude.
+ * Atmospheric drag decay rate (gamma) as a function of shell mean altitude,
+ * scaled by real-time NOAA Solar Cycle 25 space weather conditions.
  * Higher drag in lower shells; negligible above 800 km.
  */
 export function computeAtmosphericDecayRate(altitudeKm: number): number {
-  if (altitudeKm <= 350) return 0.25; // 4-year decay lifetime
-  if (altitudeKm <= 450) return 0.12; // ~8-year lifetime
-  if (altitudeKm <= 550) return 0.05; // ~20-year lifetime
-  if (altitudeKm <= 650) return 0.02; // ~50-year lifetime
-  if (altitudeKm <= 750) return 0.008; // ~125-year lifetime
-  if (altitudeKm <= 850) return 0.004; // ~250-year lifetime
-  return 0.001; // >1000-year lifetime
+  const solarScale = getAtmosphericDecayMultiplier();
+  let baseGamma = 0.001;
+  if (altitudeKm <= 350) baseGamma = 0.25; // 4-year decay lifetime
+  else if (altitudeKm <= 450) baseGamma = 0.12; // ~8-year lifetime
+  else if (altitudeKm <= 550) baseGamma = 0.05; // ~20-year lifetime
+  else if (altitudeKm <= 650) baseGamma = 0.02; // ~50-year lifetime
+  else if (altitudeKm <= 750) baseGamma = 0.008; // ~125-year lifetime
+  else if (altitudeKm <= 850) baseGamma = 0.004; // ~250-year lifetime
+
+  // Solar maximum increases thermospheric drag, accelerating debris removal in LEO
+  return parseFloat((baseGamma * solarScale).toFixed(5));
 }
 
 /**

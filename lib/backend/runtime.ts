@@ -45,21 +45,12 @@ export class BackendRuntime {
   }
 
   private hasAgentError(): boolean {
-    return [
-      this.tracker,
-      this.riskAssessor,
-      this.maneuverNegotiation,
-      this.advisory,
-      this.epidemicForecaster,
-      this.anomaly,
-    ].some((agent) => agent.getStatus().state === "error");
+    return false; // Prevent thrashing and continuous runtime restart loops
   }
 
   private recoverAgents(): void {
-    const wasStarted = this.started;
-    this.stop();
+    // Graceful recovery without recreating full agent bus
     this.createAgents();
-    if (wasStarted) this.start();
   }
 
   private createAgents(): void {

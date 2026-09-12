@@ -13,6 +13,7 @@ import { messageBus } from "@/lib/messageBus";
 import { recordAuditEntry } from "./audit";
 import { classifyRisk } from "./risk";
 import { store } from "./store";
+import { computeDecisionConfidence } from "./confidenceScorer";
 
 const SCREENING_DISTANCE_KM = 5;
 const ACTION_THRESHOLD = 1e-4;
@@ -80,9 +81,10 @@ export class RiskAssessorAgent {
       let totalPairsScreened = 0;
 
       for (let firstIndex = 0; firstIndex < objects.length; firstIndex += 1) {
+        const primary = objects[firstIndex];
         for (let secondIndex = firstIndex + 1; secondIndex < objects.length; secondIndex += 1) {
-          const primary = objects[firstIndex];
           const secondary = objects[secondIndex];
+          if (Math.abs(primary.altitude - secondary.altitude) > SCREENING_DISTANCE_KM * 2.5) continue;
           const geometry = computeEncounterGeometry(primary, secondary);
           if (geometry.missDistanceKm > SCREENING_DISTANCE_KM) continue;
           totalPairsScreened += 1;
@@ -112,6 +114,11 @@ export class RiskAssessorAgent {
             screeningWindowStart: previous?.screeningWindowStart ?? now,
             screeningWindowEnd: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
             maneuverProposalId: previous?.maneuverProposalId ?? null,
+            confidenceScore: computeDecisionConfidence(
+              { id: previous?.id ?? "", primaryObjectId: primary.id, secondaryObjectId: secondary.id, tca, missDistance: geometry.missDistanceKm, relativeVelocity: geometry.relativeSpeedKmS, collisionProbability, maxCollisionProbability: collisionProbability, riskLevel, status, screeningWindowStart: now, screeningWindowEnd: now, maneuverProposalId: null, createdAt: now, updatedAt: now },
+              primary,
+              secondary
+            ).overallConfidencePercent,
             createdAt: previous?.createdAt ?? now,
             updatedAt: now,
           };

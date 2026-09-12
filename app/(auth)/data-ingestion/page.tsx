@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   UploadCloud, 
   FileText, 
@@ -18,19 +18,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
+import { getConjunctions, getObjects } from "@/lib/api";
 
 interface UploadStatus {
   stage: 'idle' | 'uploading' | 'ocr' | 'extraction' | 'graph' | 'completed' | 'error';
   progress: number;
   message: string;
 }
-
-const RECENT_INGESTIONS = [
-  { id: "ING-1092", filename: "CelesTrak_Active_LEO.tle", type: "TLE GP Elements", entities: 8412, graphLinks: 420, time: "25 mins ago", status: "Synchronized" },
-  { id: "ING-1091", filename: "SpaceTrack_Debris_Catalog.csv", type: "Debris Telemetry", entities: 14280, graphLinks: 1240, time: "2 hours ago", status: "Synchronized" },
-  { id: "ING-1090", filename: "Cosmos2251_Fragments_Orbit.tle", type: "Breakup Cloud", entities: 850, graphLinks: 310, time: "Yesterday", status: "Synchronized" },
-  { id: "ING-1089", filename: "Starlink_Constellation_Ephemeris.json", type: "Operator State Vectors", entities: 4200, graphLinks: 980, time: "2 days ago", status: "Synchronized" },
-];
 
 export default function DataIngestionPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -47,6 +41,19 @@ export default function DataIngestionPage() {
     description: "Automated routine ephemeris synchronization for high-density LEO shell collision screening."
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [catalogSummary, setCatalogSummary] = useState<{ objectCount: number; conjunctionCount: number; updatedAt: string } | null>(null);
+
+  useEffect(() => {
+    Promise.all([getObjects({ limit: 1000 }), getConjunctions({ limit: 100 })])
+      .then(([objects, conjunctions]) => {
+        setCatalogSummary({
+          objectCount: objects.total,
+          conjunctionCount: conjunctions.total,
+          updatedAt: new Date().toISOString(),
+        });
+      })
+      .catch((error) => console.error("Failed loading ingestion summary:", error));
+  }, []);
 
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
@@ -273,21 +280,19 @@ export default function DataIngestionPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {RECENT_INGESTIONS.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-muted/40">
-                    <TableCell className="font-mono text-xs font-semibold text-primary">{item.id}</TableCell>
-                    <TableCell className="text-xs font-medium">{item.filename}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{item.type}</TableCell>
-                    <TableCell className="text-xs font-bold">{item.entities.toLocaleString()} objects</TableCell>
-                    <TableCell className="text-xs font-bold text-primary">{item.graphLinks} pairs</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{item.time}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20">
-                        {item.status}
-                      </Badge>
-                    </TableCell>
+                {catalogSummary ? (
+                  <TableRow className="hover:bg-muted/40">
+                    <TableCell className="font-mono text-xs font-semibold text-primary">LIVE</TableCell>
+                    <TableCell className="text-xs font-medium">Current API catalog</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">Tracked telemetry</TableCell>
+                    <TableCell className="text-xs font-bold">{catalogSummary.objectCount.toLocaleString()} objects</TableCell>
+                    <TableCell className="text-xs font-bold text-primary">{catalogSummary.conjunctionCount} pairs</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(catalogSummary.updatedAt).toLocaleString()}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">Synchronized</Badge></TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  <TableRow><TableCell colSpan={7} className="text-center text-xs text-muted-foreground">Waiting for API catalog data...</TableCell></TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
