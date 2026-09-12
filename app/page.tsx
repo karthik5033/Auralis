@@ -1379,60 +1379,119 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Row 3: Theme Sharing, AI Generation, Color Contrast and Bottom extensions */}
+        {/* Row 3: Multi-Operator Agent Coordination, Autonomous Agent Negotiation, and Risk Thresholds */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border-b border-zinc-200 dark:border-zinc-800 border-dashed">
           {/* Column 1 */}
           <div className="border-r border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col">
             {/* Multi-Operator Agent Coordination */}
-            <div className="p-6 md:p-10 border-b border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col h-full overflow-hidden">
-              <h3 className="text-xl font-bold mb-4">Multi-Operator Agent Coordination</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-10 leading-relaxed text-sm">
+            <div className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col h-full overflow-hidden">
+              <h3 className="text-xl font-bold mb-3">Multi-Operator Agent Coordination</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed text-sm">
                 Autonomous proxy agents negotiate avoidance maneuvers between operators to eliminate defensive burns and game-theoretic deadlocks.
               </p>
               
-              <div className="w-full overflow-x-auto pb-4 -mx-4 px-4 flex justify-center no-scrollbar">
-                <div className="relative w-[350px] h-48 flex-shrink-0 mt-auto">
-                  <svg className="absolute inset-0 w-full h-full z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <line x1="25" y1="50" x2="50" y2="50" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <path d="M 50 50 L 60 50 L 60 25 L 75 25" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <line x1="50" y1="50" x2="75" y2="50" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <path d="M 50 50 L 60 50 L 60 75 L 75 75" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                  </svg>
-                  <div className="absolute left-[20%] top-[50%] -translate-x-1/2 -translate-y-1/2 p-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm z-10 flex flex-col items-center">
-                    <Database className="w-6 h-6 mb-2 text-zinc-600 dark:text-zinc-300"/>
-                    <span className="text-[10px] font-medium whitespace-nowrap">Database</span>
+              <div className="w-full mt-auto bg-zinc-50/60 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden h-60 p-4 relative flex items-center justify-between">
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 360 200" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="p2p-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#a855f7" stopOpacity="0.8" />
+                    </linearGradient>
+                  </defs>
+                  <path id="p2p-track" d="M 100 100 L 260 100" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+                  <path d="M 100 100 L 260 100" fill="none" stroke="url(#p2p-grad)" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move" />
+                  
+                  {/* Telemetry packets traveling between agents */}
+                  <circle r="3.5" fill="#38bdf8">
+                    <animateMotion dur="2s" repeatCount="indefinite">
+                      <mpath href="#p2p-track" />
+                    </animateMotion>
+                  </circle>
+                  <circle r="3.5" fill="#a855f7">
+                    <animateMotion dur="2s" begin="1s" repeatCount="indefinite">
+                      <mpath href="#p2p-track" />
+                    </animateMotion>
+                  </circle>
+                </svg>
+
+                {/* Operator A */}
+                <div className="z-10 flex flex-col items-start">
+                  <div className="px-3 py-2 bg-white dark:bg-zinc-950 border border-sky-500/40 rounded-xl shadow-sm text-left animate-float-slow w-36">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                      <Satellite className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                      <span className="truncate">Starlink-3142</span>
+                    </div>
+                    <div className="text-[10px] text-zinc-400 font-mono mt-0.5">Propellant: 84%</div>
+                    <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 font-mono font-medium">BURNS +0.4m/s</span>
                   </div>
-                  <div className="absolute left-[50%] top-[50%] -translate-x-1/2 -translate-y-1/2 p-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm z-10 text-zinc-400 dark:text-zinc-500">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-8.31l-4.52-4.52"/></svg>
+                </div>
+
+                {/* Center P2P Protocol Engine */}
+                <div className="z-10 flex flex-col items-center">
+                  <div className="w-10 h-10 rounded-full bg-zinc-900 text-cyan-400 border border-cyan-500/50 flex items-center justify-center shadow-[0_0_12px_rgba(6,182,212,0.3)] animate-pulse">
+                    <Zap className="w-4 h-4" />
                   </div>
-                  <div className="absolute left-[75%] top-[25%] -translate-x-1/2 -translate-y-1/2 p-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm z-10"><User className="w-4 h-4" /></div>
-                  <div className="absolute left-[75%] top-[50%] -translate-x-1/2 -translate-y-1/2 p-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm z-10"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="12" x="3" y="4" rx="2" ry="2"/><line x1="2" x2="22" y1="20" y2="20"/></svg></div>
-                  <div className="absolute left-[75%] top-[75%] -translate-x-1/2 -translate-y-1/2 p-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full shadow-sm z-10"><Code className="w-4 h-4" /></div>
+                  <span className="text-[9px] font-mono text-zinc-400 mt-1 whitespace-nowrap">P2P Bridge</span>
+                </div>
+
+                {/* Operator B */}
+                <div className="z-10 flex flex-col items-end">
+                  <div className="px-3 py-2 bg-white dark:bg-zinc-950 border border-purple-500/40 rounded-xl shadow-sm text-left animate-float-slower w-36">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                      <Satellite className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                      <span className="truncate">OneWeb-0128</span>
+                    </div>
+                    <div className="text-[10px] text-rose-400 font-mono mt-0.5">Propellant: 19%</div>
+                    <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-medium">COASTS (0.0m/s)</span>
+                  </div>
                 </div>
               </div>
             </div>
             
             {/* Maneuver Simulation & Rollback */}
-            <div className="p-6 md:p-10 flex flex-col h-full overflow-hidden">
-              <h3 className="text-xl font-bold mb-4">Maneuver Simulation & Rollback</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed text-sm">
+            <div className="p-6 md:p-8 flex flex-col h-full overflow-hidden">
+              <h3 className="text-xl font-bold mb-3">Maneuver Simulation & Rollback</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed text-sm">
                 Simulate prograde and retrograde burn options, preview secondary conjunction risks, and verify zero collision paths.
               </p>
               
-              <div className="flex gap-2 justify-center mb-6 flex-wrap">
-                <button className="px-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md text-xs font-medium flex items-center gap-2 whitespace-nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg> Undo</button>
-                <button className="px-4 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md text-xs font-medium flex items-center gap-2 text-zinc-400 dark:text-zinc-500 whitespace-nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg> Redo</button>
+              <div className="flex gap-2 justify-center mb-4 flex-wrap">
+                <span className="px-3 py-1.5 bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-400 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5">
+                  <Rocket className="w-3.5 h-3.5" /> Δv +1.4 m/s Prograde
+                </span>
+                <span className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-lg text-xs font-mono font-medium">
+                  Rollback Available
+                </span>
               </div>
 
-              <div className="mt-auto relative w-full h-48 border border-zinc-200 dark:border-zinc-800 rounded-t-xl bg-white dark:bg-zinc-950 shadow-lg overflow-hidden flex flex-col">
-                <div className="h-4 bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-2 gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-400"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
+              <div className="mt-auto relative w-full h-48 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col">
+                <div className="h-6 bg-zinc-100 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-3 gap-1.5 justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-rose-400"></div>
+                    <div className="w-2 h-2 rounded-full bg-amber-400"></div>
+                    <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-400">TRAJECTORY PREVIEW // RK4</span>
                 </div>
-                <div className="flex-1 p-2 flex bg-white dark:bg-zinc-950 opacity-50">
-                   <div className="flex-1 bg-zinc-50 dark:bg-zinc-900 p-2 text-center text-[5px]">Sizzling Summer Delights</div>
-                   <div className="w-16 border-l border-zinc-200 dark:border-zinc-800 pl-1 text-[4px] leading-tight">Theme settings<br/>Colors...</div>
+                <div className="flex-1 p-3 flex flex-col justify-between bg-zinc-50/50 dark:bg-zinc-950">
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                    <div className="p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                      <div className="text-zinc-400 text-[9px]">PRE-MANEUVER</div>
+                      <div className="text-rose-500 font-bold mt-0.5">Miss: 142 m</div>
+                      <div className="text-[9px] text-zinc-400">Pc: 3.4 × 10⁻³</div>
+                    </div>
+                    <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                      <div className="text-emerald-500 text-[9px] font-semibold">POST-MANEUVER</div>
+                      <div className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Miss: 4,920 m</div>
+                      <div className="text-[9px] text-emerald-500">Pc: 1.2 × 10⁻⁸</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-mono pt-2 border-t border-zinc-200 dark:border-zinc-800/80">
+                    <span className="text-zinc-500 dark:text-zinc-400">Secondary Conjunctions:</span>
+                    <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                      <Check className="w-3 h-3" /> 0 Generated
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1441,64 +1500,83 @@ export default function Home() {
           {/* Column 2 */}
           <div className="border-r border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col">
             {/* Autonomous Agent Negotiation Engine */}
-            <div className="p-6 md:p-10 flex flex-col h-full pb-0">
-              <h3 className="text-xl font-bold mb-4 text-center">Autonomous Agent Negotiation Engine</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-8 text-center text-sm leading-relaxed">
+            <div className="p-6 md:p-8 flex flex-col h-full pb-0">
+              <h3 className="text-xl font-bold mb-3 text-center">Autonomous Agent Negotiation Engine</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-center text-sm leading-relaxed">
                 Deploy autonomous agent proxies to compute Nash equilibrium maneuver agreements based on remaining fuel reserves.
               </p>
-              <div className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden h-72 relative mt-2 mb-auto">
-                <div className="p-3 font-semibold text-center border-b border-zinc-200 dark:border-zinc-800 text-[10px]">AI Auralis Engine</div>
-                <div className="p-3 flex justify-between text-[10px] border-b border-zinc-200 dark:border-zinc-800">
-                  <span className="font-medium">LLM Configuration</span>
-                  <span className="text-zinc-500 dark:text-zinc-400">claude-sonnet-4-6</span>
+              
+              <div className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden h-72 relative mt-2 mb-auto flex flex-col">
+                <div className="p-2.5 font-semibold text-center border-b border-zinc-200 dark:border-zinc-800 text-[11px] flex items-center justify-between px-3 bg-zinc-50/50 dark:bg-zinc-900/50">
+                  <span className="font-mono text-sky-500 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Nash Equilibrium Solver</span>
+                  <span className="text-[10px] font-mono text-zinc-400">Game-Theory v2.4</span>
                 </div>
-                <div className="p-3 bg-white dark:bg-zinc-950 h-full flex flex-col gap-2">
-                  <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded text-[10px] text-zinc-700 dark:text-zinc-300 mb-2 leading-relaxed">
-                    colors are more intense and attention-grabbing while maintaining good contrast with their backgrounds.
+                
+                {/* 2x2 Decision Payoff Matrix */}
+                <div className="p-3 bg-white dark:bg-zinc-950 flex-1 flex flex-col justify-between">
+                  <div className="text-[10px] font-mono text-zinc-400 mb-1.5 flex justify-between">
+                    <span>Payoff Matrix [Agent A, Agent B]</span>
+                    <span className="text-emerald-500">● Solved in 320ms</span>
                   </div>
-                  <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-zinc-400 mb-1">
-                    <span className="flex items-center gap-1"><FileCode className="w-3 h-3"/> Preview</span>
-                    <span className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500"><TriangleAlert className="w-3 h-3"/> Reset to this checkpoint</span>
+                  
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                    <div className="p-2 bg-zinc-100 dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-800">
+                      <div className="text-zinc-400 text-[9px]">BOTH BURN</div>
+                      <div className="text-zinc-600 dark:text-zinc-300">[-0.4kg, -0.4kg]</div>
+                      <div className="text-[8px] text-zinc-400">Suboptimal Fuel Loss</div>
+                    </div>
+                    <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded">
+                      <div className="text-rose-500 text-[9px]">BOTH COAST</div>
+                      <div className="text-rose-500 font-bold">[COLLISION]</div>
+                      <div className="text-[8px] text-rose-400">Deadlock Failure</div>
+                    </div>
+                    <div className="p-2.5 bg-emerald-500/10 border-2 border-emerald-500/60 rounded-lg col-span-2 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+                      <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">
+                        <span>★ NASH EQUILIBRIUM REACHED</span>
+                        <span>PROPELLANT OPTIMAL</span>
+                      </div>
+                      <div className="text-zinc-800 dark:text-zinc-200 mt-1 text-[10px]">
+                        Agent A (Starlink) Burns +0.4 m/s • Agent B (OneWeb) Coasts
+                      </div>
+                      <div className="text-[9px] text-zinc-400 mt-0.5">
+                        Pareto-optimal efficiency: 94.2% fuel preservation
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-white dark:bg-zinc-950 rounded border border-zinc-200 dark:border-zinc-800 p-2 shadow-sm flex flex-col">
-                    <div className="flex gap-1 items-center mb-2 justify-between">
-                       <span className="text-[10px] font-semibold">Theme Preview</span>
-                       <span className="flex gap-1"><span className="w-2 h-2 bg-black rounded-full"></span><span className="w-2 h-2 bg-gray-400 rounded-full"></span><span className="w-2 h-2 bg-gray-200 rounded-full"></span></span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-[8px] font-medium">
-                      <div className="flex gap-2 items-center"><div className="w-4 h-4 bg-black rounded"></div>primary<br/>#000000</div>
-                      <div className="flex gap-2 items-center"><div className="w-4 h-4 bg-gray-200 rounded"></div>secondary<br/>#e5e7eb</div>
-                      <div className="flex gap-2 items-center"><div className="w-4 h-4 bg-zinc-100 dark:bg-zinc-900 rounded"></div>accent<br/>#f3f4f6</div>
-                      <div className="flex gap-2 items-center"><div className="w-4 h-4 bg-red-600 rounded"></div>destructive<br/>#dc2626</div>
-                    </div>
+
+                  <div className="flex items-center justify-between text-[10px] font-mono pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Consensus Verified
+                    </span>
+                    <span className="text-zinc-400">SHA-256 Signed</span>
                   </div>
                 </div>
               </div>
             </div>
             
             {/* Chat Box */}
-            <div className="p-6 md:p-10 flex flex-col h-full border-t border-zinc-200 dark:border-zinc-800 border-dashed">
-              <h3 className="text-xl font-bold mb-4">Orbital Advisory Copilot</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed text-sm">
+            <div className="p-6 md:p-8 flex flex-col h-full border-t border-zinc-200 dark:border-zinc-800 border-dashed">
+              <h3 className="text-xl font-bold mb-3">Orbital Advisory Copilot</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed text-sm">
                 Ask natural language queries like 'Which shells are trending toward cascade?' or 'Summarize conjunction CJ-142'.
               </p>
               <div className="relative mt-auto w-full">
-                <div className="bg-black dark:bg-zinc-900 text-white p-4 rounded-xl rounded-br-sm text-sm mb-2 shadow-sm inline-block max-w-[85%]">
-                  Which shells are trending toward cascade?
+                <div className="bg-zinc-900 text-zinc-100 p-3 rounded-xl rounded-br-sm text-xs mb-2 shadow-sm inline-block max-w-[90%] font-medium">
+                  Which shells are trending toward supercritical cascade?
+                </div>
+                <div className="bg-sky-50 dark:bg-sky-950/30 border border-sky-500/30 p-3 rounded-xl rounded-bl-sm text-xs mb-3 shadow-sm inline-block max-w-[90%] font-mono text-sky-800 dark:text-sky-300">
+                  <span className="text-emerald-500 font-bold">● Auralis Copilot:</span> SSO-780 is trending at R₀ = 1.42 with 34 active debris pairs. Priority avoidance recommended for Starlink-3142.
                 </div>
                 <div className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col">
-                  <input type="text" placeholder="Ask Auralis Copilot..." className="w-full p-4 outline-none text-sm" />
-                  <div className="flex items-center justify-between p-2 px-4 border-t border-zinc-200 dark:border-zinc-800 flex-wrap gap-2">
-                    <div className="flex items-center gap-4 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      <span className="flex items-center gap-1 cursor-pointer hover:text-black dark:text-white whitespace-nowrap">+ New chat</span>
-                      <span className="cursor-pointer hover:text-black dark:text-white whitespace-nowrap">Enhance</span>
+                  <input type="text" placeholder="Ask Auralis Copilot..." className="w-full p-3 outline-none text-xs bg-transparent" />
+                  <div className="flex items-center justify-between p-2 px-3 border-t border-zinc-200 dark:border-zinc-800 flex-wrap gap-2 text-[11px]">
+                    <div className="flex items-center gap-3 font-medium text-zinc-500 dark:text-zinc-400">
+                      <span className="cursor-pointer hover:text-sky-500">+ New query</span>
+                      <span className="cursor-pointer hover:text-sky-500">Audit Proof</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap">25/500</span>
-                      <button className="bg-red-600 text-white px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1 whitespace-nowrap">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg> Stop
-                      </button>
-                    </div>
+                    <button className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-[11px] font-medium flex items-center gap-1">
+                      Query
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1507,72 +1585,85 @@ export default function Home() {
 
           {/* Column 3 */}
           <div className="flex flex-col">
-            {/* Color Contrast */}
-            <div className="p-6 md:p-10 border-b border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col h-full min-h-[450px]">
-              <h3 className="text-xl font-bold mb-4">Collision Risk Threshold Validation</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-8 text-sm leading-relaxed">
+            {/* Collision Risk Threshold Validation */}
+            <div className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col h-full min-h-[450px]">
+              <h3 className="text-xl font-bold mb-3">Collision Risk Threshold Validation</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm leading-relaxed">
                 Instantly validate conjunction miss distances against NASA & ESA collision probability action limits.
               </p>
-              <div className="relative w-full flex-1 flex justify-center items-end bg-white dark:bg-zinc-950">
-                <div className="absolute bottom-16 w-64 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden z-20">
-                  <div className="p-3 flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800">
-                    <span className="font-semibold text-sm">Secondary</span>
-                    <span className="text-green-600 text-sm font-medium flex items-center gap-1">16.44 <Check className="w-3 h-3"/></span>
+              
+              {/* Stacked Authentic Conjunction Action Limit Cards */}
+              <div className="relative w-full flex-1 flex justify-center items-end bg-white dark:bg-zinc-950 min-h-[220px]">
+                {/* NASA Red Threshold (Action Required) */}
+                <div className="absolute bottom-12 w-64 bg-white dark:bg-zinc-950 border border-rose-500/60 rounded-xl shadow-xl overflow-hidden z-20">
+                  <div className="p-2.5 flex justify-between items-center border-b border-rose-500/20 bg-rose-500/10">
+                    <span className="font-bold text-xs text-rose-500 flex items-center gap-1.5">
+                      <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
+                      NASA Red Threshold
+                    </span>
+                    <span className="text-rose-500 text-xs font-mono font-bold">Pc ≥ 10⁻⁴</span>
                   </div>
-                  <div className="flex h-32">
-                    <div className="w-1/3 bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white flex flex-col items-center justify-center p-2 border-r border-zinc-200 dark:border-zinc-800">
-                      <span className="text-3xl font-bold">Aa</span>
-                      <span className="text-[10px] mt-1 whitespace-nowrap">Sample Text</span>
+                  <div className="p-3 flex flex-col gap-1.5 text-left">
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-zinc-400">Current Conjunction:</span>
+                      <span className="text-rose-500 font-bold">4.82 × 10⁻⁴</span>
                     </div>
-                    <div className="w-2/3 p-3 flex flex-col justify-center gap-2">
-                      <div className="text-[9px] text-zinc-500 dark:text-zinc-400 font-medium">BACKGROUND</div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 bg-zinc-100 dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-800"></span>
-                        <span className="text-xs font-medium">Color</span>
-                      </div>
-                      <div className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400 mb-2">oklch(0.97 0 0)</div>
-                      
-                      <div className="text-[9px] text-zinc-500 dark:text-zinc-400 font-medium">FOREGROUND</div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-4 h-4 bg-black rounded border border-zinc-200 dark:border-zinc-800"></span>
-                        <span className="text-xs font-medium">Color</span>
-                      </div>
-                      <div className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400">oklch(0.205 0 0)</div>
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-zinc-400">Miss Distance:</span>
+                      <span className="text-rose-500 font-bold">84.2 m</span>
+                    </div>
+                    <div className="mt-1 pt-1.5 border-t border-zinc-100 dark:border-zinc-800 text-[10px] text-rose-500 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                      MANDATORY MANEUVER TASKED
                     </div>
                   </div>
                 </div>
-                <div className="absolute bottom-20 w-60 bg-white dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm h-12 z-10 scale-95 flex justify-between px-4 pt-2 text-xs">
-                  <span>Primary</span><span className="text-green-600">17.18 ✓</span>
+
+                {/* NASA Yellow Threshold (Elevated Monitoring) */}
+                <div className="absolute bottom-20 w-60 bg-white dark:bg-zinc-950/90 border border-amber-500/40 rounded-xl shadow-sm h-14 z-10 scale-95 flex justify-between px-3 pt-2 text-xs font-mono">
+                  <span className="text-amber-500">NASA Yellow</span>
+                  <span className="text-amber-500 font-semibold">Pc ≥ 10⁻⁵ [TASKED]</span>
                 </div>
-                <div className="absolute bottom-24 w-56 bg-white dark:bg-zinc-950/50 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm h-12 z-0 scale-90 flex justify-between px-4 pt-2 text-xs">
-                   <span>Destructive</span><span className="text-green-600">4.77 ✓</span>
+
+                {/* ESA Hard Body Threshold */}
+                <div className="absolute bottom-28 w-56 bg-white dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm h-14 z-0 scale-90 flex justify-between px-3 pt-2 text-xs font-mono">
+                  <span className="text-zinc-400">ESA Limit</span>
+                  <span className="text-emerald-500 font-semibold">200m Buffer</span>
                 </div>
               </div>
             </div>
 
             {/* Orbital Catalog Registry */}
-            <div className="p-6 md:p-10 flex flex-col h-full">
-              <h3 className="text-xl font-bold mb-4">Orbital Catalog Registry</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-8 text-sm leading-relaxed">
-                Access your personal registry of custom themes generated with the Auralis Engine, alongside the built-in theme registry.
+            <div className="p-6 md:p-8 flex flex-col h-full">
+              <h3 className="text-xl font-bold mb-3">Orbital Catalog Registry</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm leading-relaxed">
+                Query, sync, and export verified orbital ephemerides, SGP4 state vectors, and historic breakup debris clouds.
               </p>
               
               <div className="flex flex-col items-center mt-auto w-full max-w-[280px] mx-auto">
-                <div className="px-4 py-2 border border-zinc-200 dark:border-zinc-800 rounded-full text-[11px] sm:text-xs font-mono mb-4 shadow-sm w-full text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                   $ auralis pull @catalog/leo-780-conjunctions
+                <div className="px-3.5 py-2 border border-sky-500/30 rounded-full text-xs font-mono mb-3 shadow-sm w-full text-center whitespace-nowrap overflow-hidden text-ellipsis bg-white dark:bg-zinc-950 text-sky-600 dark:text-sky-400">
+                  $ auralis sync @catalog/ssn-tle
                 </div>
-                <div className="w-px h-8 bg-gray-200"></div>
-                <div className="px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-medium flex items-center gap-2 shadow-sm relative -mt-4 z-10 whitespace-nowrap">
-                  <FileCode className="w-3 h-3" /> Copy CLI
+                <div className="w-px h-6 bg-zinc-200 dark:border-zinc-800"></div>
+                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm relative -mt-3 z-10 whitespace-nowrap">
+                  <FileCode className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Sync Catalog CLI</span>
                 </div>
-                <div className="w-px h-8 bg-gray-200 -mt-4"></div>
-                <div className="w-full bg-black text-white rounded-t-xl p-4 pt-6 text-center font-mono text-sm relative mt-0 overflow-hidden h-24">
-                   <div className="absolute top-3 left-3 flex gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
-                      <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                   </div>
-                   Terminal
+                <div className="w-px h-6 bg-zinc-200 dark:border-zinc-800 -mt-3"></div>
+                
+                {/* Terminal Window with authentic streaming CLI output */}
+                <div className="w-full bg-zinc-950 text-zinc-100 rounded-xl p-3 text-left font-mono text-[10px] relative mt-0 overflow-hidden h-28 border border-zinc-800 shadow-md flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 pb-1 border-b border-zinc-800">
+                    <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    <span className="text-zinc-500 text-[9px] ml-2">auralis-cli v2.4</span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-zinc-300">
+                    <div className="text-emerald-400">[OK] 639 TLEs ingested</div>
+                    <div className="text-sky-400">[OK] 18 orbital shells synced</div>
+                    <div className="text-zinc-400">[ACTIVE] Foster-1992 screening...</div>
+                  </div>
                 </div>
               </div>
             </div>
