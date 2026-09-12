@@ -198,11 +198,20 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
-          <Link href="/dashboard" className="px-6 py-3 bg-black dark:bg-white dark:bg-zinc-950 text-white dark:text-black dark:text-white rounded-md font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity shadow-lg">
-            Launch Command Center <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div className="relative group inline-flex rounded-md">
+            {/* Animating rainbow colorful blurred glow/shadow layer */}
+            <div className="absolute -inset-1 rounded-lg bg-gradient-to-r from-red-500 via-amber-400 via-emerald-400 via-cyan-400 via-blue-500 via-purple-500 to-rose-500 opacity-80 blur-md group-hover:opacity-100 group-hover:blur-lg transition duration-500 animate-rainbow-glow" />
+            
+            {/* The main button with animating rainbow colourful shadow */}
+            <Link 
+              href="/dashboard" 
+              className="relative px-6 py-3 bg-black dark:bg-zinc-950 text-white rounded-md font-semibold flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-2xl animate-rainbow-shadow border border-white/20"
+            >
+              Launch Command Center <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
 
-          <Link href="/analytics" className="px-6 py-3 bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white dark:text-white border border-zinc-200 dark:border-zinc-800 rounded-md font-medium flex items-center gap-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
+          <Link href="/analytics" className="px-6 py-3 bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white border border-zinc-200 dark:border-zinc-800 rounded-md font-medium flex items-center gap-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
             Explore Cascade Model <Sparkles className="w-4 h-4" />
           </Link>
         </div>
