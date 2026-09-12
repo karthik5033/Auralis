@@ -84,6 +84,26 @@ export class TrackerAgent {
         if (previousId) object.id = previousId;
         store.setObject(object);
       });
+
+      // Space-Track CDMs identify participants as `norad-<catalog id>` while
+      // the API contract exposes tracked-object UUIDs. Resolve that boundary
+      // after GP ingestion so CDM detail routes can hydrate both participants.
+      const objectIdByNorad = new Map(
+        objects.map((object) => [String(object.noradId), object.id]),
+      );
+      store.listConjunctions().forEach((conjunction) => {
+        const primaryNorad = conjunction.primaryObjectId.startsWith("norad-")
+          ? conjunction.primaryObjectId.slice(6)
+          : null;
+        const secondaryNorad = conjunction.secondaryObjectId.startsWith("norad-")
+          ? conjunction.secondaryObjectId.slice(6)
+          : null;
+        const primaryObjectId = primaryNorad ? objectIdByNorad.get(primaryNorad) : conjunction.primaryObjectId;
+        const secondaryObjectId = secondaryNorad ? objectIdByNorad.get(secondaryNorad) : conjunction.secondaryObjectId;
+        if (primaryObjectId && secondaryObjectId) {
+          store.setConjunction({ ...conjunction, primaryObjectId, secondaryObjectId, updatedAt: new Date().toISOString() });
+        }
+      });
       const timestamp = new Date().toISOString();
       const allObjects = store.listObjects();
       const statePayload: StateVectorsUpdatedPayload = {

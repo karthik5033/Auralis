@@ -672,6 +672,14 @@ export default function GlobeView({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Ensure container has computed dimensions before WebGL init.
+    // In Next.js dynamic imports (ssr: false), the container can mount with 0 height
+    // before CSS layout completes, causing the Three.js renderer to init at 0x0.
+    const el = containerRef.current;
+    if (el.clientHeight === 0) {
+      el.style.minHeight = typeof height === "number" ? `${height}px` : (height || "480px");
+    }
+
     satelliteMeshesRef.current = [];
 
     // Instantiate Globe
@@ -836,18 +844,29 @@ export default function GlobeView({
       domEl.addEventListener("pointerup", handleCanvasPointerUp);
     }
 
-    // Handle container resize
+    // Handle container resize with minimum dimension guard to prevent 0x0 WebGL canvas (black screen)
     const handleResize = () => {
       if (containerRef.current && globeInstanceRef.current) {
         const { clientWidth, clientHeight } = containerRef.current;
-        globeInstanceRef.current.width(clientWidth);
-        globeInstanceRef.current.height(clientHeight);
+        // Guard: never set the WebGL renderer to 0-dimension — this causes a permanent black canvas
+        const w = clientWidth || containerRef.current.offsetWidth || window.innerWidth;
+        const h = clientHeight || containerRef.current.offsetHeight || (typeof height === "number" ? height : 480);
+        if (w > 0 && h > 0) {
+          globeInstanceRef.current.width(w);
+          globeInstanceRef.current.height(h);
+        }
       }
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(containerRef.current);
-    handleResize();
+    // Defer initial resize so CSS layout has finished computing container dimensions.
+    // Without this, Next.js dynamic imports + Turbopack can report 0x0 on first render.
+    requestAnimationFrame(() => {
+      handleResize();
+      // Secondary fallback: if dimensions still weren't ready after rAF, retry after paint
+      setTimeout(handleResize, 120);
+    });
 
     // 5. Continuous 60 FPS Keplerian Orbital Revolving Animation Loop
     let animId: number;

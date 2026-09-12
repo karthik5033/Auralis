@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   Orbit, 
   AlertTriangle, 
@@ -53,6 +54,8 @@ import { downloadDataAsCsv } from "@/lib/utils";
 import Link from "next/link";
 
 export default function AnalyticsPage() {
+  const searchParams = useSearchParams();
+  const requestedShellId = searchParams.get("shell");
   const [shells, setShells] = useState<ShellRiskSnapshot[]>([]);
   const [advisories, setAdvisories] = useState<Advisory[]>([]);
   const [selectedShellId, setSelectedShellId] = useState<string>("");
@@ -77,7 +80,9 @@ export default function AnalyticsPage() {
       setShells(shellList);
       setAdvisories(advisoriesRes.data || []);
 
-      if (shellList.length > 0 && (!selectedShellId || !shellList.some(s => s.shellId === selectedShellId))) {
+      if (shellList.length > 0 && requestedShellId && shellList.some((shell) => shell.shellId === requestedShellId)) {
+        setSelectedShellId(requestedShellId);
+      } else if (shellList.length > 0 && (!selectedShellId || !shellList.some(s => s.shellId === selectedShellId))) {
         // Select first supercritical shell by default, or the highest R0 shell
         const highestR0 = [...shellList].sort((a, b) => b.r0 - a.r0)[0];
         setSelectedShellId(highestR0 ? highestR0.shellId : shellList[0].shellId);
@@ -91,7 +96,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchAnalyticsData();
-  }, []);
+  }, [requestedShellId]);
 
   // Real-time WebSocket Listeners
   useWebSocket("crisis:injected", () => {

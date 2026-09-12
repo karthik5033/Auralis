@@ -17,7 +17,7 @@ function isCrisisRequest(value: unknown): value is CrisisInjectionRequest {
     typeof request.type === "string" && crisisTypes.has(request.type as CrisisInjectionRequest["type"]) &&
     typeof request.altitude === "number" && Number.isFinite(request.altitude) && request.altitude >= 150 && request.altitude <= 2000 &&
     typeof request.fragmentCount === "number" && Number.isInteger(request.fragmentCount) && request.fragmentCount >= 1 && request.fragmentCount <= 1000 &&
-    (request.sourceObjectId === null || typeof request.sourceObjectId === "string") &&
+    (request.sourceObjectId === undefined || request.sourceObjectId === null || typeof request.sourceObjectId === "string") &&
     typeof request.label === "string" && request.label.trim().length > 0 && request.label.length <= 160
   );
 }
@@ -61,26 +61,6 @@ export async function POST(request: Request): Promise<Response> {
   const affectedShellIds = [...new Set(fragments.map((fragment) => fragment.shellId))];
   const now = new Date().toISOString();
   let newConjunctionEventCount = 0;
-
-  if (sourceObject && fragments[0]) {
-    store.setConjunction({
-      id: crypto.randomUUID(),
-      primaryObjectId: sourceObject.id,
-      secondaryObjectId: fragments[0].id,
-      tca: new Date(Date.now() + 24 * 60 * 1000).toISOString(),
-      missDistance: 0.038,
-      relativeVelocity: 14.85,
-      collisionProbability: 5.2e-3,
-      maxCollisionProbability: 5.2e-3,
-      riskLevel: "critical",
-      status: "active",
-      screeningWindowStart: now,
-      screeningWindowEnd: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-      maneuverProposalId: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
 
   const runtime = ensureRuntime();
   const conjunctionIdsBeforeScreening = new Set(store.listConjunctions().map((conjunction) => conjunction.id));

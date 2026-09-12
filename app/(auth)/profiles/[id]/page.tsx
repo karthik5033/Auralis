@@ -46,6 +46,12 @@ export default function ProfileDetailPage() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
 
+  useEffect(() => {
+    if (/^(VLEO|LEO|LEO_HIGH|MEO|GEO)_/.test(profileId)) {
+      router.replace(`/analytics?shell=${encodeURIComponent(profileId)}`);
+    }
+  }, [profileId, router]);
+
   // 1-second real-time SGP4 orbital propagator clock
   useEffect(() => {
     const timer = setInterval(() => setLiveEpoch(Date.now()), 1000);

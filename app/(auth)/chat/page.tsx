@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { getAdvisories } from "@/lib/api";
+import { getAdvisories, getConjunctions, getManeuvers, getShells } from "@/lib/api";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import type { Advisory, RiskLevel } from "@/types/contract";
 import Link from "next/link";
@@ -64,34 +64,57 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [advisories, isThinking]);
 
-  const handleSend = (textQuery?: string) => {
+  const handleSend = async (textQuery?: string) => {
     const text = textQuery || input;
     if (!text.trim() || isThinking) return;
 
     setIsThinking(true);
     setInput("");
 
-    // Synthesize from advisories currently returned by the backend.
-    setTimeout(() => {
-      const latest = advisories[0];
-      const relatedEventIds = latest?.relatedEventIds ?? [];
-      const relatedObjectIds = latest?.relatedObjectIds ?? [];
+    try {
+      const [shellResponse, conjunctionResponse, maneuverResponse, advisoryResponse] = await Promise.all([
+        getShells(),
+        getConjunctions({ limit: 100 }),
+        getManeuvers({ limit: 100 }),
+        getAdvisories({ limit: 20 }),
+      ]);
+      const criticalShells = shellResponse.data.filter((shell) => shell.r0 >= 1);
+      const criticalConjunctions = conjunctionResponse.data.filter((event) => event.riskLevel === "critical");
+      const acceptedManeuvers = maneuverResponse.data.filter((maneuver) => maneuver.negotiationStatus === "accepted");
+      const latest = advisoryResponse.data[0] ?? advisories[0];
+      const relatedEventIds = criticalConjunctions.slice(0, 5).map((event) => event.id);
+      const relatedObjectIds = [...new Set(criticalConjunctions.slice(0, 5).flatMap((event) => [event.primaryObjectId, event.secondaryObjectId]))];
       const generatedAdv: Advisory = {
-        id: `adv-${Date.now()}`,
+        id: `query-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        severity: latest?.severity ?? "nominal",
-        title: latest ? `Backend briefing: ${text.slice(0, 45)}` : "No backend advisories available",
-        body: latest
-          ? `Current backend advisory context for this query:\n\n${latest.title}\n${latest.body}`
-          : "The backend returned no advisory records for this briefing. Refresh the live telemetry and try again.",
-        relatedEventIds,
-        relatedObjectIds,
+        severity: criticalConjunctions.length > 0 || criticalShells.length > 0 ? "critical" : "nominal",
+        title: `Live telemetry briefing: ${text.slice(0, 45)}${text.length > 45 ? "..." : ""}`,
+        body: [
+          `The live backend returned ${conjunctionResponse.total} conjunctions, ${shellResponse.data.length} shell snapshots, and ${maneuverResponse.total} maneuver proposals.`,
+          `${criticalShells.length} shells are at or above R₀ 1.0; ${criticalConjunctions.length} conjunctions are classified critical.`,
+          `${acceptedManeuvers.length} maneuver proposals are accepted.${latest ? ` Latest advisory: ${latest.title}` : ""}`,
+        ].join("\n\n"),
+        relatedEventIds: relatedEventIds.length > 0 ? relatedEventIds : latest?.relatedEventIds ?? [],
+        relatedObjectIds: relatedObjectIds.length > 0 ? relatedObjectIds : latest?.relatedObjectIds ?? [],
         agentSource: "advisory",
       };
 
       setAdvisories((prev) => [generatedAdv, ...prev]);
+    } catch (error) {
+      console.error("Failed to synthesize live advisory briefing:", error);
+      setAdvisories((prev) => [{
+        id: `query-error-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        severity: "nominal",
+        title: "Live backend unavailable",
+        body: error instanceof Error ? error.message : "The live telemetry APIs could not be reached.",
+        relatedEventIds: [],
+        relatedObjectIds: [],
+        agentSource: "advisory",
+      }, ...prev]);
+    } finally {
       setIsThinking(false);
-    }, 700);
+    }
   };
 
   const getSeverityBadge = (severity: RiskLevel) => {

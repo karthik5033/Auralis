@@ -193,7 +193,8 @@ class SpaceTrackClient {
       this.cdmCacheTime = now;
       return events;
     } catch (err) {
-      console.warn("[SpaceTrack] Error fetching CDMs:", err);
+      console.warn("[SpaceTrack] Error fetching CDMs:", err instanceof Error ? err.message : "Request timed out");
+      this.lastFailureTime = Date.now();
       return this.cdmCache;
     }
   }
@@ -234,7 +235,8 @@ class SpaceTrackClient {
       this.gpCacheTime = now;
       return objects;
     } catch (err) {
-      console.warn("[SpaceTrack] Error fetching GP objects:", err);
+      console.warn("[SpaceTrack] Error fetching GP objects:", err instanceof Error ? err.message : "Request timed out");
+      this.lastFailureTime = Date.now();
       return this.gpCache;
     }
   }

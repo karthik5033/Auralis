@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
 import { 
   Radio, 
   Globe as GlobeIcon, 
@@ -14,16 +13,16 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import dynamic from "next/dynamic";
 import curatedCatalog from "@/data/fixtures/parsed-tracked-objects.json";
 import { getObjects, getConjunctions } from "@/lib/api";
 import type { TrackedObject, ConjunctionEvent } from "@/types/contract";
 
-// Dynamically load GlobeView to avoid SSR issues with Three.js / WebGL
 const GlobeView = dynamic(() => import("@/components/globe/GlobeView"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[480px] rounded-xl bg-black flex flex-col items-center justify-center gap-3 border border-border/70 text-muted-foreground font-mono">
-      <Loader2 className="h-7 w-7 animate-spin text-primary" />
+    <div className="w-full h-[480px] bg-slate-950/80 flex flex-col items-center justify-center gap-3 text-muted-foreground font-mono">
+      <Loader2 className="h-7 w-7 animate-spin text-cyan-400" />
       <span className="text-xs uppercase tracking-widest text-zinc-400">
         Initializing 3D Orbital WebGL Engine...
       </span>
