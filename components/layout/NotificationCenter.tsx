@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   Sheet, 
   SheetContent, 
@@ -87,10 +88,15 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 
 export function NotificationCenter() {
   const { t } = useLanguage();
+  const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [activeToasts, setActiveToasts] = useState<ToastItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -272,84 +278,87 @@ export function NotificationCenter() {
 
   return (
     <>
-      {/* Floating Tactical Toast Stack (Bottom-Right) */}
-      <div 
-        aria-live="polite"
-        className="fixed bottom-6 right-6 z-50 flex flex-col-reverse gap-2.5 max-w-sm w-full pointer-events-none"
-      >
-        {activeToasts.map((toast) => (
-          <div
-            key={toast.id}
-            onClick={() => handleToastClick(toast)}
-            className={cn(
-              "pointer-events-auto relative flex flex-col gap-1 p-3.5 rounded-lg border shadow-2xl backdrop-blur-xl transition-all duration-300 transform translate-y-0 cursor-pointer group hover:scale-[1.02]",
-              toast.type === "CRITICAL" &&
-                "bg-destructive/15 border-destructive/70 text-foreground shadow-[0_0_25px_rgba(239,68,68,0.25)]",
-              toast.type === "SUCCESS" &&
-                "bg-emerald-950/50 border-emerald-500/70 text-foreground shadow-[0_0_25px_rgba(16,185,129,0.25)]",
-              toast.type === "WARNING" &&
-                "bg-amber-950/50 border-amber-500/70 text-foreground shadow-[0_0_25px_rgba(245,158,11,0.25)]",
-              toast.type === "INFO" &&
-                "bg-sky-950/50 border-sky-500/70 text-foreground shadow-[0_0_25px_rgba(14,165,233,0.25)]"
-            )}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                {toast.type === "CRITICAL" && (
-                  <span className="flex h-2 w-2 rounded-full bg-destructive animate-ping" />
-                )}
-                {toast.type === "SUCCESS" && (
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
-                )}
-                {toast.type === "WARNING" && (
-                  <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                )}
-                {toast.type === "INFO" && (
-                  <span className="flex h-2 w-2 rounded-full bg-sky-400" />
-                )}
-                <span className={cn(
-                  "text-[10px] font-mono font-bold tracking-wider uppercase px-1.5 py-0.5 rounded",
-                  toast.type === "CRITICAL" && "bg-destructive/20 text-destructive",
-                  toast.type === "SUCCESS" && "bg-emerald-500/20 text-emerald-400",
-                  toast.type === "WARNING" && "bg-amber-500/20 text-amber-400",
-                  toast.type === "INFO" && "bg-sky-500/20 text-sky-400"
-                )}>
-                  {toast.type === "CRITICAL" ? "COLLISION THREAT" : toast.type === "SUCCESS" ? "RESOLVED" : toast.type === "WARNING" ? "KINETIC CASCADE" : "ADVISORY"}
-                </span>
+      {/* Floating Tactical Toast Stack (Top-Right Viewport Portal) */}
+      {mounted && createPortal(
+        <div 
+          aria-live="polite"
+          className="fixed top-20 right-6 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none"
+        >
+          {activeToasts.map((toast) => (
+            <div
+              key={toast.id}
+              onClick={() => handleToastClick(toast)}
+              className={cn(
+                "pointer-events-auto relative flex flex-col gap-1.5 p-3.5 rounded-lg border shadow-2xl backdrop-blur-xl transition-all duration-300 transform translate-y-0 cursor-pointer group hover:scale-[1.02] bg-card/95 text-card-foreground animate-in slide-in-from-top-3 fade-in duration-200",
+                toast.type === "CRITICAL" &&
+                  "bg-destructive/10 dark:bg-destructive/15 border-destructive/70 text-foreground shadow-[0_4px_25px_rgba(239,68,68,0.25)]",
+                toast.type === "SUCCESS" &&
+                  "bg-emerald-500/10 dark:bg-emerald-950/60 border-emerald-500/70 text-foreground shadow-[0_4px_25px_rgba(16,185,129,0.25)]",
+                toast.type === "WARNING" &&
+                  "bg-amber-500/10 dark:bg-amber-950/60 border-amber-500/70 text-foreground shadow-[0_4px_25px_rgba(245,158,11,0.25)]",
+                toast.type === "INFO" &&
+                  "bg-sky-500/10 dark:bg-sky-950/60 border-sky-500/70 text-foreground shadow-[0_4px_25px_rgba(14,165,233,0.25)]"
+              )}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {toast.type === "CRITICAL" && (
+                    <span className="flex h-2 w-2 rounded-full bg-destructive animate-ping" />
+                  )}
+                  {toast.type === "SUCCESS" && (
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
+                  )}
+                  {toast.type === "WARNING" && (
+                    <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                  {toast.type === "INFO" && (
+                    <span className="flex h-2 w-2 rounded-full bg-sky-400" />
+                  )}
+                  <span className={cn(
+                    "text-[10px] font-mono font-bold tracking-wider uppercase px-1.5 py-0.5 rounded",
+                    toast.type === "CRITICAL" && "bg-destructive/20 text-destructive",
+                    toast.type === "SUCCESS" && "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400",
+                    toast.type === "WARNING" && "bg-amber-500/20 text-amber-600 dark:text-amber-400",
+                    toast.type === "INFO" && "bg-sky-500/20 text-sky-600 dark:text-sky-400"
+                  )}>
+                    {toast.type === "CRITICAL" ? "COLLISION THREAT" : toast.type === "SUCCESS" ? "RESOLVED" : toast.type === "WARNING" ? "KINETIC CASCADE" : "ADVISORY"}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => dismissToast(toast.id, e)}
+                  className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+                  title="Dismiss"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={(e) => dismissToast(toast.id, e)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
-                title="Dismiss"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Title & Body */}
-            <div className="space-y-0.5 pr-2">
-              <p className="text-xs font-semibold text-foreground tracking-tight">
-                {toast.title}
-              </p>
-              <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
-                {toast.message}
-              </p>
-            </div>
-
-            {/* Footer quick action */}
-            {toast.link && (
-              <div className="flex items-center justify-end pt-1">
-                <span className="text-[10px] font-mono text-primary group-hover:underline flex items-center gap-1 font-medium">
-                  Review Details <ExternalLink className="w-2.5 h-2.5" />
-                </span>
+              {/* Title & Body */}
+              <div className="space-y-0.5 pr-2">
+                <p className="text-xs font-semibold text-foreground tracking-tight">
+                  {toast.title}
+                </p>
+                <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+                  {toast.message}
+                </p>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+
+              {/* Footer quick action */}
+              {toast.link && (
+                <div className="flex items-center justify-end pt-1">
+                  <span className="text-[10px] font-mono text-primary group-hover:underline flex items-center gap-1 font-medium">
+                    Review Details <ExternalLink className="w-2.5 h-2.5" />
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
 
       {/* Slide-over Notification Sheet Drawer */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
