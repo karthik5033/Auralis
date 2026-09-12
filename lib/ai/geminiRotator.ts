@@ -1,12 +1,12 @@
 /**
- * Resilient 12-Key Gemini Load Balancer & Rotator
+ * Resilient Multi-Key Gemini Load Balancer & Rotator
  * 
- * Manages pool of Google API keys with:
- * - Round-robin dispatch
- * - Dynamic cooldown on 429/quota exhaustion
- * - Automatic seamless retry failover to next key
- * - Strictly targets gemini-2.5-flash
- * - Concise, token-efficient prompt execution
+ * Features:
+ * - Dynamic Key Health Tracking & Permanent 24h Quarantining for 400/403/404 keys (invalid/leaked/restricted)
+ * - Cooldown management on 429 (rate limits) and 503 (high demand)
+ * - Per-request exclusion to guarantee keys are never repeated in the same failover sequence
+ * - Multi-model fallback cascade: gemini-flash-latest -> gemini-3.1-flash-lite -> gemini-2.5-flash
+ * - Strictly optimized prompt execution with instant JSON output parsing
  */
 
 export interface GeminiKeyStatus {
@@ -14,6 +14,7 @@ export interface GeminiKeyStatus {
   keyMask: string;
   totalCalls: number;
   failures: number;
+  isQuarantined: boolean;
   coolingUntil: number;
 }
 
@@ -28,17 +29,21 @@ export interface GenerateOptions {
 export class GeminiRotator {
   private readonly keys: string[] = [];
   private currentIndex = 0;
-  private readonly cooldowns = new Map<number, number>(); // index -> timestamp
+  private readonly cooldowns = new Map<number, number>(); // index -> timestamp ms
   private readonly callCounts = new Map<number, number>();
   private readonly failCounts = new Map<number, number>();
-  private readonly model = "gemini-2.5-flash";
+  private readonly quarantined = new Set<number>(); // permanent 24h quarantine for 400/403
+  private readonly candidateModels = [
+    "gemini-flash-latest",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash",
+  ];
 
   constructor() {
     this.loadKeys();
   }
 
   private loadKeys(): void {
-    // If not loaded by Next.js yet (e.g. in test scripts), parse .env.local directly
     if (!process.env.GOOGLE_API_KEY_1) {
       try {
         const fs = require("node:fs");
@@ -63,7 +68,6 @@ export class GeminiRotator {
       }
     }
 
-    // Scan GOOGLE_API_KEY_1 through GOOGLE_API_KEY_20, plus standard fallbacks
     for (let i = 1; i <= 20; i++) {
       const key = process.env[`GOOGLE_API_KEY_${i}`];
       if (key && key.trim()) {
@@ -89,14 +93,15 @@ export class GeminiRotator {
       keyMask: key.substring(0, 8) + "..." + key.substring(key.length - 4),
       totalCalls: this.callCounts.get(idx) ?? 0,
       failures: this.failCounts.get(idx) ?? 0,
+      isQuarantined: this.quarantined.has(idx),
       coolingUntil: Math.max(0, (this.cooldowns.get(idx) ?? 0) - now),
     }));
   }
 
   /**
-   * Acquire the next healthy key using round-robin with cooldown filtering
+   * Acquire the next healthy key using round-robin with exclusion and cooldown filtering
    */
-  private acquireNextKey(): { key: string; index: number } {
+  private acquireNextKey(excludedIndices: Set<number>): { key: string; index: number } | null {
     if (this.keys.length === 0) {
       throw new Error("GeminiRotator: No Google API keys found in environment variables");
     }
@@ -104,9 +109,11 @@ export class GeminiRotator {
     const now = Date.now();
     const total = this.keys.length;
 
-    // First try: find a key not in cooldown
+    // 1. Primary pass: find an unquarantined, non-excluded key whose cooldown has elapsed
     for (let attempt = 0; attempt < total; attempt++) {
       const idx = (this.currentIndex + attempt) % total;
+      if (excludedIndices.has(idx) || this.quarantined.has(idx)) continue;
+
       const coolingUntil = this.cooldowns.get(idx) ?? 0;
       if (now >= coolingUntil) {
         this.currentIndex = (idx + 1) % total;
@@ -114,10 +121,12 @@ export class GeminiRotator {
       }
     }
 
-    // All keys cooling down: pick the one that cools earliest
-    let earliestIdx = 0;
+    // 2. Secondary pass: if all non-excluded keys are in cooldown, pick the one that cools earliest
+    let earliestIdx = -1;
     let earliestTime = Infinity;
     for (let idx = 0; idx < total; idx++) {
+      if (excludedIndices.has(idx) || this.quarantined.has(idx)) continue;
+
       const time = this.cooldowns.get(idx) ?? 0;
       if (time < earliestTime) {
         earliestTime = time;
@@ -125,98 +134,133 @@ export class GeminiRotator {
       }
     }
 
-    this.currentIndex = (earliestIdx + 1) % total;
-    return { key: this.keys[earliestIdx], index: earliestIdx };
+    if (earliestIdx !== -1) {
+      this.currentIndex = (earliestIdx + 1) % total;
+      return { key: this.keys[earliestIdx], index: earliestIdx };
+    }
+
+    return null;
   }
 
-  private markCooldown(index: number, durationMs = 60_000): void {
+  private markCooldown(index: number, durationMs = 30_000): void {
     this.cooldowns.set(index, Date.now() + durationMs);
     this.failCounts.set(index, (this.failCounts.get(index) ?? 0) + 1);
   }
 
+  private markQuarantined(index: number, reason: string): void {
+    this.quarantined.add(index);
+    this.cooldowns.set(index, Date.now() + 24 * 60 * 60 * 1000);
+    this.failCounts.set(index, (this.failCounts.get(index) ?? 0) + 1);
+    console.warn(`[GeminiRotator] Key #${index + 1} permanently quarantined (reason: ${reason}). Key will not be retried.`);
+  }
+
   /**
-   * Generate content using strict gemini-2.5-flash with automated multi-key failover
+   * Generate content with automated multi-key failover and multi-model fallback cascade
    */
   public async generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
-    const maxAttempts = Math.min(this.keys.length, 5);
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const { key, index } = this.acquireNextKey();
-      this.callCounts.set(index, (this.callCounts.get(index) ?? 0) + 1);
+    // Try candidate models in order: gemini-flash-latest -> gemini-3.1-flash-lite -> gemini-2.5-flash
+    for (const model of this.candidateModels) {
+      const excludedIndices = new Set<number>();
+      const maxKeyAttempts = Math.max(1, this.keys.length - this.quarantined.size);
 
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${key}`;
+      for (let attempt = 0; attempt < maxKeyAttempts; attempt++) {
+        const keyItem = this.acquireNextKey(excludedIndices);
+        if (!keyItem) break; // All available keys tried for this model
 
-        const payload: Record<string, unknown> = {
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: options.temperature ?? 0.2,
-            maxOutputTokens: options.maxOutputTokens ?? 2048,
-            thinkingConfig: { thinkingBudget: 0 },
-            ...(options.jsonMode ? { responseMimeType: "application/json" } : {}),
-            ...(options.responseSchema ? { responseSchema: options.responseSchema } : {}),
-          },
-        };
+        const { key, index } = keyItem;
+        excludedIndices.add(index);
+        this.callCounts.set(index, (this.callCounts.get(index) ?? 0) + 1);
 
-        if (options.systemPrompt) {
-          payload.systemInstruction = {
-            parts: [{ text: options.systemPrompt }],
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+
+          const payload: Record<string, unknown> = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: options.temperature ?? 0.2,
+              maxOutputTokens: options.maxOutputTokens ?? 2048,
+              ...(options.jsonMode ? { responseMimeType: "application/json" } : {}),
+              ...(options.responseSchema ? { responseSchema: options.responseSchema } : {}),
+            },
           };
-        }
 
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12_000);
+          if (options.systemPrompt) {
+            payload.systemInstruction = {
+              parts: [{ text: options.systemPrompt }],
+            };
+          }
 
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10_000);
 
-        clearTimeout(timeout);
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
 
-        if (response.status === 429 || response.status === 403) {
-          // Rate limit or quota hit -> cool down this key for 90s and retry with next key
-          console.warn(`[GeminiRotator] Key #${index + 1} hit status ${response.status}. Rotating key...`);
-          this.markCooldown(index, 90_000);
-          continue;
-        }
+          clearTimeout(timeout);
 
-        if (!response.ok) {
-          const errBody = await response.text().catch(() => "");
-          if (errBody.includes("RESOURCE_EXHAUSTED") || errBody.includes("quota")) {
-            console.warn(`[GeminiRotator] Key #${index + 1} quota exhausted. Rotating key...`);
-            this.markCooldown(index, 120_000);
+          // 1. Quota Exhaustion / Rate Limit
+          if (response.status === 429) {
+            console.warn(`[GeminiRotator] Key #${index + 1} hit 429 (Rate Limit) on ${model}. Cooling for 30s...`);
+            this.markCooldown(index, 30_000);
             continue;
           }
-          if (errBody.includes("API_KEY_INVALID") || response.status === 400) {
-            console.warn(`[GeminiRotator] Key #${index + 1} is invalid. Disabling key for 24 hours and rotating...`);
-            this.markCooldown(index, 24 * 60 * 60 * 1000);
+
+          // 2. High Demand / Temporary Unavailable
+          if (response.status === 503) {
+            console.warn(`[GeminiRotator] Key #${index + 1} hit 503 on ${model}. Rotating...`);
+            this.markCooldown(index, 15_000);
             continue;
           }
-          throw new Error(`Gemini API error ${response.status}: ${errBody}`);
-        }
 
-        const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) {
-          throw new Error("Gemini returned empty response content");
-        }
+          // 3. Permission Denied / Leaked Key / Forbidden
+          if (response.status === 403) {
+            this.markQuarantined(index, "403 Forbidden / Leaked / Access Denied");
+            continue;
+          }
 
-        return text.trim();
-      } catch (err: unknown) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        const isAbort = lastError.name === "AbortError";
-        if (isAbort) {
-          console.warn(`[GeminiRotator] Key #${index + 1} timed out. Rotating key...`);
-          this.markCooldown(index, 30_000);
-          continue;
-        }
-        // Non-quota error on last attempt will throw
-        if (attempt === maxAttempts - 1) {
-          break;
+          // 4. Invalid API Key
+          if (response.status === 400) {
+            this.markQuarantined(index, "400 Invalid API Key");
+            continue;
+          }
+
+          // 5. Model Not Available for this Key/Project
+          if (response.status === 404) {
+            this.markCooldown(index, 60_000);
+            continue;
+          }
+
+          if (!response.ok) {
+            const errBody = await response.text().catch(() => "");
+            if (errBody.includes("RESOURCE_EXHAUSTED") || errBody.includes("quota")) {
+              console.warn(`[GeminiRotator] Key #${index + 1} quota exhausted on ${model}. Rotating...`);
+              this.markCooldown(index, 60_000);
+              continue;
+            }
+            throw new Error(`Gemini API error ${response.status}: ${errBody}`);
+          }
+
+          const data = await response.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!text) {
+            throw new Error("Gemini returned empty response content");
+          }
+
+          return text.trim();
+        } catch (err: unknown) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const isAbort = lastError.name === "AbortError";
+          if (isAbort) {
+            console.warn(`[GeminiRotator] Key #${index + 1} timed out on ${model}. Rotating key...`);
+            this.markCooldown(index, 30_000);
+            continue;
+          }
         }
       }
     }
