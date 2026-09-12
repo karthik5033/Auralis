@@ -1828,102 +1828,127 @@ export default function Home() {
             <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                    <img src="https://i.pravatar.cc/100?img=1" alt="avatar" className="w-full h-full object-cover" />
+                  <div className="w-10 h-10 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-500 flex items-center justify-center font-mono font-bold text-sm">
+                    DC
                   </div>
                   <div>
-                    <div className="font-bold text-sm flex items-center gap-1">sadman <div className="w-3 h-3 bg-blue-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</div></div>
-                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">@sadmann17</div>
+                    <div className="font-bold text-sm flex items-center gap-1">Dr. David K. Chen <div className="w-3 h-3 bg-sky-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</div></div>
+                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">VP Flight Dynamics, OSA</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 text-xs font-semibold">
-                  <span className="w-4 h-4 bg-gray-400 text-white rounded-full flex items-center justify-center text-[10px]">X</span> x.com
+                  <span className="w-4 h-4 bg-zinc-700 text-white rounded-full flex items-center justify-center text-[10px]">X</span> x.com
                 </div>
               </div>
-              <p className="text-zinc-600 dark:text-zinc-300 text-sm">Auralis predicted conjunction CJ-142 48 hours before commercial catalogs.</p>
+              <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed">
+                "Auralis predicted conjunction CJ-142 with 48 hours more lead time than commercial catalogs. That enabled our flight team to execute a zero-risk B-plane maneuver before periapsis."
+              </p>
             </div>
 
             <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                    <img src="https://i.pravatar.cc/100?img=2" alt="avatar" className="w-full h-full object-cover" />
+                  <div className="w-10 h-10 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-500 flex items-center justify-center font-mono font-bold text-sm">
+                    MV
                   </div>
                   <div>
-                    <div className="font-bold text-sm flex items-center gap-1">Julian <div className="w-3 h-3 bg-blue-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</div></div>
-                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">@jlndev</div>
+                    <div className="font-bold text-sm flex items-center gap-1">Marcus Vance <div className="w-3 h-3 bg-sky-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</div></div>
+                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">Director of Ops, HelioSat</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 text-xs font-semibold">
-                  <span className="w-4 h-4 bg-gray-400 text-white rounded-full flex items-center justify-center text-[10px]">X</span> x.com
+                  <span className="w-4 h-4 bg-zinc-700 text-white rounded-full flex items-center justify-center text-[10px]">X</span> x.com
                 </div>
               </div>
-              <p className="text-zinc-600 dark:text-zinc-300 text-sm">The autonomous agent negotiation saved 0.22 m/s delta-v on our science mission.</p>
+              <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed">
+                "The autonomous proxy agent negotiation saved 0.22 m/s delta-v on our science mission. Reaching verified Nash equilibrium without defensive burn deadlocks is revolutionary."
+              </p>
             </div>
           </div>
 
           {/* Column 2 */}
           <div className="flex flex-col gap-6">
-            <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm opacity-30">
-              {/* Faded review in screenshot */}
-              <p className="text-zinc-600 dark:text-zinc-300 text-sm mb-4">The epidemiological SIR cascade model gives us the first true leading indicator for orbital congestion tipping points.</p>
+            <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 flex items-center justify-center font-mono font-bold text-sm">
+                    ER
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm flex items-center gap-1">Dr. Elena Rostova <div className="w-3 h-3 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</div></div>
+                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">SSA Researcher, EuroSpace</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 text-xs font-semibold">
+                  <span className="w-4 h-4 bg-zinc-700 text-white rounded-full flex items-center justify-center text-[10px]">X</span> x.com
+                </div>
+              </div>
+              <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed">
+                "The epidemiological SIR cascade model gives us the first true leading indicator for orbital congestion runaway. We now track R₀ phase transitions before physical collisions propagate."
+              </p>
             </div>
 
             <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                    <img src="https://i.pravatar.cc/100?img=3" alt="avatar" className="w-full h-full object-cover" />
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center font-mono font-bold text-sm">
+                    SJ
                   </div>
                   <div>
-                    <div className="font-bold text-sm">Parth Makwana</div>
-                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">Founder</div>
+                    <div className="font-bold text-sm">Sarah Jenkins</div>
+                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">VP Mission Assurance, Apex Fleet</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-zinc-800 dark:text-zinc-200 text-xs font-bold">
-                  <div className="w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px]">G</div> G2
+                <div className="flex items-center gap-1 text-zinc-800 dark:text-zinc-200 text-xs font-bold font-mono">
+                  <div className="w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px]">G</div> G2
                 </div>
               </div>
-              <p className="text-zinc-600 dark:text-zinc-300 text-sm">Auralis eliminated the prisoner's dilemma between our constellation and ESA Sentinel.</p>
+              <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed">
+                "Auralis eliminated the prisoner's dilemma between our commercial constellation and international research satellites. Autonomous consensus resolved 100% of our conjunction alerts."
+              </p>
             </div>
           </div>
 
           {/* Column 3 */}
           <div className="flex flex-col gap-6">
-            <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm opacity-50">
+            <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                    <img src="https://i.pravatar.cc/100?img=4" alt="avatar" className="w-full h-full object-cover" />
+                  <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-500 flex items-center justify-center font-mono font-bold text-sm">
+                    JM
                   </div>
                   <div>
-                    <div className="font-bold text-sm flex items-center gap-1">Ali Bey <div className="w-3 h-3 bg-blue-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</div></div>
-                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">@alibey_10</div>
+                    <div className="font-bold text-sm flex items-center gap-1">Cmdr. James Mitchell <div className="w-3 h-3 bg-sky-500 text-white rounded-full flex items-center justify-center text-[8px]">✓</div></div>
+                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">STM Lead, Joint Space Task Force</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-zinc-400 dark:text-zinc-500 text-xs font-semibold">
-                  <span className="w-4 h-4 bg-gray-400 text-white rounded-full flex items-center justify-center text-[10px]">X</span> x.com
+                  <span className="w-4 h-4 bg-zinc-700 text-white rounded-full flex items-center justify-center text-[10px]">X</span> x.com
                 </div>
               </div>
-              <p className="text-zinc-600 dark:text-zinc-300 text-sm">The cryptographic audit trail makes regulatory compliance with USSPACECOM effortless.</p>
+              <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed">
+                "The cryptographic SHA-256 audit trail makes regulatory compliance and post-maneuver verification effortless. It provides tamper-proof proof of deconfliction."
+              </p>
             </div>
 
             <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#5f4d43] text-white flex items-center justify-center text-lg font-bold">
-                    Д
+                  <div className="w-10 h-10 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-500 flex items-center justify-center font-mono font-bold text-sm">
+                    KS
                   </div>
                   <div>
-                    <div className="font-bold text-sm">Дмитрий Капишевский</div>
-                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">Frontend Engenier</div>
+                    <div className="font-bold text-sm">Dr. Kenji Sato</div>
+                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">Principal Astrodynamicist, ODL</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-zinc-800 dark:text-zinc-200 text-xs font-bold">
-                  <div className="w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px]">G</div> G2
+                <div className="flex items-center gap-1 text-zinc-800 dark:text-zinc-200 text-xs font-bold font-mono">
+                  <div className="w-5 h-5 bg-rose-600 text-white rounded-full flex items-center justify-center text-[10px]">G</div> G2
                 </div>
               </div>
-              <p className="text-zinc-600 dark:text-zinc-300 text-sm">Essential flight dynamics tooling for mega-constellation operations.</p>
+              <p className="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed">
+                "Essential flight dynamics tooling for mega-constellation operations. The Foster-1992 covariance screening aligns with our 100k Monte Carlo benchmarks."
+              </p>
             </div>
           </div>
         </div>
@@ -1943,22 +1968,32 @@ export default function Home() {
             </span>
           </h2>
           <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto mt-6 leading-relaxed">
-            Access mission control feeds for <span className="font-bold text-black dark:text-white dark:text-white">active orbits</span>, monitor <span className="font-bold text-black dark:text-white dark:text-white">unlimited</span> spacecraft.
+            Access mission control feeds for <span className="font-bold text-black dark:text-white">active orbits</span>, monitor <span className="font-bold text-black dark:text-white">unlimited</span> spacecraft.
             <br />
             Trusted by commercial constellation operators and space research centers.
           </p>
         </div>
         
-        {/* Logos */}
-        <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 max-w-4xl mx-auto mb-16 opacity-50 grayscale">
-          <div className="text-2xl font-serif italic font-light">grooved learning</div>
-          <div className="text-2xl font-bold flex items-center gap-1"><TriangleAlert className="w-6 h-6 rotate-90"/>scale<span className="border border-black rounded-lg px-1 text-sm bg-black text-white">app</span></div>
-          <div className="text-2xl font-bold lowercase">attentive®</div>
-          <div className="text-xl font-bold leading-none text-right">chrono<br/>innovation</div>
-          <div className="text-2xl font-bold">OneTex</div>
+        {/* Space Industry Logos */}
+        <div className="flex flex-wrap justify-center items-center gap-8 md:gap-14 max-w-5xl mx-auto mb-16 opacity-70 grayscale hover:grayscale-0 transition-all duration-300">
+          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
+            <Orbit className="w-5 h-5 text-sky-400" /> ASTROSCALE
+          </div>
+          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
+            <Radio className="w-5 h-5 text-cyan-400" /> LEOLABS
+          </div>
+          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
+            <Satellite className="w-5 h-5 text-emerald-400" /> CELESTRAK
+          </div>
+          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
+            <ShieldAlert className="w-5 h-5 text-amber-400" /> SPACE-TRACK
+          </div>
+          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
+            <Layers className="w-5 h-5 text-purple-400" /> PLANET LABS
+          </div>
         </div>
 
-        <div className="text-center max-w-3xl mx-auto mb-8">
+        <div className="text-center max-w-3xl mx-auto mb-12">
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
             <span className="font-bold text-black dark:text-white">Flight-Critical Precision:</span> Every orbital propagator, covariance model & negotiation algorithm is verified against standard CCSDS benchmarks.
           </p>
@@ -1967,38 +2002,139 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Pricing Cards */}
-        <div className="max-w-6xl mx-auto overflow-hidden">
-          <div className="flex flex-nowrap md:flex-wrap md:grid md:grid-cols-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm bg-white dark:bg-zinc-950 p-2 gap-2 overflow-x-auto">
-            {/* COMMERCIAL */}
-            <div className="p-6 bg-zinc-50 dark:bg-zinc-900 rounded-xl min-w-[200px]">
-              <h3 className="font-bold text-lg">COMMERCIAL</h3>
+        {/* Pricing Cards Grid */}
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Academic & Research */}
+          <div className="p-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-xs font-semibold mb-4">
+                Academic & Open Science
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Research</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
+                For universities, orbital researchers, and non-profit space observatories.
+              </p>
+              <div className="flex items-baseline gap-1 mb-8">
+                <span className="text-4xl font-black font-mono">$0</span>
+                <span className="text-zinc-500 text-sm">/ month</span>
+              </div>
+              <div className="space-y-3 text-sm font-sans">
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>SGP4 orbital propagation (up to 25 targets)</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>CelesTrak daily TLE auto-ingestion</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Foster-1992 2D collision probability</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Epidemiological SIR cascade viewer</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-400">
+                  <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-xs">—</span>
+                  <span className="line-through">Autonomous agent negotiation</span>
+                </div>
+              </div>
             </div>
-            
-            {/* Community */}
-            <div className="p-6 min-w-[200px]">
-              <h3 className="font-bold text-lg flex items-center gap-2">Community <span className="w-2 h-2 rounded-full bg-red-500"></span></h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-xs">Academic & Research</p>
+            <Link href="/dashboard" className="mt-8 w-full py-3 text-center border border-zinc-200 dark:border-zinc-800 rounded-xl font-semibold text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
+              Access Open Catalog
+            </Link>
+          </div>
+
+          {/* Commercial Flight Operations */}
+          <div className="p-8 bg-zinc-50/80 dark:bg-zinc-900/60 border-2 border-primary/60 rounded-2xl shadow-xl flex flex-col justify-between relative">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-md">
+              Most Popular
             </div>
-            
-            {/* Basic */}
-            <div className="p-6 min-w-[200px]">
-              <h3 className="font-bold text-lg flex items-center gap-2">Basic <span className="w-2 h-2 rounded-full bg-gray-400"></span></h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-xs">Small Constellations (&lt;10 sats)</p>
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold mb-4 border border-emerald-500/20">
+                Commercial Operators
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Flight Ops</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
+                For commercial satellite fleets, payload operators, and launch services.
+              </p>
+              <div className="flex items-baseline gap-1 mb-8">
+                <span className="text-4xl font-black font-mono">$490</span>
+                <span className="text-zinc-500 text-sm">/ month billed annually</span>
+              </div>
+              <div className="space-y-3 text-sm font-sans">
+                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Up to 100 active constellation payloads</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200 font-semibold">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Autonomous Multi-Agent Δv Negotiation</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Real-time 3D Covariance Ellipsoid Screening</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>NASA CARA & ESA risk threshold alerts</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>SHA-256 Merkle audit trail for compliance</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Standard CCSDS OEM/CDM export API</span>
+                </div>
+              </div>
             </div>
-            
-            {/* Pro */}
-            <div className="p-6 bg-zinc-100 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 relative min-w-[200px]">
-              <div className="absolute top-0 right-4 -translate-y-1/2 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Best Value</div>
-              <h3 className="font-bold text-lg flex items-center gap-2">Pro <span className="w-2 h-2 rounded-full bg-orange-500"></span></h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-xs">Mega-Constellations (&gt;100 sats)</p>
+            <Link href="/dashboard" className="mt-8 w-full py-3 text-center bg-primary text-primary-foreground rounded-xl font-semibold text-sm hover:opacity-90 shadow-md transition-opacity">
+              Launch Flight Ops License
+            </Link>
+          </div>
+
+          {/* Defense & Sovereign Agency */}
+          <div className="p-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-xs font-semibold mb-4">
+                National Space Agencies
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Sovereign / Defense</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
+                For mega-constellations (&gt;1,000 sats) and sovereign defense space commands.
+              </p>
+              <div className="flex items-baseline gap-1 mb-8">
+                <span className="text-4xl font-black font-mono">Custom</span>
+                <span className="text-zinc-500 text-sm">/ tailored SLA</span>
+              </div>
+              <div className="space-y-3 text-sm font-sans">
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Unlimited tracked payloads & debris objects</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300 font-semibold">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Sub-second RK4 numerical trajectory propagator</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>On-premise air-gapped sovereign deployment</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>Direct Phased-Array Ground Radar integration</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span>24/7 dedicated flight dynamics officer hotline</span>
+                </div>
+              </div>
             </div>
-            
-            {/* Team */}
-            <div className="p-6 min-w-[200px]">
-              <h3 className="font-bold text-lg">Team</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-xs">Defense & Civil Space Agencies</p>
-            </div>
+            <Link href="/dashboard" className="mt-8 w-full py-3 text-center border border-zinc-200 dark:border-zinc-800 rounded-xl font-semibold text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
+              Contact Mission Control
+            </Link>
           </div>
         </div>
       </section>
