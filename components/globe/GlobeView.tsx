@@ -71,6 +71,13 @@ interface ProcessedRing {
   color: (t: number) => string;
 }
 
+interface ProcessedPath {
+  id: string;
+  name: string;
+  points: { lat: number; lng: number; alt: number }[];
+  color: string;
+}
+
 // Convert ECI J2000 state vector (km) to Geodetic latitude, longitude, and normalized altitude
 function eciToGeodetic(pos: { x: number; y: number; z: number }, altKm: number) {
   const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z) || 6771;
@@ -79,6 +86,29 @@ function eciToGeodetic(pos: { x: number; y: number; z: number }, altKm: number) 
   // Normalized altitude for globe.gl: Earth radius ~6371 km
   const alt = Math.max(0.04, altKm / 6371);
   return { lat, lng, alt };
+}
+
+// Compute 3D orbital trajectory ring from Keplerian elements
+function computeOrbitPath(orbitalElements: TrackedObject["orbitalElements"], altitudeKm: number) {
+  const points: { lat: number; lng: number; alt: number }[] = [];
+  const incRad = (orbitalElements.inclination * Math.PI) / 180;
+  const raanRad = (orbitalElements.raan * Math.PI) / 180;
+  const altNorm = Math.max(0.04, altitudeKm / 6371);
+
+  for (let u = 0; u <= 360; u += 6) {
+    const uRad = (u * Math.PI) / 180;
+    const xOrb = Math.cos(uRad);
+    const yOrb = Math.sin(uRad);
+
+    const x = xOrb * Math.cos(raanRad) - yOrb * Math.cos(incRad) * Math.sin(raanRad);
+    const y = xOrb * Math.sin(raanRad) + yOrb * Math.cos(incRad) * Math.cos(raanRad);
+    const z = yOrb * Math.sin(incRad);
+
+    const lat = Math.asin(Math.max(-1, Math.min(1, z))) * (180 / Math.PI);
+    const lng = Math.atan2(y, x) * (180 / Math.PI);
+    points.push({ lat, lng, alt: altNorm });
+  }
+  return points;
 }
 
 export default function GlobeView({
@@ -97,6 +127,7 @@ export default function GlobeView({
   const [autoRotate, setAutoRotate] = useState(true);
   const [activeLayer, setActiveLayer] = useState<"all" | "satellites" | "debris" | "conjunctions">("all");
   const [selectedEntityName, setSelectedEntityName] = useState<string | null>(null);
+  const [selectedObject, setSelectedObject] = useState<TrackedObject | null>(null);
   const [telemetryCount, setTelemetryCount] = useState({ satellites: 0, debris: 0, critical: 0 });
 
   // 1. Process points for globe display
@@ -224,6 +255,34 @@ export default function GlobeView({
       .filter(Boolean) as ProcessedRing[];
   }, [objects, conjunctions]);
 
+  // 4. Process orbital trajectory rings (pathsData)
+  const pathsData = React.useMemo<ProcessedPath[]>(() => {
+    const paths: ProcessedPath[] = [];
+
+    // Always draw ISS orbital plane in cyan
+    const iss = objects.find((o) => o.name.includes("ISS"));
+    if (iss && iss.orbitalElements) {
+      paths.push({
+        id: "path-iss",
+        name: "ISS Orbital Plane",
+        points: computeOrbitPath(iss.orbitalElements, iss.altitude),
+        color: "rgba(56, 189, 248, 0.75)",
+      });
+    }
+
+    // If another object is selected, trace its orbital plane
+    if (selectedObject && selectedObject.orbitalElements && selectedObject.id !== iss?.id) {
+      paths.push({
+        id: `path-${selectedObject.id}`,
+        name: `${selectedObject.name} Orbital Trajectory`,
+        points: computeOrbitPath(selectedObject.orbitalElements, selectedObject.altitude),
+        color: selectedObject.type === "debris" ? "rgba(239, 68, 68, 0.85)" : "rgba(245, 158, 11, 0.85)",
+      });
+    }
+
+    return paths;
+  }, [objects, selectedObject]);
+
   // Update telemetry counters
   useEffect(() => {
     const sats = objects.filter((o) => o.type === "satellite").length;
@@ -232,7 +291,7 @@ export default function GlobeView({
     setTelemetryCount({ satellites: sats, debris: deb, critical: crit });
   }, [objects, conjunctions]);
 
-  // 4. Initialize Globe.gl WebGL Canvas
+  // 5. Initialize Globe.gl WebGL Canvas
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -264,6 +323,7 @@ export default function GlobeView({
       )
       .onPointClick((point: any) => {
         setSelectedEntityName(point.name);
+        setSelectedObject(point.raw);
         if (onSelectObject && point.raw) {
           onSelectObject(point.raw);
         }
@@ -299,7 +359,17 @@ export default function GlobeView({
       .ringMaxRadius("maxR")
       .ringPropagationSpeed("propagationSpeed")
       .ringRepeatPeriod("repeatPeriod")
-      .ringColor((d: any) => d.color);
+      .ringColor((d: any) => d.color)
+      .pathsData([])
+      .pathPoints("points")
+      .pathPointLat("lat")
+      .pathPointLng("lng")
+      .pathPointAlt("alt")
+      .pathColor("color")
+      .pathStroke(1.2)
+      .pathDashLength(0.08)
+      .pathDashGap(0.03)
+      .pathDashAnimateTime(1800);
 
     // Initial camera position (framed on Europe/Asia where ISS and COSMOS debris cross)
     globe.pointOfView({ lat: 25, lng: 45, altitude: 2.2 }, 1000);
@@ -341,7 +411,8 @@ export default function GlobeView({
     globeInstanceRef.current.pointsData(pointsData);
     globeInstanceRef.current.arcsData(arcsData);
     globeInstanceRef.current.ringsData(ringsData);
-  }, [pointsData, arcsData, ringsData]);
+    globeInstanceRef.current.pathsData(pathsData);
+  }, [pointsData, arcsData, ringsData, pathsData]);
 
   // Handle auto-rotation toggle
   useEffect(() => {
@@ -465,26 +536,56 @@ export default function GlobeView({
       </div>
 
       {/* Floating Action Shortcuts Overlay */}
-      <div className="relative z-10 p-3 sm:p-4 flex items-end justify-between gap-3 pointer-events-none">
-        {/* Color Legend */}
-        <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/70 pointer-events-auto">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            Active Satellite
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-red-500" />
-            Debris Fragment
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-orange-400" />
-            Rocket Body
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-1 rounded-sm bg-red-500 animate-pulse" />
-            Critical Conjunction Arc
-          </span>
-        </div>
+      <div className="relative z-10 p-3 sm:p-4 flex flex-wrap items-end justify-between gap-3 pointer-events-none">
+        {/* Selected Object Telemetry Inspector Card */}
+        {selectedObject ? (
+          <div className="flex flex-col bg-black/90 backdrop-blur-md p-3 rounded-lg border border-cyan-500/40 shadow-2xl pointer-events-auto font-mono text-[11px] w-72 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between gap-2 border-b border-border/70 pb-1.5 mb-1.5">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <span className="font-bold text-cyan-400 truncate">{selectedObject.name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedObject(null);
+                  setSelectedEntityName(null);
+                }}
+                className="text-zinc-400 hover:text-white text-xs px-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-zinc-300 text-[10px]">
+              <div>NORAD: <span className="text-white font-semibold">{selectedObject.noradId}</span></div>
+              <div>SHELL: <span className="text-white font-semibold">{selectedObject.shellId}</span></div>
+              <div>ALTITUDE: <span className="text-lime-400 font-semibold">{selectedObject.altitude.toFixed(1)} km</span></div>
+              <div>INCLINATION: <span className="text-amber-400 font-semibold">{selectedObject.orbitalElements.inclination.toFixed(2)}°</span></div>
+              <div>ECCENTRICITY: <span className="text-zinc-100 font-semibold">{selectedObject.orbitalElements.eccentricity.toFixed(4)}</span></div>
+              <div>STATUS: <span className="text-emerald-400 font-semibold uppercase">{selectedObject.status}</span></div>
+            </div>
+          </div>
+        ) : (
+          /* Color Legend */
+          <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/70 pointer-events-auto">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              Active Satellite
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500" />
+              Debris Fragment
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-orange-400" />
+              Rocket Body
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-1 rounded-sm bg-red-500 animate-pulse" />
+              Critical Conjunction Arc
+            </span>
+          </div>
+        )}
 
         {/* Camera and Quick Focus Tools */}
         <div className="flex items-center gap-1.5 pointer-events-auto ml-auto">

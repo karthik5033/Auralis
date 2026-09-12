@@ -35,11 +35,13 @@ import type {
   AuditQueryParams,
 } from '@/types/contract';
 
+import curatedCatalog from '@/data/fixtures/parsed-tracked-objects.json';
+
 // ============================================================================
 // Seed Data: Tracked Objects
 // ============================================================================
 
-export const mockObjects: TrackedObject[] = [
+const baseDemoObjects: TrackedObject[] = [
   {
     id: "a1b2c3d4-5678-9abc-def0-111111111111",
     noradId: 25544,
@@ -271,6 +273,14 @@ export const mockObjects: TrackedObject[] = [
     status: "active",
   },
 ];
+
+// Combine base demo objects with curated CelesTrak catalog (avoiding duplicate NORAD IDs)
+const existingNoradIds = new Set(baseDemoObjects.map((o) => o.noradId));
+const filteredCurated = (curatedCatalog as TrackedObject[]).filter(
+  (o) => !existingNoradIds.has(o.noradId)
+);
+
+export const mockObjects: TrackedObject[] = [...baseDemoObjects, ...filteredCurated];
 
 // ============================================================================
 // Seed Data: Conjunction Events
