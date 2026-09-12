@@ -39,7 +39,7 @@ import {
   ReferenceLine,
   Cell 
 } from "recharts";
-import { getConjunctions, getObjects, getShells } from "@/lib/api";
+import { getApiMode, getConjunctions, getObjects, getShells } from "@/lib/api";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { formatScientificPc, formatCountdown, formatDistance, formatVelocity } from "@/lib/formatters";
 import type { ConjunctionEvent, TrackedObject, RiskLevel, ConjunctionStatus, ShellRiskSnapshot } from "@/types/contract";
@@ -54,6 +54,7 @@ export default function CasesPage() {
   const [filterRisk, setFilterRisk] = useState<string>("ALL");
   const [filterShell, setFilterShell] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState<number>(Date.now());
 
   // Live timer tick every second for accurate countdown
@@ -65,22 +66,27 @@ export default function CasesPage() {
   const loadConjunctionsData = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [conjRes, objRes, shellsRes] = await Promise.all([
         getConjunctions({ limit: 100 }),
-        getObjects({ limit: 250 }),
+        getObjects({ limit: 1000 }),
         getShells(),
       ]);
 
-      setConjunctions(conjRes.data || []);
-      setShells(shellsRes.data || []);
+      setConjunctions(conjRes.data);
+      setShells(shellsRes.data);
 
       const map: Record<string, TrackedObject> = {};
-      (objRes.data || []).forEach((obj) => {
+      objRes.data.forEach((obj) => {
         map[obj.id] = obj;
       });
       setObjectsMap(map);
     } catch (err) {
       console.error("Failed loading conjunction cases:", err);
+      setConjunctions([]);
+      setShells([]);
+      setObjectsMap({});
+      setLoadError(err instanceof Error ? err.message : "Unable to load conjunction data from the API");
     } finally {
       setLoading(false);
     }
@@ -308,6 +314,9 @@ export default function CasesPage() {
             <span className="text-xs font-mono text-muted-foreground">
               {conjunctions.length} CATALOGED APPROACHES
             </span>
+            <Badge variant="outline" className="text-[10px] font-mono text-emerald-400 border-emerald-500/30">
+              API: {getApiMode().toUpperCase()}
+            </Badge>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
             <Crosshair className="w-7 h-7 text-primary" />
@@ -338,6 +347,12 @@ export default function CasesPage() {
           </Button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-rose-500/40 bg-rose-950/20 px-4 py-3 text-xs font-mono text-rose-300">
+          Unable to load conjunction data from the API. {loadError}
+        </div>
+      )}
 
       {/* KPI Overview Tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

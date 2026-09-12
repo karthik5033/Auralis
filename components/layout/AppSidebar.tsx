@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/AuthContext";
 import { useLanguage } from "@/lib/LanguageContext";
+import { AuralisLogo } from "@/components/ui/AuralisLogo";
 
 export const navItems = [
   { key: "sidebar.commandCenter", label: "Command Center", href: "/dashboard", icon: LayoutDashboard },
@@ -59,16 +60,8 @@ export function AppSidebar() {
     )}>
       {/* Brand Section */}
       <Link href="/dashboard" prefetch={false} className="cursor-pointer">
-        <div className={cn("flex h-16 items-center border-b border-border/50 transition-all overflow-hidden whitespace-nowrap", isCollapsed ? "justify-center px-0" : "px-6")}>
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground font-black text-sm shrink-0 mr-3">
-            <Orbit className="h-5 w-5" />
-          </div>
-          {!isCollapsed && (
-            <>
-              <span className="text-lg font-bold tracking-tight text-foreground font-sans">AURALIS</span>
-              <span className="ml-2 rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-primary">ORBITAL</span>
-            </>
-          )}
+        <div className={cn("flex h-16 items-center border-b border-border/50 transition-all overflow-hidden whitespace-nowrap", isCollapsed ? "justify-center px-0" : "px-5")}>
+          <AuralisLogo size="md" showText={!isCollapsed} />
         </div>
       </Link>
 

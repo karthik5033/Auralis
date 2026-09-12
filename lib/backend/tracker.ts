@@ -74,7 +74,16 @@ export class TrackerAgent {
           .filter((object): object is TrackedObject => object !== null);
       }
 
-      objects.forEach((object) => store.setObject(object));
+      // Preserve identity across refreshes. Profile URLs use object.id, while
+      // upstream TLE/CDM records are refreshed and may receive new UUIDs.
+      const previousIdsByNorad = new Map(
+        store.listObjects().map((object) => [object.noradId, object.id]),
+      );
+      objects.forEach((object) => {
+        const previousId = previousIdsByNorad.get(object.noradId);
+        if (previousId) object.id = previousId;
+        store.setObject(object);
+      });
       const timestamp = new Date().toISOString();
       const allObjects = store.listObjects();
       const statePayload: StateVectorsUpdatedPayload = {
