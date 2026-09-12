@@ -20,6 +20,7 @@ interface AuthContextType {
   setRole: (role: Role) => void;
   userId: string;
   user: MockUser | null;
+  updateUser: (updated: Partial<MockUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: "e.vance@auralis.space",
     role: "OPERATOR",
     badgeNumber: "AURALIS-FDC-04",
-    department: "Conjunction Assessment & Autonomous Avoidance",
+    department: "Conjunction Assessment & Autonomous Avoidance Desk",
     callsign: "Auralis Flight Dynamics"
   });
 
@@ -43,7 +44,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const savedRole = localStorage.getItem("auralis_operator_role") as Role;
       if (savedRole && ["OPERATOR", "FLIGHT_DYNAMICS_LEAD", "MISSION_DIRECTOR", "ADMIN"].includes(savedRole)) {
         setRoleState(savedRole);
-        if (user) setUser((prev) => prev ? { ...prev, role: savedRole } : null);
+      }
+      const savedUser = localStorage.getItem("auralis_operator_user");
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          setUser((prev) => ({ ...prev, ...parsed, role: savedRole || prev?.role || "OPERATOR" }));
+        } catch {
+          // ignore error
+        }
+      } else if (savedRole && user) {
+        setUser((prev) => prev ? { ...prev, role: savedRole } : null);
       }
     }
   }, []);
@@ -53,13 +64,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.setItem("auralis_operator_role", newRole);
     }
-    if (user) {
-      setUser({ ...user, role: newRole });
-    }
+    setUser((prev) => {
+      if (!prev) return null;
+      const next = { ...prev, role: newRole };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("auralis_operator_user", JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
+  const updateUser = (updated: Partial<MockUser>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const next = { ...prev, ...updated };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("auralis_operator_user", JSON.stringify(next));
+      }
+      return next;
+    });
   };
 
   return (
-    <AuthContext.Provider value={{ role, setRole, userId, user }}>
+    <AuthContext.Provider value={{ role, setRole, userId, user, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
