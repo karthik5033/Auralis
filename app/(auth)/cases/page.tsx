@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getConjunctions, getObjects } from "@/lib/api";
-import { mockWs } from "@/lib/mockWs";
+import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { formatScientificPc, formatCountdown, formatDistance, formatVelocity } from "@/lib/formatters";
 import type { ConjunctionEvent, TrackedObject, RiskLevel, ConjunctionStatus } from "@/types/contract";
 import Link from "next/link";
@@ -68,23 +68,21 @@ export default function CasesPage() {
 
     loadConjunctionsData();
 
-    // Subscribe to real-time conjunction WebSocket events
-    const unsubCreated = mockWs.on("conjunction:created", (newConj) => {
-      setConjunctions((prev) => [newConj, ...prev]);
-    });
-
-    const unsubUpdated = mockWs.on("conjunction:updated", (updated) => {
-      setConjunctions((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c))
-      );
-    });
-
     return () => {
       mounted = false;
-      unsubCreated();
-      unsubUpdated();
     };
   }, []);
+
+  // Subscribe to real-time conjunction WebSocket events via unified provider
+  useWebSocket("conjunction:created", (newConj) => {
+    setConjunctions((prev) => [newConj, ...prev]);
+  });
+
+  useWebSocket("conjunction:updated", (updated) => {
+    setConjunctions((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c))
+    );
+  });
 
   const filteredConjunctions = conjunctions.filter((c) => {
     const primary = objectsMap[c.primaryObjectId];

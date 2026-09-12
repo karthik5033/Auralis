@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { getConjunctions, getObjects, getShells } from "@/lib/api";
-import { mockWs } from "@/lib/mockWs";
+import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { formatScientificPc, formatCountdown, formatDistance, formatVelocity } from "@/lib/formatters";
 import type { ConjunctionEvent, TrackedObject, ShellRiskSnapshot } from "@/types/contract";
 import Link from "next/link";
@@ -78,21 +78,20 @@ export default function AlertsPage() {
 
     loadAlerts();
 
-    // Subscribe to new incoming conjunctions in real-time
-    const unsub = mockWs.on("conjunction:created", (newConj) => {
-      if (newConj.riskLevel === "critical" || newConj.riskLevel === "elevated") {
-        setConjunctions((prev) => {
-          const updated = [newConj, ...prev.filter((c) => c.id !== newConj.id)];
-          return updated.sort((a, b) => new Date(a.tca).getTime() - new Date(b.tca).getTime());
-        });
-      }
-    });
-
     return () => {
       mounted = false;
-      unsub();
     };
   }, []);
+
+  // Subscribe to new incoming conjunctions in real-time via unified provider
+  useWebSocket("conjunction:created", (newConj) => {
+    if (newConj.riskLevel === "critical" || newConj.riskLevel === "elevated") {
+      setConjunctions((prev) => {
+        const updated = [newConj, ...prev.filter((c) => c.id !== newConj.id)];
+        return updated.sort((a, b) => new Date(a.tca).getTime() - new Date(b.tca).getTime());
+      });
+    }
+  });
 
   const handleAcknowledge = (id: string) => {
     setAcknowledgedIds((prev) => {

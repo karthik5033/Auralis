@@ -32,7 +32,7 @@ import {
   Area
 } from "recharts";
 import { getShells } from "@/lib/api";
-import { mockWs } from "@/lib/mockWs";
+import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import type { ShellRiskSnapshot } from "@/types/contract";
 import { downloadDataAsCsv } from "@/lib/utils";
 
@@ -59,14 +59,12 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchShellsData();
-
-    // Subscribe to crisis injection for real-time SIR curve shifts
-    const unsub = mockWs.on("crisis:injected", () => {
-      fetchShellsData();
-    });
-
-    return () => unsub();
   }, []);
+
+  // Subscribe to crisis injection for real-time SIR curve shifts via unified provider
+  useWebSocket("crisis:injected", () => {
+    fetchShellsData();
+  });
 
   const selectedShell = shells.find((s) => s.shellId === selectedShellId) || shells[0];
 

@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { getAdvisories } from "@/lib/api";
-import { mockWs } from "@/lib/mockWs";
+import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import type { Advisory, RiskLevel } from "@/types/contract";
 import Link from "next/link";
 
@@ -50,16 +50,15 @@ export default function ChatPage() {
     }
     loadAdvisories();
 
-    // Subscribe to new incoming advisories from WebSocket
-    const unsub = mockWs.on("advisory:new", (newAdv) => {
-      setAdvisories((prev) => [newAdv, ...prev]);
-    });
-
     return () => {
       mounted = false;
-      unsub();
     };
   }, []);
+
+  // Subscribe to new incoming advisories from WebSocket via unified provider
+  useWebSocket("advisory:new", (newAdv) => {
+    setAdvisories((prev) => [newAdv, ...prev]);
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

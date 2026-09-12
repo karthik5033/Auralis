@@ -44,7 +44,7 @@ import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { QuickMLBar } from "@/components/dashboard/QuickMLBar";
 import { CrisisInjectionModal } from "@/components/dashboard/CrisisInjectionModal";
 import { getDashboardSummary, getConjunctions, getObjects } from "@/lib/api";
-import { mockWs } from "@/lib/mockWs";
+import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import type { DashboardSummary, ConjunctionEvent, TrackedObject, CrisisInjectionResponse } from "@/types/contract";
 import { downloadDataAsCsv } from "@/lib/utils";
 import Link from "next/link";
@@ -87,52 +87,49 @@ export default function DashboardPage() {
 
     fetchDashboardData();
 
-    // Wire live WebSocket events for real-time dashboard updates
-    const unsubCreated = mockWs.on("conjunction:created", (newConj) => {
-      setConjunctions((prev) => [newConj, ...prev.slice(0, 19)]);
-      setSummary((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          activeConjunctions: prev.activeConjunctions + 1,
-          criticalConjunctions:
-            newConj.riskLevel === "critical"
-              ? prev.criticalConjunctions + 1
-              : prev.criticalConjunctions,
-        };
-      });
-    });
-
-    const unsubUpdated = mockWs.on("conjunction:updated", (updated) => {
-      setConjunctions((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c))
-      );
-    });
-
-    const unsubCrisis = mockWs.on("crisis:injected", (crisis) => {
-      setCrisisAlert(
-        `Injected ${crisis.injectedObjectCount} fragments into ${crisis.affectedShellIds.join(" & ")}. +${crisis.newConjunctionEventCount} critical conjunction geometries generated.`
-      );
-      setSummary((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          totalTrackedObjects: prev.totalTrackedObjects + crisis.injectedObjectCount,
-          debrisObjects: prev.debrisObjects + crisis.injectedObjectCount,
-          activeConjunctions: prev.activeConjunctions + crisis.newConjunctionEventCount,
-          criticalConjunctions: prev.criticalConjunctions + crisis.newConjunctionEventCount,
-          shellsAtRisk: Math.max(prev.shellsAtRisk, crisis.affectedShellIds.length),
-        };
-      });
-    });
-
     return () => {
       mounted = false;
-      unsubCreated();
-      unsubUpdated();
-      unsubCrisis();
     };
   }, []);
+
+  // Wire live WebSocket events for real-time dashboard updates via unified provider
+  useWebSocket("conjunction:created", (newConj) => {
+    setConjunctions((prev) => [newConj, ...prev.slice(0, 19)]);
+    setSummary((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        activeConjunctions: prev.activeConjunctions + 1,
+        criticalConjunctions:
+          newConj.riskLevel === "critical"
+            ? prev.criticalConjunctions + 1
+            : prev.criticalConjunctions,
+      };
+    });
+  });
+
+  useWebSocket("conjunction:updated", (updated) => {
+    setConjunctions((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c))
+    );
+  });
+
+  useWebSocket("crisis:injected", (crisis: CrisisInjectionResponse) => {
+    setCrisisAlert(
+      `Injected ${crisis.injectedObjectCount} fragments into ${crisis.affectedShellIds.join(" & ")}. +${crisis.newConjunctionEventCount} critical conjunction geometries generated.`
+    );
+    setSummary((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        totalTrackedObjects: prev.totalTrackedObjects + crisis.injectedObjectCount,
+        debrisObjects: prev.debrisObjects + crisis.injectedObjectCount,
+        activeConjunctions: prev.activeConjunctions + crisis.newConjunctionEventCount,
+        criticalConjunctions: prev.criticalConjunctions + crisis.newConjunctionEventCount,
+        shellsAtRisk: Math.max(prev.shellsAtRisk, crisis.affectedShellIds.length),
+      };
+    });
+  });
 
   const handleExportCsv = () => {
     const exportRows = conjunctions.map((c) => ({

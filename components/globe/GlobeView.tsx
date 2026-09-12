@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Globe, { GlobeInstance } from "globe.gl";
 import type { TrackedObject, ConjunctionEvent } from "@/types/contract";
-import { mockWs } from "@/lib/mockWs";
+import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { getObjects, getConjunctions } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -421,36 +421,28 @@ export default function GlobeView({
     globeInstanceRef.current.controls().autoRotate = autoRotate;
   }, [autoRotate]);
 
-  // 5. Real-Time WebSocket Updates Sync
-  useEffect(() => {
-    // Listen for orbital propagation step
-    const unsubObjects = mockWs.on("objects:updated", (payload) => {
-      setObjects(payload.objects);
-    });
+  // 5. Real-Time WebSocket Updates Sync via unified provider
+  // Listen for orbital propagation step
+  useWebSocket("objects:updated", (payload) => {
+    setObjects(payload.objects);
+  });
 
-    // Listen for conjunction Pc recomputation
-    const unsubConjunction = mockWs.on("conjunction:updated", (payload) => {
-      setConjunctions((prev) =>
-        prev.map((c) => (c.id === payload.id ? payload : c))
-      );
-    });
+  // Listen for conjunction Pc recomputation
+  useWebSocket("conjunction:updated", (payload) => {
+    setConjunctions((prev) =>
+      prev.map((c) => (c.id === payload.id ? payload : c))
+    );
+  });
 
-    // Listen for crisis injection to burst new debris fragments onto globe
-    const unsubCrisis = mockWs.on("crisis:injected", () => {
-      getObjects({ limit: 800 }).then((res) => {
-        setObjects(res.data);
-      });
-      getConjunctions({ limit: 50 }).then((res) => {
-        setConjunctions(res.data);
-      });
+  // Listen for crisis injection to burst new debris fragments onto globe
+  useWebSocket("crisis:injected", () => {
+    getObjects({ limit: 800 }).then((res) => {
+      setObjects(res.data);
     });
-
-    return () => {
-      unsubObjects();
-      unsubConjunction();
-      unsubCrisis();
-    };
-  }, []);
+    getConjunctions({ limit: 50 }).then((res) => {
+      setConjunctions(res.data);
+    });
+  });
 
   // Camera Focus Actions
   const handleFocusISS = useCallback(() => {

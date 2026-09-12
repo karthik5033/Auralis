@@ -4,6 +4,8 @@ import { LanguageProvider } from "@/lib/LanguageContext";
 import { AuthProvider } from "@/lib/AuthContext";
 import { ThemeProvider } from "@/lib/ThemeContext";
 
+import { WebSocketProvider } from "@/components/providers/WebSocketProvider";
+
 export const metadata: Metadata = {
   title: "Auralis | Orbital Debris & Collision Risk Mission Control",
   description: "Mission control for orbital debris — track every object in orbit, see what's about to collide, and watch autonomous agents negotiate who moves.",
@@ -20,7 +22,9 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <LanguageProvider>
-              {children}
+              <WebSocketProvider>
+                {children}
+              </WebSocketProvider>
             </LanguageProvider>
           </AuthProvider>
         </ThemeProvider>

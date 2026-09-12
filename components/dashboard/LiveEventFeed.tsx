@@ -13,8 +13,8 @@ import {
   Cpu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mockWs } from "@/lib/mockWs";
 import { getAuditLog, getAdvisories } from "@/lib/api";
+import { useWebSocketMessage } from "@/components/providers/WebSocketProvider";
 import type { WsMessage } from "@/types/contract";
 import Link from "next/link";
 
@@ -93,53 +93,51 @@ export function LiveEventFeed() {
         }
       })
       .catch((err) => console.error("Could not load initial audit events:", err));
+  }, []);
 
-    // WebSocket real-time subscription
-    const unsub = mockWs.onMessage((msg: WsMessage) => {
-      if (!isLive) return;
+  // WebSocket real-time subscription via unified provider
+  useWebSocketMessage((msg: WsMessage) => {
+    if (!isLive) return;
 
-      const now = new Date().toLocaleTimeString();
+    const now = new Date().toLocaleTimeString();
 
-      if (msg.event === "conjunction:updated") {
-        const conj = msg.payload as any;
+    if (msg.event === "conjunction:updated") {
+      const conj = msg.payload as any;
+      const newEvt: OrbitalEvent = {
+        id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type: "CONJUNCTION_DETECTED",
+        shell: "LEO Critical",
+        message: `Conjunction ${conj.id.slice(0, 8)}... Pc updated to ${Number(conj.collisionProbability).toExponential(2)} (Miss: ${(conj.missDistance * 1000).toFixed(0)}m).`,
+        time: now,
+        severity: conj.riskLevel,
+      };
+      setEvents((prev) => [newEvt, ...prev.slice(0, 7)]);
+    } else if (msg.event === "agent:status") {
+      const agent = msg.payload as any;
+      if (agent.state === "processing" || agent.state === "alert") {
         const newEvt: OrbitalEvent = {
           id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          type: "CONJUNCTION_DETECTED",
-          shell: "LEO Critical",
-          message: `Conjunction ${conj.id.slice(0, 8)}... Pc updated to ${Number(conj.collisionProbability).toExponential(2)} (Miss: ${(conj.missDistance * 1000).toFixed(0)}m).`,
+          type: "AGENT_UPDATE",
+          shell: `${agent.agentId.toUpperCase()}`,
+          message: `${agent.agentName} transitioned to ${agent.state.toUpperCase()}${agent.currentTask ? `: ${agent.currentTask}` : "."}`,
           time: now,
-          severity: conj.riskLevel,
-        };
-        setEvents((prev) => [newEvt, ...prev.slice(0, 7)]);
-      } else if (msg.event === "agent:status") {
-        const agent = msg.payload as any;
-        if (agent.state === "processing" || agent.state === "alert") {
-          const newEvt: OrbitalEvent = {
-            id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            type: "AGENT_UPDATE",
-            shell: `${agent.agentId.toUpperCase()}`,
-            message: `${agent.agentName} transitioned to ${agent.state.toUpperCase()}${agent.currentTask ? `: ${agent.currentTask}` : "."}`,
-            time: now,
-            severity: agent.state === "alert" ? "critical" : "nominal",
-          };
-          setEvents((prev) => [newEvt, ...prev.slice(0, 7)]);
-        }
-      } else if (msg.event === "advisory:new") {
-        const adv = msg.payload as any;
-        const newEvt: OrbitalEvent = {
-          id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          type: "ADVISORY_ISSUED",
-          shell: "Advisory Mesh",
-          message: `${adv.title}: ${adv.body.slice(0, 95)}...`,
-          time: now,
-          severity: adv.severity,
+          severity: agent.state === "alert" ? "critical" : "nominal",
         };
         setEvents((prev) => [newEvt, ...prev.slice(0, 7)]);
       }
-    });
-
-    return () => unsub();
-  }, [isLive]);
+    } else if (msg.event === "advisory:new") {
+      const adv = msg.payload as any;
+      const newEvt: OrbitalEvent = {
+        id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type: "ADVISORY_ISSUED",
+        shell: "Advisory Mesh",
+        message: `${adv.title}: ${adv.body.slice(0, 95)}...`,
+        time: now,
+        severity: adv.severity,
+      };
+      setEvents((prev) => [newEvt, ...prev.slice(0, 7)]);
+    }
+  });
 
   const getEventIcon = (type: string, severity?: string) => {
     switch (type) {

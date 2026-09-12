@@ -11,8 +11,8 @@ import {
   Cpu
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { mockWs } from "@/lib/mockWs";
 import { getAgentStatuses } from "@/lib/api";
+import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import type { AgentStatus, AgentType, AgentState } from "@/types/contract";
 
 const AGENT_DISPLAY_META: Record<AgentType, { name: string; role: string }> = {
@@ -36,17 +36,15 @@ export function AgentStatusBar() {
         setLastEventTime(new Date().toLocaleTimeString());
       })
       .catch((err) => console.error("Failed fetching agent telemetry:", err));
-
-    // Live WebSocket subscription
-    const unsub = mockWs.on("agent:status", (updatedAgent) => {
-      setAgents((prev) =>
-        prev.map((a) => (a.agentType === updatedAgent.agentType ? updatedAgent : a))
-      );
-      setLastEventTime(new Date().toLocaleTimeString());
-    });
-
-    return () => unsub();
   }, []);
+
+  // Live WebSocket subscription via unified provider
+  useWebSocket("agent:status", (updatedAgent) => {
+    setAgents((prev) =>
+      prev.map((a) => (a.agentType === updatedAgent.agentType ? updatedAgent : a))
+    );
+    setLastEventTime(new Date().toLocaleTimeString());
+  });
 
   const getStateBadge = (state: AgentState) => {
     switch (state) {

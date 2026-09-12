@@ -7,7 +7,7 @@ import { AlertTriangle, ArrowRight, Orbit, Flame, ShieldAlert, Radio } from "luc
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getConjunctions, getShells, getObjects } from "@/lib/api";
-import { mockWs } from "@/lib/mockWs";
+import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import type { ConjunctionEvent, ShellRiskSnapshot, TrackedObject } from "@/types/contract";
 
 export function EarlyWarningSection() {
@@ -24,7 +24,7 @@ export function EarlyWarningSection() {
         const [conjRes, shellRes, objRes] = await Promise.all([
           getConjunctions({ riskLevel: "critical", limit: 5 }),
           getShells(),
-          getObjects({ limit: 100 }),
+          getObjects({ limit: 150 }),
         ]);
 
         if (!mounted) return;
@@ -49,28 +49,24 @@ export function EarlyWarningSection() {
 
     loadAlerts();
 
-    // Listen to real-time events from WebSocket
-    const unsubConj = mockWs.on("conjunction:created", (newConj) => {
-      if (newConj.riskLevel === "critical") {
-        setCriticalConjunctions((prev) => [newConj, ...prev.slice(0, 4)]);
-      }
-    });
-
-    const unsubCrisis = mockWs.on("crisis:injected", (crisis) => {
-      // Re-fetch shells when crisis is injected
-      getShells().then((res) => {
-        if (mounted) {
-          setCriticalShells(res.data.filter((s) => s.r0 >= 1.0 || s.trend === "increasing"));
-        }
-      });
-    });
-
     return () => {
       mounted = false;
-      unsubConj();
-      unsubCrisis();
     };
   }, []);
+
+  // Listen to real-time events from WebSocket via unified provider
+  useWebSocket("conjunction:created", (newConj) => {
+    if (newConj.riskLevel === "critical") {
+      setCriticalConjunctions((prev) => [newConj, ...prev.slice(0, 4)]);
+    }
+  });
+
+  useWebSocket("crisis:injected", () => {
+    // Re-fetch shells when crisis is injected
+    getShells().then((res) => {
+      setCriticalShells(res.data.filter((s) => s.r0 >= 1.0 || s.trend === "increasing"));
+    });
+  });
 
   return (
     <Card className="border-red-500/30 bg-red-950/10 backdrop-blur-sm">
