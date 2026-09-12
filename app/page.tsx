@@ -47,7 +47,10 @@ import {
   Boxes,
   Rocket,
   Zap,
-  Activity
+  Activity,
+  Radio,
+  Cpu,
+  Layers
 } from "lucide-react";
 import { getDashboardSummary, getShells, getConjunctions, getManeuvers, getObjects } from "@/lib/api";
 import type { DashboardSummary, ShellRiskSnapshot, ConjunctionEvent, ManeuverProposal, TrackedObject } from "@/types/contract";
@@ -687,6 +690,29 @@ export default function Home() {
             mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
             -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
           }
+
+          @keyframes beam-slide {
+            0% { transform: translateX(-100%); opacity: 0; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { transform: translateX(350%); opacity: 0; }
+          }
+          @keyframes photon-glider {
+            0% { left: 0%; opacity: 0; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { left: 100%; opacity: 0; }
+          }
+          @keyframes orbit-cw {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          @keyframes scan-line {
+            0% { top: -20%; opacity: 0; }
+            20% { opacity: 0.6; }
+            80% { opacity: 0.6; }
+            100% { top: 120%; opacity: 0; }
+          }
         `}</style>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border-b border-zinc-200 dark:border-zinc-800 border-dashed">
           {/* Orbital Shell Segmentation */}
@@ -698,39 +724,120 @@ export default function Home() {
             
             {/* Diagram Box */}
             <div className="w-full mt-auto bg-zinc-50 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden h-60 flex items-center p-4 relative gap-0">
-              {/* Left Side: Infinite Vertical Marquee */}
-              <div className="w-28 h-full relative overflow-hidden mask-image-vertical flex-shrink-0 flex items-center justify-center">
-                <div className="flex flex-col gap-3 animate-marquee-v py-4 w-full items-center">
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">LEO-550</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">SSO-780</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-sm whitespace-nowrap text-center">LEO-1200</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">ISS-420</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">MEO-20200</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">GEO-35786</div>
+              {/* Left Side: Infinite Vertical Marquee with live status dots */}
+              <div className="w-32 h-full relative overflow-hidden mask-image-vertical flex-shrink-0 flex items-center justify-center">
+                <div className="flex flex-col gap-2.5 animate-marquee-v py-4 w-full items-center">
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>LEO-550</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-amber-500/30 rounded-full text-xs font-medium text-zinc-800 dark:text-zinc-200 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                    <span>SSO-780</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-rose-500/30 rounded-full text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                    <span>LEO-1200</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                    <span>ISS-420</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                    <span>MEO-20200</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                    <span>GEO-35786</span>
+                  </div>
                   
                   {/* Duplicate set for seamless infinite loop */}
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">LEO-550</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">SSO-780</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-sm whitespace-nowrap text-center">LEO-1200</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">ISS-420</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">MEO-20200</div>
-                  <div className="px-4 py-1.5 bg-white dark:bg-zinc-950 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center">GEO-35786</div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>LEO-550</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-amber-500/30 rounded-full text-xs font-medium text-zinc-800 dark:text-zinc-200 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                    <span>SSO-780</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-rose-500/30 rounded-full text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                    <span>LEO-1200</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                    <span>ISS-420</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                    <span>MEO-20200</span>
+                  </div>
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-medium text-zinc-700 dark:text-zinc-300 shadow-sm whitespace-nowrap text-center flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                    <span>GEO-35786</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Middle: Solid Connecting Line */}
-              <div className="flex-1 h-[1px] bg-gray-200/80 mx-1"></div>
+              {/* Middle: Active Telemetry Conduit with Laser Beam & Gliding Photon */}
+              <div className="flex-1 h-8 relative flex items-center mx-2">
+                {/* Conduit base track */}
+                <div className="w-full h-[2px] bg-zinc-200 dark:bg-zinc-800 relative overflow-hidden rounded-full">
+                  {/* Sliding laser pulse */}
+                  <div 
+                    className="absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-cyan-400 to-transparent blur-[1px]"
+                    style={{ animation: 'beam-slide 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite' }}
+                  />
+                </div>
+                {/* Gliding photon orb */}
+                <div 
+                  className="absolute w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee,0_0_4px_#38bdf8] top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ animation: 'photon-glider 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite' }}
+                />
+                {/* Conduit connection node points */}
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_6px_#06b6d4]"></div>
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]"></div>
+              </div>
 
-              {/* Right Side: Small Card */}
-              <div className="w-44 h-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-3.5 shadow-sm flex flex-col justify-center flex-shrink-0">
-                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">Shell Risk Profile</div>
-                <div className="text-[10px] text-zinc-400 mb-1.5 leading-tight">Foster-1992 2D Pc calculation.</div>
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-relaxed">Automated covariance error ellipsoid integration.</div>
+              {/* Right Side: Shell Risk Profile Card with Live Scanner & Telemetry Meter */}
+              <div className="w-48 h-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-3 shadow-sm flex flex-col justify-between flex-shrink-0 relative overflow-hidden">
+                {/* Subtle vertical scanline sweep */}
+                <div 
+                  className="absolute left-0 right-0 h-6 bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent pointer-events-none"
+                  style={{ animation: 'scan-line 3s linear infinite' }}
+                />
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3 text-cyan-500" />
+                      Shell Risk Profile
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      LIVE
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mb-1 leading-tight">Foster-1992 2D Pc calculation.</div>
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight">Automated covariance error ellipsoid integration.</div>
+                </div>
+
+                {/* Real-time telemetry Pc meter */}
+                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/70">
+                  <div className="flex items-center justify-between text-[10px] font-mono mb-1">
+                    <span className="text-zinc-400">Peak Pc:</span>
+                    <span className="text-amber-500 font-semibold animate-pulse">4.82 × 10⁻⁵</span>
+                  </div>
+                  <div className="w-full bg-zinc-100 dark:bg-zinc-800/70 rounded-full h-1 overflow-hidden">
+                    <div className="bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 h-full rounded-full animate-pulse" style={{ width: '64%' }}></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Icon Library Support */}
+          {/* Tracking Telemetry Feeds */}
           <div className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed lg:border-b-0 lg:border-r flex flex-col min-h-[460px]">
             <h3 className="text-2xl font-bold mb-3">Tracking Telemetry Feeds</h3>
             <p className="text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed text-sm">
@@ -738,29 +845,82 @@ export default function Home() {
             </p>
 
             <div className="w-full mt-auto bg-zinc-50/60 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden relative h-60 flex items-center justify-center">
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 400 240" preserveAspectRatio="none">
-                <path d="M 200 65 C 200 120, 110 120, 110 175" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="4 4" className="animate-dash-move" />
-                <path d="M 200 65 C 200 120, 290 120, 290 175" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="4 4" className="animate-dash-move" />
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 400 240">
+                <defs>
+                  <linearGradient id="feed-grad-cyan" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.9" />
+                    <stop offset="100%" stopColor="#0284c7" stopOpacity="0.4" />
+                  </linearGradient>
+                  <linearGradient id="feed-grad-teal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.9" />
+                    <stop offset="100%" stopColor="#0d9488" stopOpacity="0.4" />
+                  </linearGradient>
+                  <filter id="glow-feed-pkt" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+
+                {/* Background dashed tracks */}
+                <path id="curve-feed-left" d="M 200 65 C 200 120, 110 120, 110 175" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+                <path id="curve-feed-right" d="M 200 65 C 200 120, 290 120, 290 175" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+
+                {/* Animated flowing data streams */}
+                <path d="M 200 65 C 200 120, 110 120, 110 175" fill="none" stroke="url(#feed-grad-cyan)" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move" />
+                <path d="M 200 65 C 200 120, 290 120, 290 175" fill="none" stroke="url(#feed-grad-teal)" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move" />
+
+                {/* Flying Data Packet: Space-Track -> CelesTrak */}
+                <circle r="3.5" fill="#38bdf8" filter="url(#glow-feed-pkt)">
+                  <animateMotion dur="2.4s" repeatCount="indefinite">
+                    <mpath href="#curve-feed-left" />
+                  </animateMotion>
+                </circle>
+                <circle r="1.5" fill="#ffffff">
+                  <animateMotion dur="2.4s" repeatCount="indefinite">
+                    <mpath href="#curve-feed-left" />
+                  </animateMotion>
+                </circle>
+
+                {/* Flying Data Packet: ESA DISCOS -> CelesTrak (1.2s offset) */}
+                <circle r="3.5" fill="#2dd4bf" filter="url(#glow-feed-pkt)">
+                  <animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite">
+                    <mpath href="#curve-feed-right" />
+                  </animateMotion>
+                </circle>
+                <circle r="1.5" fill="#ffffff">
+                  <animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite">
+                    <mpath href="#curve-feed-right" />
+                  </animateMotion>
+                </circle>
               </svg>
 
-              {/* Top Node */}
+              {/* Top Node with Radar Ping Ring */}
               <div className="absolute left-1/2 top-10 -translate-x-1/2 z-10">
-                <div className="px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slow whitespace-nowrap">
-                  CelesTrak SGP4
+                <div className="relative">
+                  <div className="absolute -inset-1.5 rounded-full border border-sky-400/40 animate-ping opacity-60 pointer-events-none" />
+                  <div className="px-4 py-2 bg-white dark:bg-zinc-950 border border-sky-500/30 rounded-full text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-[0_0_12px_rgba(56,189,248,0.15)] animate-float-slow whitespace-nowrap flex items-center gap-2">
+                    <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
+                    <span>CelesTrak SGP4</span>
+                  </div>
                 </div>
               </div>
 
               {/* Bottom Left Node */}
               <div className="absolute left-[27.5%] bottom-10 -translate-x-1/2 z-10">
-                <div className="px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slower whitespace-nowrap">
-                  Space-Track Ephemeris
+                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/40 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slower whitespace-nowrap flex items-center gap-1.5 transition-colors">
+                  <Satellite className="w-3.5 h-3.5 text-cyan-500" />
+                  <span>Space-Track Ephemeris</span>
                 </div>
               </div>
 
               {/* Bottom Right Node */}
               <div className="absolute left-[72.5%] bottom-10 -translate-x-1/2 z-10">
-                <div className="px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slow whitespace-nowrap">
-                  ESA DISCOS
+                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/40 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slow whitespace-nowrap flex items-center gap-1.5 transition-colors">
+                  <Database className="w-3.5 h-3.5 text-teal-500" />
+                  <span>ESA DISCOS</span>
                 </div>
               </div>
             </div>
@@ -774,45 +934,117 @@ export default function Home() {
             </p>
 
             <div className="w-full mt-auto bg-zinc-50/60 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden relative h-60 flex items-center justify-center">
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 400 240" preserveAspectRatio="none">
-                <line x1="110" y1="55" x2="200" y2="120" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="4 4" className="animate-dash-move" />
-                <line x1="290" y1="55" x2="200" y2="120" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="4 4" className="animate-dash-move" />
-                <line x1="110" y1="185" x2="200" y2="120" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 4" className="animate-dash-move" />
-                <line x1="290" y1="185" x2="200" y2="120" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="4 4" className="animate-dash-move" />
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 400 240">
+                <defs>
+                  <filter id="glow-rose-pkt" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter id="glow-cyan-pkt" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+
+                {/* Base guide paths for motion and styling */}
+                <path id="line-cov" d="M 110 55 L 200 120" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+                <path id="line-vec" d="M 290 55 L 200 120" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+                <path id="line-foster" d="M 110 185 L 200 120" stroke="rgba(244, 63, 94, 0.25)" strokeWidth="2" strokeDasharray="4 4" />
+                <path id="line-cdm" d="M 290 185 L 200 120" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+
+                {/* Animated glowing dashed telemetry lines */}
+                <line x1="110" y1="55" x2="200" y2="120" stroke="#38bdf8" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move opacity-80" />
+                <line x1="290" y1="55" x2="200" y2="120" stroke="#818cf8" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move opacity-80" />
+                <line x1="110" y1="185" x2="200" y2="120" stroke="#f43f5e" strokeWidth="2.5" strokeDasharray="5 5" className="animate-dash-move filter drop-shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
+                <line x1="290" y1="185" x2="200" y2="120" stroke="#10b981" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move opacity-80" />
+
+                {/* Flying Data Packet: Covariance Matrix -> Core */}
+                <circle r="3.5" fill="#38bdf8" filter="url(#glow-cyan-pkt)">
+                  <animateMotion dur="2.2s" repeatCount="indefinite">
+                    <mpath href="#line-cov" />
+                  </animateMotion>
+                </circle>
+
+                {/* Flying Data Packet: State Vectors -> Core */}
+                <circle r="3.5" fill="#818cf8" filter="url(#glow-cyan-pkt)">
+                  <animateMotion dur="2.5s" begin="0.7s" repeatCount="indefinite">
+                    <mpath href="#line-vec" />
+                  </animateMotion>
+                </circle>
+
+                {/* Critical Conjunction Alert Packet: Foster Pc -> Core (Glowing Rose/Red with White Core) */}
+                <circle r="4.5" fill="#f43f5e" filter="url(#glow-rose-pkt)">
+                  <animateMotion dur="1.7s" repeatCount="indefinite">
+                    <mpath href="#line-foster" />
+                  </animateMotion>
+                </circle>
+                <circle r="2" fill="#ffffff">
+                  <animateMotion dur="1.7s" repeatCount="indefinite">
+                    <mpath href="#line-foster" />
+                  </animateMotion>
+                </circle>
+
+                {/* Flying Data Packet: CCSDS CDM -> Core */}
+                <circle r="3.5" fill="#10b981" filter="url(#glow-cyan-pkt)">
+                  <animateMotion dur="2.2s" begin="1.1s" repeatCount="indefinite">
+                    <mpath href="#line-cdm" />
+                  </animateMotion>
+                </circle>
               </svg>
 
-              {/* Top Left */}
+              {/* Top Left: Covariance Matrix */}
               <div className="absolute left-[27.5%] top-8 -translate-x-1/2 z-10">
-                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs text-zinc-700 dark:text-zinc-300 font-medium shadow-sm animate-float-slow whitespace-nowrap">
-                  Style
+                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-cyan-500/30 rounded-full text-xs text-zinc-800 dark:text-zinc-200 font-medium shadow-sm animate-float-slow whitespace-nowrap flex items-center gap-1.5">
+                  <Boxes className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Covariance Σ</span>
                 </div>
               </div>
 
-              {/* Top Right */}
+              {/* Top Right: State Vectors */}
               <div className="absolute left-[72.5%] top-8 -translate-x-1/2 z-10">
-                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs text-zinc-700 dark:text-zinc-300 font-medium shadow-sm animate-float-slower whitespace-nowrap">
-                  Font
+                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-indigo-500/30 rounded-full text-xs text-zinc-800 dark:text-zinc-200 font-medium shadow-sm animate-float-slower whitespace-nowrap flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>State Vectors [r, v]</span>
                 </div>
               </div>
 
-              {/* Center Badge */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                <div className="px-4 py-2 bg-slate-100 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-mono text-slate-800 shadow-sm animate-float-slow whitespace-nowrap">
-                  --sgp4-v2
+              {/* Center Core: SGP4 Engine v2.4 with Orbiting Satellite Ring */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+                <div className="relative flex items-center justify-center">
+                  {/* Orbiting Satellite Particle Ring */}
+                  <div 
+                    className="absolute -inset-3 rounded-full border border-dashed border-sky-400/30 pointer-events-none"
+                    style={{ animation: 'orbit-cw 6s linear infinite' }}
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#38bdf8] -top-1 left-1/2 -translate-x-1/2 absolute"></div>
+                  </div>
+
+                  <div className="px-3.5 py-2 bg-zinc-900 text-zinc-100 dark:bg-zinc-950 border border-sky-500/50 rounded-full text-xs font-mono font-semibold shadow-[0_0_15px_rgba(56,189,248,0.25)] animate-float-slow whitespace-nowrap flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+                    <span>SGP4 Engine v2.4</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Bottom Left */}
+              {/* Bottom Left: Foster-1992 Pc (Critical Alert) */}
               <div className="absolute left-[27.5%] bottom-8 -translate-x-1/2 z-10">
-                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs text-zinc-700 dark:text-zinc-300 font-medium shadow-sm animate-float-slower whitespace-nowrap">
-                  Icon
+                <div className="px-3 py-1.5 bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/50 rounded-full text-xs text-rose-600 dark:text-rose-400 font-semibold shadow-[0_0_10px_rgba(244,63,94,0.15)] animate-float-slower whitespace-nowrap flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                  <span>Foster-1992 Pc</span>
                 </div>
               </div>
 
-              {/* Bottom Right */}
+              {/* Bottom Right: CCSDS CDM Format */}
               <div className="absolute left-[72.5%] bottom-8 -translate-x-1/2 z-10">
-                <div className="px-3.5 py-1.5 bg-black text-white border border-black rounded-full text-xs font-medium shadow-sm animate-float-slow whitespace-nowrap">
-                  Theme
+                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-emerald-500/30 rounded-full text-xs text-zinc-800 dark:text-zinc-200 font-medium shadow-sm animate-float-slow whitespace-nowrap flex items-center gap-1.5">
+                  <FileCode className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>CCSDS CDM</span>
                 </div>
               </div>
             </div>
@@ -875,21 +1107,20 @@ export default function Home() {
               <h3 className="text-xl font-bold mb-3">Real-time Covariance Screening</h3>
               <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Screen conjunction pairs instantly as SGP4 propagates new ephemeris states.</p>
               <div className="flex gap-2 flex-wrap">
-                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap">Marvel</div>
-                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs flex items-center gap-1 shadow-sm whitespace-nowrap"><span className="w-3 h-3 grid grid-cols-2 gap-0.5"><span className="bg-red-400 rounded-sm"></span><span className="bg-blue-400 rounded-sm"></span><span className="bg-yellow-400 rounded-sm"></span><span className="bg-green-400 rounded-sm"></span></span> Clean Slate</div>
-                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs flex items-center gap-1 whitespace-nowrap"><span className="w-3 h-3 grid grid-cols-2 gap-0.5"><span className="bg-black rounded-sm"></span><span className="bg-black rounded-sm"></span><span className="bg-black rounded-sm"></span><span className="bg-red-500 rounded-sm"></span></span> Default</div>
+                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 shadow-sm whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-sky-400"></span>Foster-1992</div>
+                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs flex items-center gap-1.5 shadow-sm whitespace-nowrap text-zinc-600 dark:text-zinc-300"><span className="w-2 h-2 rounded-full bg-teal-400"></span>Akella-Alfriend</div>
+                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs flex items-center gap-1.5 shadow-sm whitespace-nowrap text-zinc-600 dark:text-zinc-300"><span className="w-2 h-2 rounded-full bg-purple-400"></span>Monte Carlo 50k</div>
               </div>
             </div>
             <div className="p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed md:border-b-0 md:border-r flex flex-col justify-center">
               <h3 className="text-xl font-bold mb-3">Collision Probability (Pc) Grading</h3>
               <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Automatic risk categorization: Critical (Pc &gt; 10⁻⁴), Elevated (Pc &gt; 10⁻⁵), and Nominal.</p>
               <div className="inline-flex items-center gap-3 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 shadow-sm text-sm self-start">
-                Primary Color
-                <div className="flex gap-1">
-                  <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                  <span className="w-3 h-3 rounded-full bg-orange-500"></span>
-                  <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-                  <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Risk Tiers</span>
+                <div className="flex gap-2 items-center text-xs">
+                  <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e]"></span> <span className="text-[11px] text-zinc-500">Critical</span></span>
+                  <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> <span className="text-[11px] text-zinc-500">Elevated</span></span>
+                  <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> <span className="text-[11px] text-zinc-500">Nominal</span></span>
                 </div>
               </div>
             </div>
@@ -897,15 +1128,15 @@ export default function Home() {
               <h3 className="text-xl font-bold mb-3">Astrodynamics State Vector Tuning</h3>
               <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Refine radial, along-track, and cross-track covariance uncertainties with ground radar.</p>
               <div className="flex gap-3 items-center">
-                <div className="w-12 h-12 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 shadow-sm font-serif text-xl font-bold text-zinc-800 dark:text-zinc-200">
-                  Ag
+                <div className="w-12 h-12 flex items-center justify-center border border-sky-500/30 dark:border-sky-500/30 rounded-lg bg-sky-50/50 dark:bg-sky-950/30 shadow-sm text-sky-500">
+                  <Orbit className="w-6 h-6 animate-spin" style={{ animationDuration: '12s' }} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <div className="inline-flex items-center px-2.5 py-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-950 shadow-sm text-[11px] text-zinc-600 dark:text-zinc-300 font-medium">
-                    Inter <span className="text-gray-300 mx-1.5">|</span> 16px
+                  <div className="inline-flex items-center px-2.5 py-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-950 shadow-sm text-[11px] text-zinc-700 dark:text-zinc-300 font-mono">
+                    RIC Frame <span className="text-zinc-300 dark:text-zinc-700 mx-1.5">|</span> Radial +0.02km
                   </div>
-                  <div className="inline-flex items-center gap-1 px-2.5 py-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-zinc-50 dark:bg-zinc-900 shadow-sm text-[11px] font-semibold text-zinc-800 dark:text-zinc-200">
-                    Medium
+                  <div className="inline-flex items-center gap-1 px-2.5 py-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-zinc-50 dark:bg-zinc-900 shadow-sm text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                    Along-Track Δv: 1.4 m/s
                   </div>
                 </div>
               </div>
