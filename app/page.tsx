@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useTheme } from "@/lib/ThemeContext";
 import {
   Menu,
@@ -50,11 +51,26 @@ import {
   Activity,
   Radio,
   Cpu,
-  Layers
+  Layers,
+  Globe as GlobeIcon,
+  Loader2
 } from "lucide-react";
 import { getDashboardSummary, getShells, getConjunctions, getManeuvers, getObjects } from "@/lib/api";
 import type { DashboardSummary, ShellRiskSnapshot, ConjunctionEvent, ManeuverProposal, TrackedObject } from "@/types/contract";
 import { formatDistance, formatOperator } from "@/lib/formatters";
+
+// Dynamically load GlobeView to avoid SSR issues with Three.js / WebGL on landing page
+const GlobeView = dynamic(() => import("@/components/globe/GlobeView"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full min-h-[440px] bg-black flex flex-col items-center justify-center gap-3 text-muted-foreground font-mono">
+      <Loader2 className="h-7 w-7 animate-spin text-primary" />
+      <span className="text-xs uppercase tracking-widest text-zinc-400">
+        Initializing 3D Orbital WebGL Engine...
+      </span>
+    </div>
+  ),
+});
 
 const GithubIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -124,6 +140,7 @@ export default function Home() {
   const [maneuvers, setManeuvers] = React.useState<ManeuverProposal[]>([]);
   const [objectsMap, setObjectsMap] = React.useState<Record<string, TrackedObject>>({});
   const [hoveredShellIdx, setHoveredShellIdx] = React.useState<number | null>(null);
+  const [mockupTab, setMockupTab] = React.useState<"globe" | "overview">("globe");
 
   React.useEffect(() => {
     async function loadLandingData() {
@@ -1718,60 +1735,94 @@ export default function Home() {
 
           {/* Right Mockup */}
           <div className="w-full lg:w-2/3">
-            <div className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-xl overflow-hidden flex" style={{height: '500px'}}>
+            <div className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl overflow-hidden flex flex-col md:flex-row" style={{height: '520px'}}>
               {/* App UI Left */}
-              <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-900/50">
+              <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-900/50 min-w-0">
                 <div className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 gap-4 bg-white dark:bg-zinc-950">
                   <div className="flex items-center gap-1.5 font-bold text-xs"><Orbit className="w-3.5 h-3.5 text-primary"/> Auralis Flight Ops</div>
-                  <div className="flex gap-4 ml-auto text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                    <span>Overview</span>
-                    <span>Conjunctions</span>
-                    <span className="text-black dark:text-white font-semibold">Maneuvers</span>
-                    <span>Object Graph</span>
+                  <div className="flex gap-2 sm:gap-3 ml-auto text-[10px] font-medium text-zinc-500 dark:text-zinc-400 items-center">
+                    <button 
+                      type="button"
+                      onClick={() => setMockupTab("globe")}
+                      className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 ${mockupTab === "globe" ? "text-primary font-bold bg-primary/10 border border-primary/20" : "hover:text-foreground"}`}
+                    >
+                      <GlobeIcon className="w-3.5 h-3.5 text-primary" />
+                      <span>3D Orbit Globe</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setMockupTab("overview")}
+                      className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 ${mockupTab === "overview" ? "text-primary font-bold bg-primary/10 border border-primary/20" : "hover:text-foreground"}`}
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                      <span>Overview</span>
+                    </button>
+                    <Link href="/cases" className="hover:text-foreground hidden sm:inline px-1">Conjunctions</Link>
+                    <Link href="/dashboard" className="text-black dark:text-white font-semibold hidden sm:inline px-1">Command Center ↗</Link>
                   </div>
                 </div>
-                <div className="p-6 flex-1 overflow-hidden relative">
-                  <div className="w-full h-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md mb-6 flex items-center px-3 text-xs text-zinc-400 dark:text-zinc-500">
-                    <Search className="w-3 h-3 mr-2"/> Filter active orbits, satellites, or shells...
-                  </div>
-                  {/* Miniature dashboard mockup */}
-                  <div className="grid grid-cols-4 gap-2 mb-4">
-                    <div className="h-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-2 flex flex-col justify-between">
-                      <span className="text-[9px] text-zinc-400 font-mono">ACTIVE CJ</span>
-                      <span className="text-sm font-bold font-mono">37</span>
-                    </div>
-                    <div className="h-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-2 flex flex-col justify-between">
-                      <span className="text-[9px] text-zinc-400 font-mono">TRACKED</span>
-                      <span className="text-sm font-bold font-mono">8,412</span>
-                    </div>
-                    <div className="h-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-2 flex flex-col justify-between">
-                      <span className="text-[9px] text-rose-500 font-mono">CRITICAL</span>
-                      <span className="text-sm font-bold font-mono text-rose-500">5</span>
-                    </div>
-                    <div className="h-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-2 flex flex-col justify-between">
-                      <span className="text-[9px] text-emerald-500 font-mono">RESOLVED</span>
-                      <span className="text-sm font-bold font-mono text-emerald-500">91.3%</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2 h-40 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md relative overflow-hidden p-3">
-                      <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400 mb-2">
-                        <span>LEO Shell Conjunction Flux</span>
-                        <span className="text-emerald-500">SGP4 Nominal</span>
+                
+                {mockupTab === "globe" ? (
+                  <div className="flex-1 w-full h-full relative overflow-hidden bg-black flex flex-col">
+                    <GlobeView height="100%" className="rounded-none border-0" />
+                    
+                    {/* Floating HUD Badges on the 3D globe */}
+                    <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 pointer-events-none">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md border border-cyan-500/30 text-[10px] font-mono text-cyan-400 shadow-lg">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                        <span>SGP4 KEPLER PROPAGATION</span>
                       </div>
-                      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-primary/15 to-transparent"></div>
-                    </div>
-                    <div className="col-span-1 h-40 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-3 flex flex-col justify-between">
-                      <span className="text-[10px] font-mono text-zinc-400">Cascade Index</span>
-                      <span className="text-amber-500 font-bold font-mono text-xs">ELEVATED</span>
-                      <span className="text-[9px] text-zinc-500">R0 &lt; 1.0 (Sub-critical)</span>
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-zinc-800 text-[9px] font-mono text-zinc-400">
+                        <span>639 TRACKED BODIES</span>
+                        <span>•</span>
+                        <span className="text-rose-400">37 CLOSE PASSES</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="p-6 flex-1 overflow-hidden relative">
+                    <div className="w-full h-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md mb-6 flex items-center px-3 text-xs text-zinc-400 dark:text-zinc-500">
+                      <Search className="w-3 h-3 mr-2"/> Filter active orbits, satellites, or shells...
+                    </div>
+                    {/* Miniature dashboard mockup */}
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                      <div className="h-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-2 flex flex-col justify-between">
+                        <span className="text-[9px] text-zinc-400 font-mono">ACTIVE CJ</span>
+                        <span className="text-sm font-bold font-mono">37</span>
+                      </div>
+                      <div className="h-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-2 flex flex-col justify-between">
+                        <span className="text-[9px] text-zinc-400 font-mono">TRACKED</span>
+                        <span className="text-sm font-bold font-mono">8,412</span>
+                      </div>
+                      <div className="h-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-2 flex flex-col justify-between">
+                        <span className="text-[9px] text-rose-500 font-mono">CRITICAL</span>
+                        <span className="text-sm font-bold font-mono text-rose-500">5</span>
+                      </div>
+                      <div className="h-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-2 flex flex-col justify-between">
+                        <span className="text-[9px] text-emerald-500 font-mono">RESOLVED</span>
+                        <span className="text-sm font-bold font-mono text-emerald-500">91.3%</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2 h-40 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md relative overflow-hidden p-3">
+                        <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400 mb-2">
+                          <span>LEO Shell Conjunction Flux</span>
+                          <span className="text-emerald-500">SGP4 Nominal</span>
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-primary/15 to-transparent"></div>
+                      </div>
+                      <div className="col-span-1 h-40 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-3 flex flex-col justify-between">
+                        <span className="text-[10px] font-mono text-zinc-400">Cascade Index</span>
+                        <span className="text-amber-500 font-bold font-mono text-xs">ELEVATED</span>
+                        <span className="text-[9px] text-zinc-500">R0 &lt; 1.0 (Sub-critical)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Maneuver Planner Sidebar Right */}
-              <div className="w-64 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col">
+              <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col shrink-0">
                 <div className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4">
                   <span className="font-semibold text-xs">Maneuver Planner</span>
                   <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">AUTONOMOUS</span>
