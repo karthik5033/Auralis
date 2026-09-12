@@ -540,8 +540,13 @@ export default function GlobeView({
     return () => {
       cancelAnimationFrame(animId);
       resizeObserver.disconnect();
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
+      try {
+        const globe = globeInstanceRef.current as any;
+        if (globe && typeof globe._destructor === "function") {
+          globe._destructor();
+        }
+      } catch (err) {
+        // Handled cleanly
       }
       globeInstanceRef.current = null;
     };

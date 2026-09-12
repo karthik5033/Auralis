@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   Radio, 
   LayoutDashboard, 
@@ -43,6 +43,7 @@ export const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, role } = useAuth();
   
   const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Operator Vance';
@@ -53,11 +54,11 @@ export function AppSidebar() {
 
   return (
     <div className={cn(
-      "flex h-screen flex-col border-r bg-card shadow-sm z-30 transition-all duration-300 relative group",
+      "flex h-screen flex-col border-r bg-card shadow-sm z-30 transition-all duration-300 relative group pointer-events-auto",
       isCollapsed ? "w-[80px]" : "w-64"
     )}>
       {/* Brand Section */}
-      <Link href="/dashboard">
+      <Link href="/dashboard" prefetch={false} className="cursor-pointer">
         <div className={cn("flex h-16 items-center border-b border-border/50 transition-all overflow-hidden whitespace-nowrap", isCollapsed ? "justify-center px-0" : "px-6")}>
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground font-black text-sm shrink-0 mr-3">
             <Orbit className="h-5 w-5" />
@@ -84,27 +85,33 @@ export function AppSidebar() {
           )}
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all"
+            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all cursor-pointer"
             title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
         </div>
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"));
           const name = t(item.key as any) || item.label;
           return (
             <Link
               key={item.key}
               href={item.href}
+              prefetch={false}
               title={isCollapsed ? name : undefined}
               className={cn(
-                "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 overflow-hidden",
+                "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 overflow-hidden cursor-pointer select-none",
                 isActive 
-                  ? "bg-primary/10 text-primary font-semibold" 
+                  ? "bg-primary/15 text-primary font-semibold shadow-xs" 
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 isCollapsed ? "justify-center" : "justify-between"
               )}
+              onClick={(e) => {
+                if (pathname === item.href) {
+                  e.preventDefault();
+                }
+              }}
             >
               <div className="flex items-center">
                 <item.icon className={cn(
