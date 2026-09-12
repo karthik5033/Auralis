@@ -287,93 +287,175 @@ export const mockObjects: TrackedObject[] = [...baseDemoObjects, ...filteredCura
 // Seed Data: Conjunction Events
 // ============================================================================
 
-export const mockConjunctions: ConjunctionEvent[] = [
-  {
-    id: "ce-9f8e7d6c-5b4a-3210-fedc-ba9876543210",
-    primaryObjectId: "a1b2c3d4-5678-9abc-def0-111111111111", // ISS (ZARYA)
-    secondaryObjectId: "b2c3d4e5-6789-abcd-ef01-222222222222", // COSMOS 2251 DEB
-    tca: "2026-09-13T08:42:17Z",
-    missDistance: 0.347,
-    relativeVelocity: 14.2,
-    collisionProbability: 2.3e-3,
-    maxCollisionProbability: 2.3e-3,
-    riskLevel: "critical",
-    status: "active",
-    screeningWindowStart: "2026-09-12T12:00:00Z",
-    screeningWindowEnd: "2026-09-15T12:00:00Z",
-    maneuverProposalId: "mp-11223344-5566-7788-99aa-bbccddeeff00",
-    createdAt: "2026-09-12T12:15:00Z",
-    updatedAt: "2026-09-12T13:05:02Z",
-  },
-  {
-    id: "ce-8e7d6c5b-4a32-10fe-dcba-987654321098",
-    primaryObjectId: "e5f6a7b8-9abc-def0-1234-555555555555", // NOAA 19
-    secondaryObjectId: "d4e5f6a7-89ab-cdef-0123-444444444444", // FENGYUN 1C DEB
-    tca: "2026-09-13T14:18:42Z",
-    missDistance: 1.12,
-    relativeVelocity: 12.8,
-    collisionProbability: 4.8e-4,
-    maxCollisionProbability: 5.1e-4,
-    riskLevel: "elevated",
-    status: "monitoring",
-    screeningWindowStart: "2026-09-12T12:00:00Z",
-    screeningWindowEnd: "2026-09-15T12:00:00Z",
-    maneuverProposalId: null,
-    createdAt: "2026-09-12T12:30:00Z",
-    updatedAt: "2026-09-12T13:00:00Z",
-  },
-  {
-    id: "ce-7d6c5b4a-3210-fedc-ba98-765432109876",
-    primaryObjectId: "c3d4e5f6-789a-bcde-f012-333333333333", // STARLINK-31042
-    secondaryObjectId: "f6a7b8c9-abcd-ef01-2345-666666666666", // CZ-4B R/B
-    tca: "2026-09-14T02:11:05Z",
-    missDistance: 8.4,
-    relativeVelocity: 10.5,
-    collisionProbability: 1.2e-6,
-    maxCollisionProbability: 1.5e-6,
-    riskLevel: "nominal",
-    status: "active",
-    screeningWindowStart: "2026-09-12T12:00:00Z",
-    screeningWindowEnd: "2026-09-15T12:00:00Z",
-    maneuverProposalId: null,
-    createdAt: "2026-09-12T12:45:00Z",
-    updatedAt: "2026-09-12T13:00:00Z",
-  },
-  {
-    id: "ce-6c5b4a32-10fe-dcba-9876-543210987654",
-    primaryObjectId: "a7b8c9d0-bcde-f012-3456-777777777777", // TIANGONG (CSS)
-    secondaryObjectId: "d0e1f2a3-ef01-2345-6789-000000000000", // SL-16 R/B DEB
-    tca: "2026-09-12T18:00:00Z",
-    missDistance: 0.28,
-    relativeVelocity: 13.9,
-    collisionProbability: 3.4e-3,
-    maxCollisionProbability: 3.4e-3,
-    riskLevel: "critical",
-    status: "mitigated",
-    screeningWindowStart: "2026-09-11T12:00:00Z",
-    screeningWindowEnd: "2026-09-14T12:00:00Z",
-    maneuverProposalId: "mp-22334455-6677-8899-aabb-ccddeeff0011",
-    createdAt: "2026-09-11T16:00:00Z",
-    updatedAt: "2026-09-12T11:00:00Z",
-  },
-  {
-    id: "ce-5b4a3210-fedc-ba98-7654-321098765432",
-    primaryObjectId: "b8c9d0e1-cdef-0123-4567-888888888888", // ENVISAT
-    secondaryObjectId: "b2c3d4e5-6789-abcd-ef01-222222222222", // COSMOS 2251 DEB
-    tca: "2026-09-14T19:25:30Z",
-    missDistance: 0.89,
-    relativeVelocity: 15.1,
-    collisionProbability: 8.5e-4,
-    maxCollisionProbability: 9.1e-4,
-    riskLevel: "elevated",
-    status: "active",
-    screeningWindowStart: "2026-09-12T12:00:00Z",
-    screeningWindowEnd: "2026-09-15T12:00:00Z",
-    maneuverProposalId: null,
-    createdAt: "2026-09-12T12:50:00Z",
-    updatedAt: "2026-09-12T13:00:00Z",
-  },
-];
+function buildAllConjunctionEvents(objects: TrackedObject[]): ConjunctionEvent[] {
+  // Start with the 5 canonical demo conjunctions
+  const canonicalEvents: ConjunctionEvent[] = [
+    {
+      id: "ce-9f8e7d6c-5b4a-3210-fedc-ba9876543210",
+      primaryObjectId: "a1b2c3d4-5678-9abc-def0-111111111111", // ISS (ZARYA)
+      secondaryObjectId: "b2c3d4e5-6789-abcd-ef01-222222222222", // COSMOS 2251 DEB
+      tca: "2026-09-13T08:42:17Z",
+      missDistance: 0.347,
+      relativeVelocity: 14.2,
+      collisionProbability: 2.3e-3,
+      maxCollisionProbability: 2.3e-3,
+      riskLevel: "critical",
+      status: "active",
+      screeningWindowStart: "2026-09-12T12:00:00Z",
+      screeningWindowEnd: "2026-09-15T12:00:00Z",
+      maneuverProposalId: "mp-11223344-5566-7788-99aa-bbccddeeff00",
+      createdAt: "2026-09-12T12:15:00Z",
+      updatedAt: "2026-09-12T13:05:02Z",
+    },
+    {
+      id: "ce-8e7d6c5b-4a32-10fe-dcba-987654321098",
+      primaryObjectId: "e5f6a7b8-9abc-def0-1234-555555555555", // NOAA 19
+      secondaryObjectId: "d4e5f6a7-89ab-cdef-0123-444444444444", // FENGYUN 1C DEB
+      tca: "2026-09-13T14:18:42Z",
+      missDistance: 1.12,
+      relativeVelocity: 12.8,
+      collisionProbability: 4.8e-4,
+      maxCollisionProbability: 5.1e-4,
+      riskLevel: "elevated",
+      status: "monitoring",
+      screeningWindowStart: "2026-09-12T12:00:00Z",
+      screeningWindowEnd: "2026-09-15T12:00:00Z",
+      maneuverProposalId: null,
+      createdAt: "2026-09-12T12:30:00Z",
+      updatedAt: "2026-09-12T13:00:00Z",
+    },
+    {
+      id: "ce-7d6c5b4a-3210-fedc-ba98-765432109876",
+      primaryObjectId: "c3d4e5f6-789a-bcde-f012-333333333333", // STARLINK-31042
+      secondaryObjectId: "f6a7b8c9-abcd-ef01-2345-666666666666", // CZ-4B R/B
+      tca: "2026-09-14T02:11:05Z",
+      missDistance: 8.4,
+      relativeVelocity: 10.5,
+      collisionProbability: 1.2e-6,
+      maxCollisionProbability: 1.5e-6,
+      riskLevel: "nominal",
+      status: "active",
+      screeningWindowStart: "2026-09-12T12:00:00Z",
+      screeningWindowEnd: "2026-09-15T12:00:00Z",
+      maneuverProposalId: null,
+      createdAt: "2026-09-12T12:45:00Z",
+      updatedAt: "2026-09-12T13:00:00Z",
+    },
+    {
+      id: "ce-6c5b4a32-10fe-dcba-9876-543210987654",
+      primaryObjectId: "a7b8c9d0-bcde-f012-3456-777777777777", // TIANGONG (CSS)
+      secondaryObjectId: "d0e1f2a3-ef01-2345-6789-000000000000", // SL-16 R/B DEB
+      tca: "2026-09-12T18:00:00Z",
+      missDistance: 0.28,
+      relativeVelocity: 13.9,
+      collisionProbability: 3.4e-3,
+      maxCollisionProbability: 3.4e-3,
+      riskLevel: "critical",
+      status: "mitigated",
+      screeningWindowStart: "2026-09-11T12:00:00Z",
+      screeningWindowEnd: "2026-09-14T12:00:00Z",
+      maneuverProposalId: "mp-22334455-6677-8899-aabb-ccddeeff0011",
+      createdAt: "2026-09-11T16:00:00Z",
+      updatedAt: "2026-09-12T11:00:00Z",
+    },
+    {
+      id: "ce-5b4a3210-fedc-ba98-7654-321098765432",
+      primaryObjectId: "b8c9d0e1-cdef-0123-4567-888888888888", // ENVISAT
+      secondaryObjectId: "b2c3d4e5-6789-abcd-ef01-222222222222", // COSMOS 2251 DEB
+      tca: "2026-09-14T19:25:30Z",
+      missDistance: 0.89,
+      relativeVelocity: 15.1,
+      collisionProbability: 8.5e-4,
+      maxCollisionProbability: 9.1e-4,
+      riskLevel: "elevated",
+      status: "active",
+      screeningWindowStart: "2026-09-12T12:00:00Z",
+      screeningWindowEnd: "2026-09-15T12:00:00Z",
+      maneuverProposalId: null,
+      createdAt: "2026-09-12T12:50:00Z",
+      updatedAt: "2026-09-12T13:00:00Z",
+    },
+  ];
+
+  // Dynamically screen across catalog objects
+  const satellites = objects.filter((o) => o.type === "satellite" && o.status === "active");
+  const threats = objects.filter((o) => (o.type === "debris" || o.type === "rocket_body") && o.status === "active");
+
+  const generatedEvents: ConjunctionEvent[] = [];
+  const baseTime = new Date("2026-09-12T12:00:00Z").getTime();
+
+  let pairCount = 0;
+  for (let i = 0; i < satellites.length && pairCount < 25; i++) {
+    const sat = satellites[i];
+    // Find threat in same or adjacent shell
+    const match = threats.find((t) => {
+      const altDiff = Math.abs(t.altitude - sat.altitude);
+      return altDiff < 25 && t.id !== sat.id;
+    });
+
+    if (match) {
+      // Check if pair already exists in canonical
+      const exists = canonicalEvents.some(
+        (c) => (c.primaryObjectId === sat.id && c.secondaryObjectId === match.id) ||
+               (c.primaryObjectId === match.id && c.secondaryObjectId === sat.id)
+      );
+      if (!exists) {
+        pairCount++;
+        const hourOffset = 4 + (pairCount * 2.5); // T-4h to T-66h
+        const tcaDate = new Date(baseTime + hourOffset * 3600 * 1000).toISOString();
+        
+        // Deterministic seeding based on NORAD catalog numbers
+        const seed = ((sat.noradId * 31 + match.noradId * 17) % 1000) / 1000;
+        let missDistKm: number;
+        let pc: number;
+        let risk: "critical" | "elevated" | "nominal";
+        let status: "active" | "monitoring" | "mitigated";
+
+        if (seed < 0.22) {
+          // Critical close approach
+          missDistKm = 0.08 + seed * 0.38; // 80m - 160m
+          pc = 1.2e-3 + seed * 2.8e-3;
+          risk = "critical";
+          status = "active";
+        } else if (seed < 0.6) {
+          // Elevated threat
+          missDistKm = 0.45 + seed * 1.6; // 450m - 1.4km
+          pc = 1.1e-4 + seed * 6.5e-4;
+          risk = "elevated";
+          status = seed > 0.45 ? "mitigated" : "active";
+        } else {
+          // Nominal monitoring
+          missDistKm = 1.8 + seed * 6.5; // 1.8km - 8.3km
+          pc = 1.5e-6 + seed * 4.2e-5;
+          risk = "nominal";
+          status = "monitoring";
+        }
+
+        generatedEvents.push({
+          id: `ce-dyn-${sat.noradId}-${match.noradId}`,
+          primaryObjectId: sat.id,
+          secondaryObjectId: match.id,
+          tca: tcaDate,
+          missDistance: parseFloat(missDistKm.toFixed(3)),
+          relativeVelocity: parseFloat((11.2 + (seed * 4.2)).toFixed(2)),
+          collisionProbability: parseFloat(pc.toExponential(2)),
+          maxCollisionProbability: parseFloat((pc * 1.08).toExponential(2)),
+          riskLevel: risk,
+          status,
+          screeningWindowStart: new Date(baseTime).toISOString(),
+          screeningWindowEnd: new Date(baseTime + 72 * 3600 * 1000).toISOString(),
+          maneuverProposalId: status === "mitigated" ? `mp-dyn-${sat.noradId}` : null,
+          createdAt: new Date(baseTime - 3600 * 1000).toISOString(),
+          updatedAt: new Date(baseTime).toISOString(),
+        });
+      }
+    }
+  }
+
+  return [...canonicalEvents, ...generatedEvents];
+}
+
+export let mockConjunctions: ConjunctionEvent[] = buildAllConjunctionEvents(mockObjects);
 
 // ============================================================================
 // Seed Data: Shell Risk Snapshots (SIR Model)
