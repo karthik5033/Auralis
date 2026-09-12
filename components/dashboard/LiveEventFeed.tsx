@@ -3,17 +3,16 @@
 import React, { useState, useEffect } from "react";
 import { 
   Activity, 
-  AlertTriangle, 
   Crosshair, 
   CheckCircle2, 
   Flame, 
   ArrowRight, 
-  Radio,
-  FileText,
-  Cpu
+  Radio, 
+  FileText, 
+  Cpu 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getAuditLog, getAdvisories } from "@/lib/api";
+import { getAuditLog } from "@/lib/api";
 import { useWebSocketMessage } from "@/components/providers/WebSocketProvider";
 import { formatScientificPc } from "@/lib/formatters";
 import type { WsMessage } from "@/types/contract";
@@ -32,33 +31,33 @@ const INITIAL_EVENTS: OrbitalEvent[] = [
   {
     id: "evt_1",
     type: "CONJUNCTION_DETECTED",
-    shell: "LEO_400_450",
-    message: "Critical conjunction flagged: ISS (ZARYA) vs COSMOS 2251 DEB (Miss: 347m, Pc: 2.3e-3).",
+    shell: "LEO Critical",
+    message: "Conjunction ce-9f8e7... Pc updated to 2.32 × 10⁻³ (Miss: 347m).",
     time: "Just now",
     severity: "critical",
   },
   {
     id: "evt_2",
-    type: "MANEUVER_NEGOTIATED",
-    shell: "LEO_400_450",
-    message: "Bilateral agreement: Operator A executes 0.4 m/s burn. Post-maneuver Pc: 4.1e-7.",
+    type: "AGENT_UPDATE",
+    shell: "TRACKER",
+    message: "Tracker Agent transitioned to PROCESSING: Screening epoch 16:08:46.",
     time: "2 mins ago",
     severity: "nominal",
   },
   {
     id: "evt_3",
-    type: "ADVISORY_ISSUED",
-    shell: "LEO_750_800",
-    message: "Epidemic cascade R₀ spike: reproduction number 1.24 in SSO corridor.",
-    time: "8 mins ago",
-    severity: "elevated",
+    type: "MANEUVER_NEGOTIATED",
+    shell: "MANEUVER",
+    message: "Maneuver negotiation resolved: Operator A prograde burn scheduled.",
+    time: "5 mins ago",
+    severity: "nominal",
   },
   {
     id: "evt_4",
     type: "TLE_UPDATED",
-    shell: "LEO Mesh",
-    message: "SGP4 propagation cycle complete for 632 cataloged satellites and debris assets.",
-    time: "14 mins ago",
+    shell: "SHELL",
+    message: "SGP4 propagation cycle complete for 632 cataloged satellites.",
+    time: "10 mins ago",
     severity: "nominal",
   },
 ];
@@ -69,7 +68,7 @@ export function LiveEventFeed() {
 
   useEffect(() => {
     // Initial fetch from audit log if available
-    getAuditLog({ limit: 5 })
+    getAuditLog({ limit: 4 })
       .then((res) => {
         if (res.data.length > 0) {
           const auditEvents: OrbitalEvent[] = res.data.map((entry) => ({
@@ -83,13 +82,13 @@ export function LiveEventFeed() {
               : "TLE_UPDATED",
             shell: entry.relatedEntityType ? `${entry.relatedEntityType.toUpperCase()}` : "LEO Mesh",
             message: entry.description,
-            time: new Date(entry.timestamp).toLocaleTimeString(),
+            time: new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             severity: entry.action.includes("critical") ? "critical" : "nominal",
           }));
           setEvents((prev) => {
             const combined = [...auditEvents, ...prev];
             const unique = Array.from(new Map(combined.map((e) => [e.id, e])).values());
-            return unique.slice(0, 8);
+            return unique.slice(0, 4);
           });
         }
       })
@@ -100,7 +99,7 @@ export function LiveEventFeed() {
   useWebSocketMessage((msg: WsMessage) => {
     if (!isLive) return;
 
-    const now = new Date().toLocaleTimeString();
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     if (msg.event === "conjunction:updated") {
       const conj = msg.payload as any;
@@ -112,7 +111,7 @@ export function LiveEventFeed() {
         time: now,
         severity: conj.riskLevel,
       };
-      setEvents((prev) => [newEvt, ...prev.slice(0, 7)]);
+      setEvents((prev) => [newEvt, ...prev.slice(0, 3)]);
     } else if (msg.event === "agent:status") {
       const agent = msg.payload as any;
       if (agent.state === "processing" || agent.state === "alert") {
@@ -124,7 +123,7 @@ export function LiveEventFeed() {
           time: now,
           severity: agent.state === "alert" ? "critical" : "nominal",
         };
-        setEvents((prev) => [newEvt, ...prev.slice(0, 7)]);
+        setEvents((prev) => [newEvt, ...prev.slice(0, 3)]);
       }
     } else if (msg.event === "advisory:new") {
       const adv = msg.payload as any;
@@ -132,69 +131,70 @@ export function LiveEventFeed() {
         id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         type: "ADVISORY_ISSUED",
         shell: "Advisory Mesh",
-        message: `${adv.title}: ${adv.body.slice(0, 95)}...`,
+        message: `${adv.title}: ${adv.body.slice(0, 80)}...`,
         time: now,
         severity: adv.severity,
       };
-      setEvents((prev) => [newEvt, ...prev.slice(0, 7)]);
+      setEvents((prev) => [newEvt, ...prev.slice(0, 3)]);
     }
   });
 
   const getEventIcon = (type: string, severity?: string) => {
     switch (type) {
       case "CONJUNCTION_DETECTED":
-        return <Crosshair className={`w-4 h-4 ${severity === "critical" ? "text-red-500" : "text-amber-500"}`} />;
+        return <Crosshair className={`w-3.5 h-3.5 ${severity === "critical" ? "text-red-500" : "text-amber-500"}`} />;
       case "MANEUVER_NEGOTIATED":
-        return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+        return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />;
       case "ANOMALY_BURN":
-        return <Flame className="w-4 h-4 text-red-500" />;
+        return <Flame className="w-3.5 h-3.5 text-red-500" />;
       case "ADVISORY_ISSUED":
-        return <FileText className="w-4 h-4 text-cyan-400" />;
+        return <FileText className="w-3.5 h-3.5 text-cyan-400" />;
       case "AGENT_UPDATE":
-        return <Cpu className="w-4 h-4 text-blue-400" />;
+        return <Cpu className="w-3.5 h-3.5 text-blue-400" />;
       case "TLE_UPDATED":
       default:
-        return <Activity className="w-4 h-4 text-primary" />;
+        return <Activity className="w-3.5 h-3.5 text-primary" />;
     }
   };
 
   return (
     <div className="flex flex-col h-full justify-between">
       <div>
-        <div className="flex items-center justify-between pb-3 border-b border-border/50">
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-primary animate-pulse" />
-            <h3 className="font-semibold text-sm text-foreground font-mono">Live Telemetry Feed</h3>
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/50">
+          <div className="flex items-center gap-1.5">
+            <Radio className="h-3.5 w-3.5 text-primary animate-pulse" />
+            <h3 className="font-semibold text-xs text-foreground font-mono">Live Telemetry Feed</h3>
           </div>
           <button 
             type="button"
             onClick={() => setIsLive(!isLive)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
-            <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
-            <span className="font-mono text-[10px] font-bold">{isLive ? 'STREAMING' : 'PAUSED'}</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
+            <span className="font-mono font-bold">{isLive ? 'STREAMING' : 'PAUSED'}</span>
           </button>
         </div>
 
-        <div className="space-y-2.5 mt-3">
+        {/* Shortened compact notification list with max height */}
+        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-0.5">
           {events.map((evt) => (
             <div 
               key={evt.id}
-              className={`p-2.5 rounded-lg border transition-all flex items-start gap-3 group ${
+              className={`p-2 rounded-lg border transition-all flex items-start gap-2.5 ${
                 evt.severity === "critical" 
-                  ? "border-red-500/30 bg-red-950/15 hover:bg-red-950/25" 
-                  : "border-border/50 bg-muted/20 hover:bg-muted/40"
+                  ? "border-red-500/40 bg-red-950/20 hover:bg-red-950/30" 
+                  : "border-border/60 bg-muted/20 hover:bg-muted/40"
               }`}
             >
-              <div className="p-1.5 rounded-md bg-card border border-border/50 mt-0.5 group-hover:border-primary/50 transition-colors">
+              <div className="p-1 rounded bg-card border border-border/60 shrink-0 mt-0.5">
                 {getEventIcon(evt.type, evt.severity)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-mono text-[10px] font-bold text-primary">{evt.shell}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground">{evt.time}</span>
+                <div className="flex items-center justify-between gap-1 mb-0.5">
+                  <span className="font-mono text-[9px] font-bold text-primary truncate">{evt.shell}</span>
+                  <span className="text-[9px] font-mono text-muted-foreground shrink-0">{evt.time}</span>
                 </div>
-                <p className="text-xs text-foreground font-medium leading-snug">
+                <p className="text-[11px] text-foreground font-medium leading-snug line-clamp-2">
                   {evt.message}
                 </p>
               </div>
@@ -203,10 +203,10 @@ export function LiveEventFeed() {
         </div>
       </div>
 
-      <div className="pt-4 border-t border-border/50 mt-4">
+      <div className="pt-2 border-t border-border/50 mt-2">
         <Link href="/audit">
-          <Button variant="outline" size="sm" className="w-full text-xs font-mono font-semibold justify-center gap-1">
-            View Immutable Audit Ledger <ArrowRight className="h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" className="w-full h-7 text-[10px] font-mono font-semibold justify-center gap-1">
+            View Audit Ledger <ArrowRight className="h-3 w-3" />
           </Button>
         </Link>
       </div>

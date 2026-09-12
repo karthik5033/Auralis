@@ -312,14 +312,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Grid: Conjunction Telemetry + Live Orbital Event Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0 items-start">
         <div className="lg:col-span-2 min-w-0">
-          <Card className="shadow-sm h-full flex flex-col justify-between border-border/80 min-w-0 bg-card">
+          <Card className="shadow-sm border-border/80 min-w-0 bg-card">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <Orbit className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Orbit className="h-4 w-4 text-primary" />
                     Conjunction Trends & Telemetry
                   </CardTitle>
                   <CardDescription className="text-xs">
@@ -328,15 +328,15 @@ export default function DashboardPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col justify-between pt-2 min-w-0 w-full">
+            <CardContent className="pt-1 pb-3.5 min-w-0 w-full">
               <CrimeTrendChart />
             </CardContent>
           </Card>
         </div>
 
         <div className="lg:col-span-1 min-w-0">
-          <Card className="shadow-sm h-full flex flex-col justify-between border-border/80 min-w-0 bg-card">
-            <CardContent className="p-5 flex-1 min-w-0">
+          <Card className="shadow-sm border-border/80 min-w-0 bg-card">
+            <CardContent className="p-4 min-w-0">
               <LiveEventFeed />
             </CardContent>
           </Card>
