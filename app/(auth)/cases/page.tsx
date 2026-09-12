@@ -1,230 +1,375 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Crosshair, 
   Search, 
-  Filter, 
-  ArrowUpDown, 
-  CheckCircle2, 
+  Download, 
   Clock, 
-  AlertCircle, 
   ArrowRight,
   ShieldAlert,
-  ChevronRight,
-  ExternalLink,
-  Activity,
   Orbit,
   Radio,
-  Download
+  ExternalLink,
+  Flame,
+  CheckCircle2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MOCK_CASES, MockCase } from "@/lib/mockData";
+import { getConjunctions, getObjects } from "@/lib/api";
+import { mockWs } from "@/lib/mockWs";
+import { formatScientificPc, formatCountdown, formatDistance, formatVelocity } from "@/lib/formatters";
+import type { ConjunctionEvent, TrackedObject, RiskLevel, ConjunctionStatus } from "@/types/contract";
 import Link from "next/link";
 import { downloadDataAsCsv } from "@/lib/utils";
 
 export default function CasesPage() {
-  const [cases] = useState<MockCase[]>(MOCK_CASES);
+  const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>([]);
+  const [objectsMap, setObjectsMap] = useState<Record<string, TrackedObject>>({});
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [selectedCase, setSelectedCase] = useState<MockCase | null>(MOCK_CASES[0]);
+  const [filterRisk, setFilterRisk] = useState<string>("ALL");
+  const [loading, setLoading] = useState(true);
+  const [nowMs, setNowMs] = useState<number>(Date.now());
 
-  const filteredCases = cases.filter((c) => {
-    const matchesSearch = c.case_no.toLowerCase().includes(search.toLowerCase()) || 
-                          c.title.toLowerCase().includes(search.toLowerCase()) ||
-                          c.summary.toLowerCase().includes(search.toLowerCase()) ||
-                          (c.primary_object && c.primary_object.toLowerCase().includes(search.toLowerCase())) ||
-                          (c.secondary_object && c.secondary_object.toLowerCase().includes(search.toLowerCase()));
-    const matchesStatus = statusFilter === "ALL" || c.status.toUpperCase() === statusFilter.toUpperCase();
-    return matchesSearch && matchesStatus;
+  // Tick live timer every second for accurate TCA countdown
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadConjunctionsData() {
+      try {
+        const [conjRes, objRes] = await Promise.all([
+          getConjunctions({ limit: 50 }),
+          getObjects({ limit: 150 }),
+        ]);
+
+        if (!mounted) return;
+
+        setConjunctions(conjRes.data);
+
+        const map: Record<string, TrackedObject> = {};
+        objRes.data.forEach((obj) => {
+          map[obj.id] = obj;
+        });
+        setObjectsMap(map);
+      } catch (err) {
+        console.error("Failed loading conjunction cases:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadConjunctionsData();
+
+    // Subscribe to real-time conjunction WebSocket events
+    const unsubCreated = mockWs.on("conjunction:created", (newConj) => {
+      setConjunctions((prev) => [newConj, ...prev]);
+    });
+
+    const unsubUpdated = mockWs.on("conjunction:updated", (updated) => {
+      setConjunctions((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
+      );
+    });
+
+    return () => {
+      mounted = false;
+      unsubCreated();
+      unsubUpdated();
+    };
+  }, []);
+
+  const filteredConjunctions = conjunctions.filter((c) => {
+    const primary = objectsMap[c.primaryObjectId];
+    const secondary = objectsMap[c.secondaryObjectId];
+
+    const searchTarget = [
+      c.id,
+      primary?.name || "",
+      primary?.noradId?.toString() || "",
+      secondary?.name || "",
+      secondary?.noradId?.toString() || "",
+      c.status,
+      c.riskLevel,
+    ].join(" ").toLowerCase();
+
+    const matchesSearch = searchTarget.includes(search.toLowerCase());
+    const matchesRisk =
+      filterRisk === "ALL" ||
+      c.riskLevel.toUpperCase() === filterRisk.toUpperCase() ||
+      c.status.toUpperCase() === filterRisk.toUpperCase();
+
+    return matchesSearch && matchesRisk;
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toUpperCase()) {
-      case "ACTIVE":
-        return <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/10 font-mono text-[11px]">ACTIVE SCREENING</Badge>;
-      case "UNDER INVESTIGATION":
-        return <Badge variant="outline" className="text-zinc-400 border-zinc-700 bg-zinc-800/40 font-mono text-[11px]">NEGOTIATING</Badge>;
-      case "CLOSED":
-        return <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px]">AVOIDED</Badge>;
+  const handleExport = () => {
+    const rows = filteredConjunctions.map((c) => ({
+      eventId: c.id,
+      primaryObjectName: objectsMap[c.primaryObjectId]?.name || c.primaryObjectId,
+      primaryNoradId: objectsMap[c.primaryObjectId]?.noradId || "N/A",
+      secondaryObjectName: objectsMap[c.secondaryObjectId]?.name || c.secondaryObjectId,
+      secondaryNoradId: objectsMap[c.secondaryObjectId]?.noradId || "N/A",
+      tcaUtc: c.tca,
+      countdown: formatCountdown(c.tca, nowMs),
+      missDistanceKm: c.missDistance,
+      missDistanceFormatted: formatDistance(c.missDistance),
+      relativeVelocityKmS: c.relativeVelocity,
+      collisionProbability: c.collisionProbability,
+      pcScientific: formatScientificPc(c.collisionProbability),
+      riskLevel: c.riskLevel,
+      status: c.status,
+      maneuverProposalId: c.maneuverProposalId || "NONE",
+    }));
+    downloadDataAsCsv(rows, "auralis-conjunction-events-screening");
+  };
+
+  const getRiskBadge = (risk: RiskLevel) => {
+    switch (risk) {
+      case "critical":
+        return (
+          <Badge className="font-mono text-[10px] font-bold uppercase text-red-400 border-red-500/40 bg-red-950/60">
+            CRITICAL
+          </Badge>
+        );
+      case "elevated":
+        return (
+          <Badge className="font-mono text-[10px] font-bold uppercase text-amber-400 border-amber-500/40 bg-amber-950/60">
+            ELEVATED
+          </Badge>
+        );
       default:
-        return <Badge variant="outline" className="text-zinc-400 border-border bg-muted font-mono text-[11px]">{status}</Badge>;
+        return (
+          <Badge className="font-mono text-[10px] font-bold uppercase text-emerald-400 border-emerald-500/40 bg-emerald-950/60">
+            NOMINAL
+          </Badge>
+        );
+    }
+  };
+
+  const getStatusBadge = (status: ConjunctionStatus) => {
+    switch (status) {
+      case "active":
+        return (
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-red-400 bg-red-950/50 border border-red-500/30 px-2 py-0.5 rounded">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+            ACTIVE
+          </span>
+        );
+      case "monitoring":
+        return (
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-amber-400 bg-amber-950/50 border border-amber-500/30 px-2 py-0.5 rounded">
+            MONITORING
+          </span>
+        );
+      case "mitigated":
+        return (
+          <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-2 py-0.5 rounded">
+            MITIGATED
+          </span>
+        );
+      case "expired":
+        return (
+          <span className="flex items-center gap-1 text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-700 px-2 py-0.5 rounded">
+            EXPIRED
+          </span>
+        );
+      default:
+        return (
+          <span className="flex items-center gap-1 text-[10px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded">
+            FALSE ALARM
+          </span>
+        );
     }
   };
 
   return (
     <div className="flex-1 space-y-6 p-6 lg:p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-300 font-sans">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-            <Crosshair className="w-7 h-7 text-foreground" />
-            Conjunction Events &amp; Close Approaches
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className="text-[10px] font-mono text-primary border-primary/30">
+              CONTRACT §1.2 • FOSTER-1992 COVARIANCE
+            </Badge>
+            <span className="text-xs font-mono text-muted-foreground">
+              {conjunctions.length} ACTIVE CLOSE APPROACHES
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
+            <Crosshair className="w-7 h-7 text-primary" />
+            Conjunction Screening & Yield Events
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-normal">
-            Screening 37 active close-approaches across low-Earth orbit. Computing Foster-1992 2D collision probabilities and autonomous maneuver yields.
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Multi-target orbital conjunction assessment with SGP4 ephemerides, live TCA countdowns, and bilateral maneuver proposals.
           </p>
         </div>
         <Button 
-          onClick={() => downloadDataAsCsv(cases, "auralis-conjunction-events")} 
+          onClick={handleExport} 
           variant="outline" 
-          className="gap-1.5 text-xs font-semibold border-border bg-card hover:bg-muted"
+          className="gap-1.5 text-xs font-semibold font-mono border-border bg-card hover:bg-muted"
         >
           <Download className="h-4 w-4" />
-          Export Conjunction Report
+          Export Conjunction Manifest
         </Button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border">
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/80 p-3 rounded-xl border border-border/80 backdrop-blur-sm shadow-sm">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search by event ID, satellite, NORAD catalog, or shell..." 
+            placeholder="Search by ID, satellite name, NORAD catalog, or status..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs bg-muted/40 border-border"
+            className="pl-9 h-9 text-xs bg-muted/40 border-border font-mono"
           />
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto">
-          {["ALL", "ACTIVE", "UNDER INVESTIGATION", "CLOSED"].map((st) => (
+          {["ALL", "CRITICAL", "ELEVATED", "ACTIVE", "MITIGATED", "MONITORING"].map((filterKey) => (
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 text-xs font-mono font-semibold rounded-lg transition-colors whitespace-nowrap ${
-                statusFilter === st 
-                  ? "bg-foreground text-background shadow-xs" 
+              key={filterKey}
+              type="button"
+              onClick={() => setFilterRisk(filterKey)}
+              className={`px-3 py-1.5 text-xs font-mono font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                filterRisk === filterKey 
+                  ? "bg-primary text-primary-foreground shadow-xs" 
                   : "text-muted-foreground hover:bg-muted"
               }`}
             >
-              {st === "ALL" ? "ALL EVENTS" : st === "UNDER INVESTIGATION" ? "NEGOTIATING" : st === "CLOSED" ? "RESOLVED" : st}
+              {filterKey}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Grid: Events Table + Selected Event Drawer */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Events Table */}
-        <div className="lg:col-span-2">
-          <Card className="border-border bg-card shadow-xs">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 border-b border-border">
-                    <TableHead className="text-xs font-mono font-semibold">EVENT ID</TableHead>
-                    <TableHead className="text-xs font-mono font-semibold">OBJECT PAIR</TableHead>
-                    <TableHead className="text-xs font-mono font-semibold">MISS DISTANCE</TableHead>
-                    <TableHead className="text-xs font-mono font-semibold">COLLISION PROB (Pc)</TableHead>
-                    <TableHead className="text-xs font-mono font-semibold text-right">STATUS</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-border/60">
-                  {filteredCases.map((c) => (
+      {/* Conjunctions Master Table */}
+      <Card className="shadow-sm border-border/80 bg-card/80 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Orbit className="h-4 w-4 text-primary" />
+                Screened Conjunction Envelopes
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Hover or click any row to inspect Keplerian orbital elements, covariance uncertainty ellipses, and autonomous maneuver negotiations.
+              </CardDescription>
+            </div>
+            <span className="text-xs font-mono text-muted-foreground">
+              Showing {filteredConjunctions.length} of {conjunctions.length}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-border/70 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead className="font-mono font-semibold text-xs">Event ID</TableHead>
+                  <TableHead className="font-semibold text-xs">Primary Asset (Protected)</TableHead>
+                  <TableHead className="font-semibold text-xs">Secondary Object</TableHead>
+                  <TableHead className="font-semibold text-xs">TCA (UTC)</TableHead>
+                  <TableHead className="font-semibold text-xs">TCA Horizon</TableHead>
+                  <TableHead className="font-semibold text-xs">Miss Distance</TableHead>
+                  <TableHead className="font-semibold text-xs">Collision Prob (Pc)</TableHead>
+                  <TableHead className="font-semibold text-xs">Rel Velocity</TableHead>
+                  <TableHead className="font-semibold text-xs">Risk Level</TableHead>
+                  <TableHead className="font-semibold text-xs">Status</TableHead>
+                  <TableHead className="font-semibold text-xs text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredConjunctions.map((conj) => {
+                  const primary = objectsMap[conj.primaryObjectId];
+                  const secondary = objectsMap[conj.secondaryObjectId];
+                  const countdownStr = formatCountdown(conj.tca, nowMs);
+                  const isCritical = conj.riskLevel === "critical";
+
+                  return (
                     <TableRow 
-                      key={c.id} 
-                      onClick={() => setSelectedCase(c)}
-                      className={`cursor-pointer transition-colors ${selectedCase?.id === c.id ? "bg-muted/60" : "hover:bg-muted/30"}`}
+                      key={conj.id} 
+                      className={`hover:bg-muted/30 transition-colors ${
+                        isCritical ? "bg-red-950/10" : ""
+                      }`}
                     >
-                      <TableCell className="font-mono text-xs font-bold text-foreground">
-                        {c.case_no}
+                      <TableCell className="font-mono text-xs font-bold text-primary whitespace-nowrap">
+                        <Link href={`/cases/${conj.id}`} className="hover:underline flex items-center gap-1">
+                          {conj.id.slice(0, 11)}...
+                          <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                        </Link>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-xs font-medium text-foreground">{c.primary_object || c.title}</div>
-                        <div className="text-[11px] font-mono text-muted-foreground">vs {c.secondary_object || "Debris fragment"}</div>
+                      <TableCell className="text-xs font-semibold">
+                        <div className="flex flex-col">
+                          <span className="text-foreground">{primary ? primary.name : conj.primaryObjectId.slice(0, 8)}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {primary ? `NORAD ${primary.noradId} • ${primary.shellId}` : "LEO Asset"}
+                          </span>
+                        </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs font-bold">
-                        <span className={c.miss_distance?.includes("48") ? "text-amber-500" : "text-foreground"}>
-                          {c.miss_distance || "120 m"}
+                      <TableCell className="text-xs font-semibold">
+                        <div className="flex flex-col">
+                          <span className="text-foreground">{secondary ? secondary.name : conj.secondaryObjectId.slice(0, 8)}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {secondary ? `${secondary.type.toUpperCase()}` : "Debris"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+                        {conj.tca.replace("T", " ").replace("Z", "")}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono font-bold whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded text-[11px] ${
+                          countdownStr.includes("PAST") 
+                            ? "bg-zinc-800 text-zinc-400" 
+                            : isCritical 
+                            ? "bg-red-950/80 text-red-400 border border-red-500/40" 
+                            : "bg-muted text-foreground border border-border"
+                        }`}>
+                          {countdownStr}
                         </span>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        <span className={c.collision_probability?.includes("Critical") ? "text-rose-500 font-bold" : "text-muted-foreground"}>
-                          {c.collision_probability || "1.2e-4"}
+                      <TableCell className="text-xs font-mono font-semibold whitespace-nowrap">
+                        <span className={conj.missDistance < 0.5 ? "text-red-400" : conj.missDistance < 1.5 ? "text-amber-400" : "text-foreground"}>
+                          {formatDistance(conj.missDistance)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">
-                        {getStatusBadge(c.status)}
+                      <TableCell className="text-xs font-mono font-bold whitespace-nowrap">
+                        <span className={isCritical ? "text-red-400 text-sm" : conj.riskLevel === "elevated" ? "text-amber-400" : "text-emerald-400"}>
+                          {formatScientificPc(conj.collisionProbability)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+                        {formatVelocity(conj.relativeVelocity)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {getRiskBadge(conj.riskLevel)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {getStatusBadge(conj.status)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <Link href={`/cases/${conj.id}`}>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs font-mono gap-1 text-primary hover:text-primary hover:bg-primary/10">
+                            Details <ArrowRight className="h-3 w-3" />
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {filteredCases.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-xs text-muted-foreground">
-                        No orbital conjunction events match your search query.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Selected Event Detail Dossier */}
-        <div className="lg:col-span-1">
-          {selectedCase ? (
-            <Card className="border-border bg-card shadow-xs sticky top-24">
-              <CardHeader className="pb-3 border-b border-border/60">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-foreground">{selectedCase.case_no}</span>
-                  {getStatusBadge(selectedCase.status)}
-                </div>
-                <CardTitle className="text-base font-bold text-foreground mt-2">
-                  {selectedCase.title}
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground font-mono">
-                  Orbital Shell: {selectedCase.primary_district}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-4 text-xs font-sans">
-                <div>
-                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider block">Astrodynamics Assessment</span>
-                  <p className="text-muted-foreground mt-1 leading-relaxed bg-muted/40 p-3 rounded-lg border border-border/60">
-                    {selectedCase.summary}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1 font-mono">
-                  <div className="p-2.5 rounded-lg border border-border bg-card">
-                    <span className="text-[10px] text-muted-foreground uppercase block">TCA (Est. Time)</span>
-                    <span className="font-bold text-foreground mt-0.5 block">{selectedCase.tca || "2026-09-13T04:18Z"}</span>
-                  </div>
-                  <div className="p-2.5 rounded-lg border border-border bg-card">
-                    <span className="text-[10px] text-muted-foreground uppercase block">Planned Δv Burn</span>
-                    <span className="font-bold text-amber-500 mt-0.5 block">{selectedCase.delta_v || "0.22 m/s"}</span>
-                  </div>
-                  <div className="p-2.5 rounded-lg border border-border bg-card">
-                    <span className="text-[10px] text-muted-foreground uppercase block">Primary Body</span>
-                    <span className="font-semibold text-foreground text-[11px] truncate mt-0.5 block">{selectedCase.primary_object || "Starlink-4821"}</span>
-                  </div>
-                  <div className="p-2.5 rounded-lg border border-border bg-card">
-                    <span className="text-[10px] text-muted-foreground uppercase block">Secondary Body</span>
-                    <span className="font-semibold text-foreground text-[11px] truncate mt-0.5 block">{selectedCase.secondary_object || "Cosmos-2251"}</span>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <Link href={`/cases/${selectedCase.id}`}>
-                    <Button className="w-full text-xs font-semibold bg-foreground text-background hover:opacity-90 transition-opacity">
-                      Inspect Full Conjunction Telemetry
-                      <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-border bg-card p-6 text-center text-muted-foreground text-xs">
-              Select an event to view conjunction telemetry.
-            </Card>
-          )}
-        </div>
-      </div>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
