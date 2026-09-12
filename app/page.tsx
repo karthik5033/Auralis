@@ -52,9 +52,11 @@ import {
   Radio,
   Cpu,
   Layers,
+  BookOpen,
   Globe as GlobeIcon,
   Loader2
 } from "lucide-react";
+import { AuralisLogo } from "@/components/ui/AuralisLogo";
 import { getDashboardSummary, getShells, getConjunctions, getManeuvers, getObjects } from "@/lib/api";
 import type { DashboardSummary, ShellRiskSnapshot, ConjunctionEvent, ManeuverProposal, TrackedObject } from "@/types/contract";
 import { formatDistance, formatOperator } from "@/lib/formatters";
@@ -172,12 +174,9 @@ export default function Home() {
     <div className="min-h-screen bg-white dark:bg-zinc-950 dark:bg-black text-black dark:text-white dark:text-white font-sans selection:bg-zinc-800 selection:text-white transition-colors duration-200">
       {/* Navbar */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-950/80 dark:bg-black/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-lg tracking-tight">Auralis Orbital</span>
-        </div>
+        <Link href="/" className="hover:opacity-90 transition-opacity">
+          <AuralisLogo size="sm" />
+        </Link>
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -216,12 +215,20 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="flex items-center gap-3 ml-4">
-            <Link href="/dashboard" className="px-4 py-2 text-sm font-medium border border-zinc-200 dark:border-zinc-800 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 text-black dark:text-white dark:text-white transition-colors">
-              Sign in
+          <div className="flex items-center gap-2.5 ml-4">
+            <Link 
+              href="/docs" 
+              className="px-3.5 py-1.5 text-sm font-medium border border-zinc-200 dark:border-zinc-800 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 text-foreground transition-all flex items-center gap-2 shadow-sm hover:border-cyan-500/50"
+            >
+              <BookOpen className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+              <span>Docs</span>
             </Link>
-            <Link href="/dashboard" className="px-4 py-2 text-sm font-semibold text-white dark:text-black dark:text-white bg-black dark:bg-white dark:bg-zinc-950 rounded-md hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm">
-              Launch Command Center <Sparkles className="w-4 h-4" />
+            <Link 
+              href="/architecture" 
+              className="px-3.5 py-1.5 text-sm font-semibold text-white dark:text-black bg-black dark:bg-white rounded-md hover:opacity-90 transition-all flex items-center gap-2 shadow-sm hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+            >
+              <Layers className="w-4 h-4" />
+              <span>Architecture</span>
             </Link>
           </div>
         </div>
