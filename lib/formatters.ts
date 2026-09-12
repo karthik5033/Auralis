@@ -86,3 +86,42 @@ export function formatDistance(distKm: number): string {
 export function formatVelocity(velKmS: number): string {
   return `${velKmS.toFixed(2)} km/s`;
 }
+
+/**
+ * Resolves operator ID or catalog name to recognized human-readable aerospace entity.
+ */
+export function formatOperator(operatorId: string | null, name = ""): string {
+  const upper = (name || "").toUpperCase();
+  if (operatorId === "op-001" || upper.includes("ISS") || upper.includes("ZARYA")) {
+    return "NASA / International";
+  }
+  if (operatorId === "op-002" || upper.includes("STARLINK")) {
+    return "SpaceX (Starlink)";
+  }
+  if (operatorId === "op-003" || upper.includes("NOAA")) {
+    return "NOAA / NASA";
+  }
+  if (operatorId === "op-004" || upper.includes("TIANGONG") || upper.includes("CSS")) {
+    return "CNSA (Tiangong)";
+  }
+  if (operatorId === "op-005" || upper.includes("ONEWEB")) {
+    return "OneWeb Fleet";
+  }
+  if (upper.includes("SENTINEL") || upper.includes("ENVISAT")) {
+    return "ESA (Copernicus)";
+  }
+  if (upper.includes("COSMOS")) {
+    return "Roscosmos / Fragment";
+  }
+  if (upper.includes("FENGYUN")) {
+    return "CNSA / Debris";
+  }
+  if (upper.includes("R/B") || upper.includes("DEB") || upper.includes("SL-") || upper.includes("CZ-")) {
+    return "Derelict Spacecraft";
+  }
+  if (!operatorId || operatorId === "untracked") {
+    return "Untracked Body";
+  }
+  return operatorId;
+}
+

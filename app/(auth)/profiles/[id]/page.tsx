@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { getObjectById } from "@/lib/api";
+import { formatOperator } from "@/lib/formatters";
 import type { TrackedObject } from "@/types/contract";
 import Link from "next/link";
 import { downloadDataAsCsv } from "@/lib/utils";
@@ -172,8 +173,8 @@ export default function ProfileDetailPage() {
                   <span className="font-semibold text-foreground truncate max-w-[170px]">{object.id}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Operator:</span>
-                  <span className="font-semibold text-foreground">{object.operatorId || "N/A (Debris)"}</span>
+                  <span className="text-muted-foreground">Operator / Origin:</span>
+                  <span className="font-semibold text-foreground">{formatOperator(object.operatorId, object.name)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Orbital Shell:</span>
