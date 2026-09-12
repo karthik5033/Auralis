@@ -194,6 +194,8 @@ export default function GlobeView({
   const satelliteMeshesRef = useRef<Array<{ mesh: THREE.Object3D; data: ProcessedSatellite }>>([]);
   // Dedicated Three.js group for mathematically exact 3D Keplerian hairline orbit trajectory rings
   const orbitRingsGroupRef = useRef<THREE.Group | null>(null);
+  // Continuous anomaly angle tracker so satellites NEVER snap back or restart like a gif
+  const currentThetaMapRef = useRef<Map<string, number>>(new Map());
 
   const [objects, setObjects] = useState<TrackedObject[]>(initialObjects);
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>(initialConjunctions);
@@ -201,6 +203,8 @@ export default function GlobeView({
   const [orbitSpeedMultiplier, setOrbitSpeedMultiplier] = useState(40); // 40x speed: ~2 min full orbit
   const [autoRotate, setAutoRotate] = useState(true);
   const [activeLayer, setActiveLayer] = useState<"all" | "satellites" | "debris" | "critical">("all");
+  const prevLayerRef = useRef<"all" | "satellites" | "debris" | "critical">("all");
+  const prevCountRef = useRef(0);
   const [selectedObject, setSelectedObject] = useState<TrackedObject | null>(null);
   const [telemetryCount, setTelemetryCount] = useState({ satellites: 0, debris: 0, critical: 0 });
 
@@ -256,6 +260,11 @@ export default function GlobeView({
         const orbitalRadiusKm = 6371 + obj.altitude;
         const angularVelocity = velMagnitude / orbitalRadiusKm; // ~0.0011 rad/s
 
+        // Retrieve continuously tracked anomaly so satellite NEVER snaps back on data updates
+        const existingTheta = currentThetaMapRef.current.get(obj.id);
+        const theta = existingTheta ?? phase;
+        currentThetaMapRef.current.set(obj.id, theta);
+
         return {
           id: obj.id,
           name: obj.name,
@@ -274,7 +283,7 @@ export default function GlobeView({
           raan,
           phase,
           angularVelocity,
-          currentTheta: phase,
+          currentTheta: theta,
           raw: obj,
         };
       });
@@ -507,8 +516,9 @@ export default function GlobeView({
 
           const { mesh, data } = item;
 
-          // Advance orbital anomaly angle along orbit:
+          // Advance orbital anomaly angle along orbit continuously:
           data.currentTheta = (data.currentTheta ?? data.phase) + data.angularVelocity * deltaSeconds * speedMult;
+          currentThetaMapRef.current.set(data.id, data.currentTheta);
 
           const u = data.currentTheta;
           const incRad = (data.inclination * Math.PI) / 180;
@@ -564,12 +574,20 @@ export default function GlobeView({
     };
   }, []);
 
-  // Update customLayerData when satellitesData changes (layer filters or new objects)
+  // Update customLayerData ONLY when layer filters change or objects are added/removed (e.g. crisis injection)
   useEffect(() => {
     if (!globeInstanceRef.current) return;
-    satelliteMeshesRef.current = [];
-    globeInstanceRef.current.customLayerData(satellitesData);
-  }, [satellitesData]);
+
+    const layerChanged = prevLayerRef.current !== activeLayer;
+    const countChanged = prevCountRef.current !== satellitesData.length;
+
+    if (layerChanged || countChanged || satelliteMeshesRef.current.length === 0) {
+      prevLayerRef.current = activeLayer;
+      prevCountRef.current = satellitesData.length;
+      satelliteMeshesRef.current = [];
+      globeInstanceRef.current.customLayerData(satellitesData);
+    }
+  }, [satellitesData, activeLayer]);
 
   // Update arcsData
   useEffect(() => {
@@ -585,6 +603,18 @@ export default function GlobeView({
 
   // Real-Time WebSocket Updates Sync via unified provider
   useWebSocket("objects:updated", (payload) => {
+    // If object count is unchanged, update underlying object metadata without triggering a scene rebuild
+    if (payload.objects.length === objects.length) {
+      const objMap = new Map(payload.objects.map((o) => [o.id, o]));
+      satelliteMeshesRef.current.forEach((item) => {
+        const updated = objMap.get(item.data.id);
+        if (updated) {
+          item.data.raw = updated;
+          item.data.status = updated.status;
+        }
+      });
+      return;
+    }
     setObjects(payload.objects);
   });
 

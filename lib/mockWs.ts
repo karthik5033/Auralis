@@ -116,14 +116,14 @@ class MockWebSocketService {
     if (this.active) return;
     this.active = true;
 
-    // Timer 1: objects:updated (Every 3 seconds — simulate orbital step)
+    // Timer 1: objects:updated (Every 15 seconds — simulate periodic catalog ephemeris sync)
     const objectsTimer = setInterval(() => {
-      const dt = 3; // 3 seconds advance
+      const dt = 15; // 15 seconds advance
       this.objectsState = this.objectsState.map((obj) => {
         // Integrate state vector: pos = pos + vel * dt
-        const newX = obj.position.x + obj.velocity.vx * dt * 0.05;
-        const newY = obj.position.y + obj.velocity.vy * dt * 0.05;
-        const newZ = obj.position.z + obj.velocity.vz * dt * 0.05;
+        const newX = obj.position.x + obj.velocity.vx * dt * 0.02;
+        const newY = obj.position.y + obj.velocity.vy * dt * 0.02;
+        const newZ = obj.position.z + obj.velocity.vz * dt * 0.02;
         return {
           ...obj,
           position: { x: Number(newX.toFixed(2)), y: Number(newY.toFixed(2)), z: Number(newZ.toFixed(2)) },
@@ -132,7 +132,7 @@ class MockWebSocketService {
       });
 
       this.emit('objects:updated', { objects: this.objectsState });
-    }, 3000);
+    }, 15000);
 
     // Timer 2: conjunction:updated (Every 7 seconds — simulate recalculation)
     const conjunctionTimer = setInterval(() => {
