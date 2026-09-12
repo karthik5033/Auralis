@@ -7,15 +7,24 @@ import { AlertTriangle, ArrowRight, Orbit, Flame, ShieldAlert, Radio } from "luc
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getConjunctions, getShells, getObjects } from "@/lib/api";
+import { mockConjunctions, mockObjects } from "@/lib/mockApi";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { formatScientificPc } from "@/lib/formatters";
 import type { ConjunctionEvent, ShellRiskSnapshot, TrackedObject } from "@/types/contract";
 
 export function EarlyWarningSection() {
-  const [criticalConjunctions, setCriticalConjunctions] = useState<ConjunctionEvent[]>([]);
+  const [criticalConjunctions, setCriticalConjunctions] = useState<ConjunctionEvent[]>(() =>
+    mockConjunctions.filter((c) => c.riskLevel === "critical").slice(0, 2)
+  );
   const [criticalShells, setCriticalShells] = useState<ShellRiskSnapshot[]>([]);
-  const [objectsMap, setObjectsMap] = useState<Record<string, TrackedObject>>({});
-  const [loading, setLoading] = useState(true);
+  const [objectsMap, setObjectsMap] = useState<Record<string, TrackedObject>>(() => {
+    const map: Record<string, TrackedObject> = {};
+    mockObjects.slice(0, 100).forEach((obj) => {
+      map[obj.id] = obj;
+    });
+    return map;
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;

@@ -26,6 +26,7 @@ import {
   Target,
 } from "lucide-react";
 import Link from "next/link";
+import curatedCatalog from "@/data/fixtures/parsed-tracked-objects.json";
 
 interface GlobeViewProps {
   initialObjects?: TrackedObject[];
@@ -232,6 +233,34 @@ function buildCatalogOrbitLines(satellites: ProcessedSatellite[]): THREE.LineSeg
   return new THREE.LineSegments(geometry, material);
 }
 
+// Singletons for high-frequency 3D geometries and materials to avoid allocating hundreds of WebGL buffers
+const SHARED_HIT_GEOM = new THREE.SphereGeometry(3.5, 6, 6);
+const SHARED_HIT_MAT = new THREE.MeshBasicMaterial({
+  visible: false,
+  transparent: true,
+  opacity: 0,
+  depthWrite: false,
+});
+
+const SHARED_STD_BODY_GEOM = new THREE.SphereGeometry(0.35, 8, 8);
+const SHARED_STD_BODY_MAT = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+const SHARED_STD_HALO_GEOM = new THREE.SphereGeometry(0.55, 8, 8);
+const SHARED_STD_HALO_MAT = new THREE.MeshBasicMaterial({
+  color: 0x10b981,
+  transparent: true,
+  opacity: 0.25,
+});
+
+const SHARED_DEBRIS_MED_GEOM = new THREE.OctahedronGeometry(0.40, 0);
+const SHARED_DEBRIS_MED_MAT = new THREE.MeshBasicMaterial({ color: 0xf87171 });
+const SHARED_DEBRIS_MED_HALO_GEOM = new THREE.SphereGeometry(0.68, 8, 8);
+const SHARED_DEBRIS_MED_HALO_MAT = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.28 });
+
+const SHARED_DEBRIS_SML_GEOM = new THREE.TetrahedronGeometry(0.30, 0);
+const SHARED_DEBRIS_SML_MAT = new THREE.MeshBasicMaterial({ color: 0xfca5a5 });
+const SHARED_DEBRIS_SML_HALO_GEOM = new THREE.SphereGeometry(0.52, 8, 8);
+const SHARED_DEBRIS_SML_HALO_MAT = new THREE.MeshBasicMaterial({ color: 0xf87171, transparent: true, opacity: 0.25 });
+
 // Create custom 3D glowing orbital mesh with diverse physical geometries and sizes
 function createSatelliteMesh(d: ProcessedSatellite): THREE.Object3D {
   const group = new THREE.Group();
@@ -297,46 +326,20 @@ function createSatelliteMesh(d: ProcessedSatellite): THREE.Object3D {
     group.add(new THREE.Mesh(haloGeom, haloMat));
   } else if (d.sizeCategory === "debris_medium") {
     // Medium Debris Fragment (10cm - 1m): Tumbling octahedron + hazard glow
-    const debrisGeom = new THREE.OctahedronGeometry(0.40, 0);
-    const debrisMat = new THREE.MeshBasicMaterial({ color: 0xf87171 });
-    group.add(new THREE.Mesh(debrisGeom, debrisMat));
-
-    const haloGeom = new THREE.SphereGeometry(0.68, 8, 8);
-    const haloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.28 });
-    group.add(new THREE.Mesh(haloGeom, haloMat));
+    group.add(new THREE.Mesh(SHARED_DEBRIS_MED_GEOM, SHARED_DEBRIS_MED_MAT));
+    group.add(new THREE.Mesh(SHARED_DEBRIS_MED_HALO_GEOM, SHARED_DEBRIS_MED_HALO_MAT));
   } else if (d.sizeCategory === "debris_small") {
     // Small Debris Fleck (<10cm): Tiny hazard particle + glowing beacon
-    const debrisGeom = new THREE.TetrahedronGeometry(0.30, 0);
-    const debrisMat = new THREE.MeshBasicMaterial({ color: 0xfca5a5 });
-    group.add(new THREE.Mesh(debrisGeom, debrisMat));
-
-    const haloGeom = new THREE.SphereGeometry(0.52, 8, 8);
-    const haloMat = new THREE.MeshBasicMaterial({ color: 0xf87171, transparent: true, opacity: 0.25 });
-    group.add(new THREE.Mesh(haloGeom, haloMat));
+    group.add(new THREE.Mesh(SHARED_DEBRIS_SML_GEOM, SHARED_DEBRIS_SML_MAT));
+    group.add(new THREE.Mesh(SHARED_DEBRIS_SML_HALO_GEOM, SHARED_DEBRIS_SML_HALO_MAT));
   } else {
     // Standard Constellation Satellite: Sleek glowing emerald orb with outer halo
-    const bodyGeom = new THREE.SphereGeometry(0.35, 8, 8);
-    const bodyMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
-    group.add(new THREE.Mesh(bodyGeom, bodyMat));
-
-    const haloGeom = new THREE.SphereGeometry(0.55, 8, 8);
-    const haloMat = new THREE.MeshBasicMaterial({
-      color: 0x10b981,
-      transparent: true,
-      opacity: 0.25,
-    });
-    group.add(new THREE.Mesh(haloGeom, haloMat));
+    group.add(new THREE.Mesh(SHARED_STD_BODY_GEOM, SHARED_STD_BODY_MAT));
+    group.add(new THREE.Mesh(SHARED_STD_HALO_GEOM, SHARED_STD_HALO_MAT));
   }
 
   // Generous 3.5-radius invisible hit target so clicking anywhere near the dot in 3D scene registers 100%
-  const hitGeom = new THREE.SphereGeometry(3.5, 8, 8);
-  const hitMat = new THREE.MeshBasicMaterial({
-    visible: false,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  });
-  const hitMesh = new THREE.Mesh(hitGeom, hitMat);
+  const hitMesh = new THREE.Mesh(SHARED_HIT_GEOM, SHARED_HIT_MAT);
   hitMesh.name = "hitTarget";
   group.add(hitMesh);
 
@@ -371,7 +374,13 @@ export default function GlobeView({
   // Continuous anomaly angle tracker so satellites NEVER snap back or restart like a gif
   const currentThetaMapRef = useRef<Map<string, number>>(new Map());
 
-  const [objects, setObjects] = useState<TrackedObject[]>(initialObjects);
+  const defaultSeedObjects = React.useMemo(() => {
+    return (curatedCatalog as unknown as TrackedObject[]).slice(0, 180);
+  }, []);
+
+  const [objects, setObjects] = useState<TrackedObject[]>(() => {
+    return initialObjects.length > 0 ? initialObjects : (curatedCatalog as unknown as TrackedObject[]).slice(0, 180);
+  });
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>(initialConjunctions);
   const conjunctionsRef = useRef<ConjunctionEvent[]>(conjunctions);
   conjunctionsRef.current = conjunctions;
@@ -383,7 +392,16 @@ export default function GlobeView({
   const prevLayerRef = useRef<"all" | "satellites" | "debris" | "critical">("all");
   const prevCountRef = useRef(0);
   const [selectedObject, setSelectedObject] = useState<TrackedObject | null>(null);
-  const [telemetryCount, setTelemetryCount] = useState({ satellites: 0, debris: 0, critical: 0 });
+  const telemetryCount = React.useMemo(() => {
+    let satellites = 0;
+    let debris = 0;
+    for (const obj of objects) {
+      if (obj.type === "satellite") satellites++;
+      else if (obj.type === "debris" || obj.type === "rocket_body") debris++;
+    }
+    const critical = conjunctions.filter((c) => c.riskLevel === "critical").length;
+    return { satellites, debris, critical };
+  }, [objects, conjunctions]);
   const [liveEpoch, setLiveEpoch] = useState(Date.now());
 
   // 1-second real-time telemetry clock to continuously recompute live coordinates on screen
@@ -539,16 +557,6 @@ export default function GlobeView({
       });
   }, [objects, activeLayer, conjunctions]);
 
-
-
-  // Update telemetry counters
-  useEffect(() => {
-    const sats = objects.filter((o) => o.type === "satellite").length;
-    const deb = objects.filter((o) => o.type === "debris" || o.type === "rocket_body").length;
-    const crit = conjunctions.filter((c) => c.riskLevel === "critical").length;
-    setTelemetryCount({ satellites: sats, debris: deb, critical: crit });
-  }, [objects, conjunctions]);
-
   // 3. Populate 3D Keplerian hairline orbit rings in Three.js scene
   // Tactical Mode (Default): Curated prominent reference corridors + active conjunction collision pairs + selected object
   // Avoids drawing hundreds of overlapping lines into an overwhelming wireframe cage!
@@ -668,9 +676,9 @@ export default function GlobeView({
 
     // Instantiate Globe
     const globe = new Globe(containerRef.current)
-      .globeImageUrl("//unpkg.com/three-globe/example/img/earth-night.jpg")
-      .bumpImageUrl("//unpkg.com/three-globe/example/img/earth-topology.png")
-      .backgroundImageUrl("//unpkg.com/three-globe/example/img/night-sky.png")
+      .globeImageUrl("/textures/earth-night.jpg")
+      .bumpImageUrl("/textures/earth-topology.png")
+      .backgroundImageUrl("/textures/night-sky.png")
       .atmosphereColor("#38bdf8")
       .atmosphereAltitude(0.045) // Subtle realistic atmosphere limb (R=104.5); orbits sit in outer space (R>=108.5)
       // Custom 3D Object Layer: Floating luminous orbs revolving in 3D orbit (NO STICKS OR CYLINDERS!)
@@ -1417,193 +1425,192 @@ export default function GlobeView({
         </button>
       </div>
 
-      {/* Bottom Left: Legend (Hidden in compact mode to prevent collision) */}
-      {!compact && (
-        <div className="absolute bottom-4 left-4 z-10 hidden xl:flex items-center gap-4 bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 text-[11px] font-mono text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
-            <span className="text-foreground font-medium">Active Satellite</span>
+      {/* Bottom HUD: Unified Responsive Bar (Prevents Any Overlapping or Collision) */}
+      <div className="absolute bottom-3 inset-x-3 z-10 flex items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Compact Astrodynamic Legend (Hidden on narrow cards to prevent collision) */}
+        {!compact && (
+          <div className="pointer-events-auto hidden 2xl:flex items-center gap-3 bg-background/90 backdrop-blur-md px-3 py-1 rounded-lg border border-border/80 text-[10px] font-mono text-muted-foreground shadow-lg shrink-0">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
+              <span className="text-foreground">Sats</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rotate-45 bg-red-500 shadow-[0_0_6px_#ef4444]" />
+              <span className="text-foreground">Debris</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_6px_#f97316]" />
+              <span className="text-foreground">Boosters</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-sky-400 ring-1 ring-sky-400/50 shadow-[0_0_6px_#38bdf8]" />
+              <span className="text-foreground">ISS</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rotate-45 bg-red-500 shadow-[0_0_6px_#ef4444]" />
-            <span className="text-foreground font-medium">Debris Fragment</span>
+        )}
+
+        {/* Right HUD: Camera & Orbit Controls (Right-aligned, zero overlapping) */}
+        <div className="pointer-events-auto flex items-center gap-1.5 ml-auto max-w-full overflow-x-auto no-scrollbar py-0.5">
+          {/* Orbit Lines Display Selector */}
+          <div className="flex items-center bg-background/90 backdrop-blur-md rounded-lg border border-border/80 p-0.5 shadow-md shrink-0">
+            <button
+              type="button"
+              onClick={() => setOrbitDisplayMode("tactical")}
+              title="Tactical Orbits (Reference Shells + Conjunction Pairs)"
+              className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
+                orbitDisplayMode === "tactical"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Tactical
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrbitDisplayMode("focused")}
+              title="Focused Only (Selected Object & Conjunctions)"
+              className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
+                orbitDisplayMode === "focused"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Focus
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrbitDisplayMode("all")}
+              title="All Orbits (Cosmic Grid)"
+              className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
+                orbitDisplayMode === "all"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrbitDisplayMode("off")}
+              title="Hide All Orbits (Satellites Only)"
+              className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
+                orbitDisplayMode === "off"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Off
+            </button>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_6px_#f97316]" />
-            <span className="text-foreground font-medium">Rocket Body</span>
+
+          {/* Orbital Speed Selector */}
+          <div className="flex items-center bg-background/90 backdrop-blur-md rounded-lg border border-border/80 p-0.5 shadow-md shrink-0">
+            <button
+              type="button"
+              onClick={() => setOrbitSpeedMultiplier(1)}
+              title="Real-Time Speed (1x ~7.6 km/s)"
+              className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
+                orbitSpeedMultiplier === 1 ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              1x
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrbitSpeedMultiplier(5)}
+              title="Tactical Fast Speed (5x)"
+              className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
+                orbitSpeedMultiplier === 5 ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              5x
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrbitSpeedMultiplier(20)}
+              title="Cosmic Warp Speed (20x)"
+              className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all whitespace-nowrap ${
+                orbitSpeedMultiplier === 20 ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              20x
+            </button>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-sky-400 ring-2 ring-sky-500/50 shadow-[0_0_8px_#38bdf8]" />
-            <span className="text-foreground font-medium">ISS / Station</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-gradient-to-r from-red-500 to-amber-500" />
-            <span className="text-foreground font-medium">Collision Vector</span>
-          </div>
+
+          {/* Orbit Motion Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsRevolving(!isRevolving)}
+            className={`h-7 px-2.5 bg-background/90 backdrop-blur-md border-border/80 font-mono text-xs shadow-md shrink-0 whitespace-nowrap ${
+              isRevolving ? "text-emerald-400 hover:text-emerald-300" : "text-muted-foreground"
+            }`}
+            title={isRevolving ? "Pause Satellite Motion" : "Resume Satellite Motion"}
+          >
+            {isRevolving ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
+            {!compact && <span className="hidden md:inline ml-1.5">{isRevolving ? "Orbiting" : "Paused"}</span>}
+          </Button>
+
+          {/* Track Debris Shortcut */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleFocusDebris}
+            className="h-7 px-2.5 bg-background/90 backdrop-blur-md border-red-500/50 text-red-400 hover:text-red-300 hover:bg-red-950/40 font-mono text-xs shadow-md shrink-0 whitespace-nowrap"
+            title="Track Live Debris Fragment"
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+            {!compact && <span className="hidden md:inline ml-1.5">Debris</span>}
+          </Button>
+
+          {/* Track ISS Shortcut */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleFocusISS}
+            className="h-7 px-2.5 bg-background/90 backdrop-blur-md border-border/80 font-mono text-xs text-sky-400 hover:text-sky-300 hover:bg-sky-950/40 shadow-md shrink-0 whitespace-nowrap"
+            title="Track International Space Station"
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+            {!compact && <span className="hidden md:inline ml-1.5">ISS</span>}
+          </Button>
+
+          {/* Track Critical Conjunction */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleFocusConjunction}
+            className="h-7 px-2.5 bg-background/90 backdrop-blur-md border-destructive/50 text-destructive font-mono text-xs hover:bg-destructive/10 shadow-md shrink-0 whitespace-nowrap"
+            title="Track Active Conjunction Event"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {!compact && <span className="hidden md:inline ml-1.5">Conjunction</span>}
+          </Button>
+
+          {/* Camera Auto-Rotate Earth Toggle */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setAutoRotate(!autoRotate)}
+            className={`h-7 w-7 bg-background/90 backdrop-blur-md border-border/80 shadow-md shrink-0 ${
+              autoRotate ? "text-primary" : "text-muted-foreground"
+            }`}
+            title={autoRotate ? "Pause Earth Rotation" : "Resume Earth Rotation"}
+          >
+            <RotateCcw className={`w-3 h-3 ${autoRotate ? "animate-spin" : ""}`} />
+          </Button>
+
+          {/* Reset Camera Position */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleResetCamera}
+            className="h-7 w-7 bg-background/90 backdrop-blur-md border-border/80 text-muted-foreground hover:text-foreground shadow-md shrink-0"
+            title="Reset View"
+          >
+            <Maximize2 className="w-3 h-3" />
+          </Button>
         </div>
-      )}
-
-      {/* Bottom Right HUD: Camera & Orbit Controls */}
-      <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 max-w-[calc(100%-1.5rem)] overflow-x-auto no-scrollbar">
-        {/* Orbit Lines Display Selector */}
-        <div className="flex items-center bg-background/85 backdrop-blur-md rounded-lg border border-border/80 p-0.5 shadow-md shrink-0">
-          <button
-            type="button"
-            onClick={() => setOrbitDisplayMode("tactical")}
-            title="Tactical Orbits (Reference Shells + Conjunction Pairs)"
-            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              orbitDisplayMode === "tactical"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Tactical
-          </button>
-          <button
-            type="button"
-            onClick={() => setOrbitDisplayMode("focused")}
-            title="Focused Only (Selected Object & Conjunctions)"
-            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              orbitDisplayMode === "focused"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Focus
-          </button>
-          <button
-            type="button"
-            onClick={() => setOrbitDisplayMode("all")}
-            title="All Orbits (Sparse Cosmic Grid)"
-            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              orbitDisplayMode === "all"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            onClick={() => setOrbitDisplayMode("off")}
-            title="Hide All Orbits (Satellites Only)"
-            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              orbitDisplayMode === "off"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Off
-          </button>
-        </div>
-
-        {/* Orbital Speed Selector */}
-        <div className="flex items-center bg-background/85 backdrop-blur-md rounded-lg border border-border/80 p-0.5 shadow-md shrink-0">
-          <button
-            type="button"
-            onClick={() => setOrbitSpeedMultiplier(1)}
-            title="Real-Time Speed (1x)"
-            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              orbitSpeedMultiplier === 1 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            1x Real-Time
-          </button>
-          <button
-            type="button"
-            onClick={() => setOrbitSpeedMultiplier(5)}
-            title="5x Velocity"
-            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              orbitSpeedMultiplier === 5 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            5x
-          </button>
-          <button
-            type="button"
-            onClick={() => setOrbitSpeedMultiplier(20)}
-            title="20x Fast Orbit"
-            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-              orbitSpeedMultiplier === 20 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            20x
-          </button>
-        </div>
-
-        {/* Orbit Motion Toggle */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsRevolving(!isRevolving)}
-          className={`h-7 px-2 bg-background/85 backdrop-blur-md border-border/80 font-mono text-xs shadow-md shrink-0 ${
-            isRevolving ? "text-emerald-400 hover:text-emerald-300" : "text-muted-foreground"
-          }`}
-          title={isRevolving ? "Pause Satellite Motion" : "Resume Satellite Motion"}
-        >
-          {isRevolving ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
-          {!compact && <span className="hidden md:inline ml-1">{isRevolving ? "Orbiting" : "Paused"}</span>}
-        </Button>
-
-        {/* Track Debris Shortcut */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleFocusDebris}
-          className="h-7 px-2 bg-background/85 backdrop-blur-md border-red-500/50 text-red-400 hover:text-red-300 hover:bg-red-950/40 font-mono text-xs shadow-md shrink-0"
-          title="Track Live Debris Fragment"
-        >
-          <Crosshair className="w-3.5 h-3.5" />
-          {!compact && <span className="hidden md:inline ml-1">Debris</span>}
-        </Button>
-
-        {/* Track ISS Shortcut */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleFocusISS}
-          className="h-7 px-2 bg-background/85 backdrop-blur-md border-border/80 font-mono text-xs text-sky-400 hover:text-sky-300 hover:bg-sky-950/40 shadow-md shrink-0"
-          title="Track International Space Station"
-        >
-          <Crosshair className="w-3.5 h-3.5" />
-          {!compact && <span className="hidden md:inline ml-1">ISS</span>}
-        </Button>
-
-        {/* Track Critical Conjunction */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleFocusConjunction}
-          className="h-7 px-2 bg-background/85 backdrop-blur-md border-destructive/50 text-destructive font-mono text-xs hover:bg-destructive/10 shadow-md shrink-0"
-          title="Track Active Conjunction Event"
-        >
-          <AlertTriangle className="w-3.5 h-3.5" />
-          {!compact && <span className="hidden md:inline ml-1">Conjunction</span>}
-        </Button>
-
-        {/* Camera Auto-Rotate Earth Toggle */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setAutoRotate(!autoRotate)}
-          className={`h-7 w-7 bg-background/85 backdrop-blur-md border-border/80 shadow-md shrink-0 ${
-            autoRotate ? "text-primary" : "text-muted-foreground"
-          }`}
-          title={autoRotate ? "Pause Earth Rotation" : "Resume Earth Rotation"}
-        >
-          <RotateCcw className={`w-3 h-3 ${autoRotate ? "animate-spin" : ""}`} />
-        </Button>
-
-        {/* Reset Camera Position */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handleResetCamera}
-          className="h-7 w-7 bg-background/85 backdrop-blur-md border-border/80 text-muted-foreground hover:text-foreground shadow-md shrink-0"
-          title="Reset View"
-        >
-          <Maximize2 className="w-3 h-3" />
-        </Button>
       </div>
     </div>
   );

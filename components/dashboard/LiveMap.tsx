@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import curatedCatalog from "@/data/fixtures/parsed-tracked-objects.json";
 import { getObjects, getConjunctions } from "@/lib/api";
 import type { TrackedObject, ConjunctionEvent } from "@/types/contract";
 
@@ -32,10 +33,12 @@ const GlobeView = dynamic(() => import("@/components/globe/GlobeView"), {
 
 export function LiveMap() {
   const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
-  const [objects, setObjects] = useState<TrackedObject[]>([]);
+  const [objects, setObjects] = useState<TrackedObject[]>(() =>
+    (curatedCatalog as unknown as TrackedObject[]).slice(0, 180)
+  );
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>([]);
   const [activeLayer, setActiveLayer] = useState<"conjunctions" | "satellites" | "debris">("conjunctions");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function loadData() {
