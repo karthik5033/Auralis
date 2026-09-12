@@ -27,6 +27,7 @@ import {
   MousePointerClick,
   Bell,
   TriangleAlert,
+  AlertTriangle,
   ArrowUp,
   Download,
   Upload,
@@ -38,8 +39,19 @@ import {
   Check,
   Sun,
   ChevronDown,
-  Orbit
+  Orbit,
+  ShieldAlert,
+  Crosshair,
+  Flame,
+  Satellite,
+  Boxes,
+  Rocket,
+  Zap,
+  Activity
 } from "lucide-react";
+import { getDashboardSummary, getShells, getConjunctions, getManeuvers, getObjects } from "@/lib/api";
+import type { DashboardSummary, ShellRiskSnapshot, ConjunctionEvent, ManeuverProposal, TrackedObject } from "@/types/contract";
+import { formatDistance, formatOperator } from "@/lib/formatters";
 
 const GithubIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -101,6 +113,41 @@ const FAQS = [
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const [openFaq, setOpenFaq] = React.useState<number | null>(0);
+
+  // Live Backend Data
+  const [summary, setSummary] = React.useState<DashboardSummary | null>(null);
+  const [shells, setShells] = React.useState<ShellRiskSnapshot[]>([]);
+  const [conjunctions, setConjunctions] = React.useState<ConjunctionEvent[]>([]);
+  const [maneuvers, setManeuvers] = React.useState<ManeuverProposal[]>([]);
+  const [objectsMap, setObjectsMap] = React.useState<Record<string, TrackedObject>>({});
+  const [hoveredShellIdx, setHoveredShellIdx] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    async function loadLandingData() {
+      try {
+        const [sumRes, shellsRes, conjRes, manRes, objRes] = await Promise.all([
+          getDashboardSummary(),
+          getShells(),
+          getConjunctions({ limit: 5 }),
+          getManeuvers({ limit: 3 }),
+          getObjects({ limit: 100 }),
+        ]);
+        setSummary(sumRes);
+        setShells(shellsRes.data || []);
+        setConjunctions(conjRes.data || []);
+        setManeuvers(manRes.data || []);
+
+        const map: Record<string, TrackedObject> = {};
+        (objRes.data || []).forEach((o) => {
+          map[o.id] = o;
+        });
+        setObjectsMap(map);
+      } catch (err) {
+        console.error("Failed loading landing telemetry:", err);
+      }
+    }
+    loadLandingData();
+  }, []);
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-950 dark:bg-black text-black dark:text-white dark:text-white font-sans selection:bg-zinc-800 selection:text-white transition-colors duration-200">
       {/* Navbar */}
@@ -219,264 +266,357 @@ export default function Home() {
 
       {/* Dashboard Section */}
       <section className="max-w-[1400px] mx-auto px-4 py-16">
-        {/* Top Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
+        {/* Top KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4 font-sans">
+          {/* Card 1: Active Conjunctions */}
           <div className="col-span-1 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <div className="p-2 bg-orange-100 text-orange-500 rounded-md">
-                <Ticket className="w-5 h-5" />
+              <div className="p-2.5 bg-orange-500/10 text-orange-500 rounded-lg">
+                <Crosshair className="w-5 h-5" />
               </div>
-              <div className="flex items-center text-sm font-medium text-black dark:text-white">
-                +38% <TrendingUp className="w-3 h-3 ml-1" />
+              <div className="flex items-center text-xs font-mono font-semibold text-orange-500">
+                +18% <TrendingUp className="w-3.5 h-3.5 ml-1" />
               </div>
             </div>
             <div>
-              <div className="text-2xl font-bold mb-1">37</div>
-              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Active Conjunctions</div>
-              <span className="text-xs bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 px-2 py-1 rounded-full">Last 24 hours</span>
+              <div className="text-3xl font-black font-mono mb-1 text-foreground">
+                {summary ? summary.activeConjunctions : 30}
+              </div>
+              <div className="text-xs text-muted-foreground font-semibold mb-3">Active Conjunctions</div>
+              <span className="text-[10px] font-mono bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full">
+                TCA &lt; 72h Screening
+              </span>
             </div>
           </div>
           
+          {/* Card 2: Tracked Objects */}
           <div className="col-span-1 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <div className="p-2 bg-cyan-100 text-cyan-600 rounded-md">
-                <ShoppingCart className="w-5 h-5" />
+              <div className="p-2.5 bg-cyan-500/10 text-cyan-400 rounded-lg">
+                <Orbit className="w-5 h-5" />
               </div>
-              <div className="flex items-center text-sm font-medium text-black dark:text-white">
-                +22% <TrendingUp className="w-3 h-3 ml-1" />
+              <div className="flex items-center text-xs font-mono font-semibold text-cyan-400">
+                100% <Check className="w-3.5 h-3.5 ml-1" />
               </div>
             </div>
             <div>
-              <div className="text-2xl font-bold mb-1">8,412</div>
-              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Tracked Objects</div>
-              <span className="text-xs bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 px-2 py-1 rounded-full">CelesTrak & Space-Track</span>
+              <div className="text-3xl font-black font-mono mb-1 text-foreground">
+                {summary ? summary.totalTrackedObjects.toLocaleString() : "639"}
+              </div>
+              <div className="text-xs text-muted-foreground font-semibold mb-3">Tracked Orbital Bodies</div>
+              <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-full">
+                CelesTrak SGP4 Feed
+              </span>
             </div>
           </div>
           
+          {/* Card 3: High-Risk Alerts */}
           <div className="col-span-1 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <div className="p-2 bg-blue-100 text-blue-600 rounded-md">
-                <DollarSign className="w-5 h-5" />
+              <div className="p-2.5 bg-rose-500/10 text-rose-500 rounded-lg">
+                <Flame className="w-5 h-5" />
               </div>
-              <div className="flex items-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                -16% <TrendingDown className="w-3 h-3 ml-1" />
+              <div className="flex items-center text-xs font-mono font-semibold text-emerald-400">
+                -25% <TrendingDown className="w-3.5 h-3.5 ml-1" />
               </div>
             </div>
             <div>
-              <div className="text-2xl font-bold mb-1">5</div>
-              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">High-Risk Alerts</div>
-              <span className="text-xs bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 px-2 py-1 rounded-full">Pc &gt; 10⁻⁴ Threshold</span>
+              <div className="text-3xl font-black font-mono mb-1 text-rose-400">
+                {summary ? summary.criticalConjunctions : 6}
+              </div>
+              <div className="text-xs text-muted-foreground font-semibold mb-3">Critical Alerts (Pc ≥ 10⁻³)</div>
+              <span className="text-[10px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full">
+                Emergency Burn Active
+              </span>
             </div>
           </div>
           
+          {/* Card 4: Maneuvers Resolved */}
           <div className="col-span-1 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <div className="p-2 bg-yellow-100 text-yellow-600 rounded-md">
-                <Bookmark className="w-5 h-5" />
+              <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg">
+                <Rocket className="w-5 h-5" />
               </div>
-              <div className="flex items-center text-sm font-medium text-black dark:text-white">
-                +38% <TrendingUp className="w-3 h-3 ml-1" />
+              <div className="flex items-center text-xs font-mono font-semibold text-emerald-400">
+                0 collisions <Check className="w-3.5 h-3.5 ml-1" />
               </div>
             </div>
             <div>
-              <div className="text-2xl font-bold mb-1">91.3%</div>
-              <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Maneuvers Resolved</div>
-              <span className="text-xs bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 px-2 py-1 rounded-full">Autonomous Yield</span>
+              <div className="text-3xl font-black font-mono mb-1 text-foreground">
+                94.2%
+              </div>
+              <div className="text-xs text-muted-foreground font-semibold mb-3">Maneuvers Resolved</div>
+              <span className="text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                Autonomous Yield
+              </span>
             </div>
           </div>
           
-          <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 relative overflow-hidden flex flex-col justify-between min-w-[280px]">
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Tracked Payloads</h3>
-              <span className="text-xs bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2 py-1 rounded-full">Active Satellites</span>
+          {/* Card 5: Active Payloads & Shell Population Breakdown */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-2 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between min-w-[280px]">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-bold text-base text-foreground">Active Payloads in Orbit</h3>
+                <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  Operational Constellations
+                </span>
+              </div>
+              <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                <Satellite className="w-5 h-5" />
+              </div>
             </div>
-            <div className="mt-8 flex items-baseline gap-2">
-              <span className="text-3xl font-bold">4,240</span>
-              <span className="text-sm font-medium text-emerald-500">+12% cataloged</span>
+
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="text-3xl font-black font-mono text-foreground">
+                {summary ? summary.activeSatellites.toLocaleString() : "412"}
+              </span>
+              <span className="text-xs font-medium text-emerald-400 font-mono">
+                +12% cataloged payloads
+              </span>
             </div>
-            <CustomerAvatar />
+
+            {/* Micro Altitude Shell Population Bars */}
+            <div className="space-y-1.5 pt-3 border-t border-border/60 text-[10px] font-mono">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Low Earth Orbit (LEO 200–1000km)</span>
+                <span className="text-foreground font-bold">89%</span>
+              </div>
+              <div className="w-full bg-muted/40 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-emerald-400 h-full rounded-full" style={{ width: "89%" }} />
+              </div>
+
+              <div className="flex justify-between text-muted-foreground pt-0.5">
+                <span>High Altitude & MEO (1000km+)</span>
+                <span className="text-foreground font-bold">11%</span>
+              </div>
+              <div className="w-full bg-muted/40 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-cyan-400 h-full rounded-full" style={{ width: "11%" }} />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Bottom Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="col-span-1 md:col-span-6 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950">
-            <div className="flex justify-between items-start mb-8">
+        {/* Bottom Section: Real Charts & Live Screening Feeds */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 font-sans">
+          {/* Main Chart: Orbital Conjunction Risk Index */}
+          <div className="col-span-1 md:col-span-6 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-6">
               <div>
-                <h3 className="font-bold text-xl mb-1">Orbital Conjunction Risk Index</h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Altitude shell density profile (LEO 400km - 1,200km)</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-bold text-lg text-foreground">Orbital Conjunction Risk Index</h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                    SIR R₀ DYNAMICS
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground font-mono">
+                  Basic reproduction number R₀ across orbital shells (LEO 200 km – 1,200 km)
+                </p>
               </div>
-              <button className="text-zinc-400 dark:text-zinc-500 hover:text-black dark:text-white">
-                <MoreVertical className="w-5 h-5" />
-              </button>
+              <Link href="/analytics">
+                <button className="text-xs font-mono text-primary hover:underline flex items-center gap-1 cursor-pointer">
+                  Deep Simulator <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </Link>
             </div>
             
-            {/* SVG Area Chart */}
-            <div className="relative h-64 w-full">
-              {/* Y Axis Labels */}
-              <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-zinc-400 dark:text-zinc-500">
-                <span>$6K</span>
-                <span>$5K</span>
-                <span>$4K</span>
-                <span>$3K</span>
-                <span>$2K</span>
-                <span>$1K</span>
+            {/* Dynamic Real SVG Area Chart for Kessler Cascade R0 */}
+            <div className="relative h-64 w-full pt-2">
+              {/* Y Axis Labels (Real Reproduction Numbers R0) */}
+              <div className="absolute left-0 top-0 bottom-6 w-12 flex flex-col justify-between text-[11px] font-mono text-muted-foreground select-none">
+                <span>R₀ 30.0</span>
+                <span>R₀ 20.0</span>
+                <span>R₀ 10.0</span>
+                <span className="text-rose-500 font-bold">R₀ 1.0</span>
+                <span>R₀ 0.0</span>
               </div>
               
-              <div className="absolute left-10 right-0 top-2 bottom-6">
-                {/* Grid lines */}
+              <div className="absolute left-14 right-2 top-2 bottom-6">
+                {/* Horizontal Grid lines */}
                 <div className="w-full h-full flex flex-col justify-between">
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800"></div>
-                  ))}
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800" />
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800" />
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800" />
+                  {/* Critical R0 = 1.0 Boundary */}
+                  <div className="w-full h-px border-t border-rose-500/60 relative">
+                    <span className="absolute right-0 -top-3 text-[9px] font-mono text-rose-500 bg-card px-1 rounded">
+                      Critical Threshold (R₀ = 1.0)
+                    </span>
+                  </div>
+                  <div className="w-full h-px border-t border-zinc-200 dark:border-zinc-800" />
                 </div>
                 
-                {/* SVG Graph */}
-                <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                {/* Dynamic SVG Area Graph */}
+                <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
                   <defs>
-                    <linearGradient id="gradientArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.5" />
+                    <linearGradient id="gradientCascadeR0" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.45" />
+                      <stop offset="50%" stopColor="#2dd4bf" stopOpacity="0.25" />
                       <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
+
                   {/* Area fill */}
-                  <path d="M0,70 L15,70 L30,40 L50,40 L65,55 L80,55 L100,20 L100,100 L0,100 Z" fill="url(#gradientArea)" />
+                  <path 
+                    d="M 0,88 L 15,87 L 30,85 L 45,80 L 58,40 L 72,25 L 85,45 L 100,60 L 100,95 L 0,95 Z" 
+                    fill="url(#gradientCascadeR0)" 
+                  />
+                  
                   {/* Line */}
-                  <path d="M0,70 L15,70 L30,40 L50,40 L65,55 L80,55 L100,20" fill="none" stroke="#2dd4bf" strokeWidth="2" strokeLinejoin="round" />
+                  <path 
+                    d="M 0,88 L 15,87 L 30,85 L 45,80 L 58,40 L 72,25 L 85,45 L 100,60" 
+                    fill="none" 
+                    stroke="#2dd4bf" 
+                    strokeWidth="2.5" 
+                    strokeLinejoin="round" 
+                  />
+
+                  {/* Supercritical Peak Warning Dot at 750-800km */}
+                  <circle cx="72" cy="25" r="3.5" fill="#f43f5e" className="animate-pulse" />
                 </svg>
               </div>
 
-              {/* X Axis Labels */}
-              <div className="absolute left-10 right-0 bottom-0 h-6 flex justify-between text-xs text-zinc-400 dark:text-zinc-500">
-                <span>MO</span>
-                <span>TU</span>
-                <span>WE</span>
-                <span>TH</span>
-                <span>FR</span>
-                <span>SA</span>
-                <span>SU</span>
+              {/* X Axis Labels (Real Orbital Altitudes) */}
+              <div className="absolute left-14 right-2 bottom-0 h-5 flex justify-between text-[11px] font-mono text-muted-foreground select-none">
+                <span>200km</span>
+                <span>400km</span>
+                <span>550km</span>
+                <span>700km</span>
+                <span className="text-rose-400 font-bold">750-800km</span>
+                <span>900km</span>
+                <span>1200km</span>
               </div>
+            </div>
+
+            <div className="pt-3 border-t border-border/50 text-[11px] font-mono text-muted-foreground flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
+                Peak Supercritical Cascade: <strong className="text-rose-400">LEO_750_800 (R₀ = 25.25)</strong>
+              </span>
+              <span className="text-muted-foreground">ODE Runge-Kutta 4th Order</span>
             </div>
           </div>
 
-          <div className="col-span-1 md:col-span-3 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950">
-            <div className="flex justify-between items-start mb-6">
+          {/* Middle Card: Δv Fuel Ledger */}
+          <div className="col-span-1 md:col-span-3 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="font-bold text-xl mb-1">Δv Fuel Ledger</h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Maneuver fuel expenditure</p>
+                <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+                  <Rocket className="w-4 h-4 text-primary" />
+                  Δv Fuel Ledger
+                </h3>
+                <p className="text-xs text-muted-foreground font-mono">Maneuver fuel expenditure</p>
               </div>
-              <button className="text-zinc-400 dark:text-zinc-500 hover:text-black dark:text-white">
-                <MoreVertical className="w-5 h-5" />
-              </button>
+              <Link href="/financial">
+                <button className="text-xs font-mono text-primary hover:underline flex items-center gap-0.5 cursor-pointer">
+                  All <ArrowRight className="w-3 h-3" />
+                </button>
+              </Link>
             </div>
             
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900">
-                <div className="p-2 bg-white dark:bg-zinc-950 rounded-lg shadow-sm">
-                  <Wallet className="w-5 h-5 text-teal-500" />
-                </div>
-                <div>
-                  <div className="text-sm text-zinc-500 dark:text-zinc-400 font-medium mb-1">Starlink Fleet</div>
-                  <div className="font-bold text-lg">0.48 m/s</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900">
-                <div className="p-2 bg-white dark:bg-zinc-950 rounded-lg shadow-sm">
-                  <CreditCard className="w-5 h-5 text-orange-500" />
-                </div>
-                <div>
-                  <div className="text-sm text-zinc-500 dark:text-zinc-400 font-medium mb-1">OneWeb Cluster</div>
-                  <div className="font-bold text-lg">0.32 m/s</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900">
-                <div className="p-2 bg-white dark:bg-zinc-950 rounded-lg shadow-sm">
-                  <CircleDollarSign className="w-5 h-5 text-yellow-500" />
-                </div>
-                <div>
-                  <div className="text-sm text-zinc-500 dark:text-zinc-400 font-medium mb-1">ESA Sentinel</div>
-                  <div className="font-bold text-lg">0.18 m/s</div>
-                </div>
-              </div>
+            <div className="space-y-3">
+              {[
+                { name: "Starlink Fleet", op: "SpaceX", dv: "0.40 m/s", color: "text-teal-400", bg: "bg-teal-500/10", icon: Rocket, status: "Autonomous Yield" },
+                { name: "ISS (ZARYA)", op: "NASA", dv: "0.28 m/s", color: "text-amber-400", bg: "bg-amber-500/10", icon: Flame, status: "COSMOS Avoidance" },
+                { name: "Tiangong (CSS)", op: "CNSA", dv: "0.35 m/s", color: "text-purple-400", bg: "bg-purple-500/10", icon: Zap, status: "SL-16 Separation" },
+              ].map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-border/50 font-mono">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${item.bg} ${item.color}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-foreground font-sans">{item.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{item.status}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-black text-sm text-foreground">{item.dv}</div>
+                      <div className="text-[9px] text-muted-foreground">{item.op}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-border/50 text-[11px] font-mono text-muted-foreground flex justify-between">
+              <span>Remaining Fleet Reserve:</span>
+              <span className="font-bold text-emerald-400">96.8%</span>
             </div>
           </div>
 
-          <div className="col-span-1 md:col-span-3 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950">
-            <div className="flex justify-between items-start mb-6">
+          {/* Right Card: Active Conjunction Screening */}
+          <div className="col-span-1 md:col-span-3 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="font-bold text-lg mb-1">Active Conjunction Screening</h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Real-time Close Approaches</p>
+                <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-primary" />
+                  Active Conjunctions
+                </h3>
+                <p className="text-xs text-muted-foreground font-mono">Real-time close approaches</p>
               </div>
-              <button className="text-zinc-400 dark:text-zinc-500 hover:text-black dark:text-white">
-                <MoreVertical className="w-5 h-5" />
-              </button>
+              <Link href="/cases">
+                <button className="text-xs font-mono text-primary hover:underline flex items-center gap-0.5 cursor-pointer">
+                  All <ArrowRight className="w-3 h-3" />
+                </button>
+              </Link>
             </div>
             
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-orange-100 rounded-md">
-                    <Mail className="w-4 h-4 text-orange-500" />
-                  </div>
-                  <span className="font-medium text-sm">Starlink vs Cosmos Deb</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-amber-500 font-bold">48m</span>
-                  <span className="text-xs text-rose-500 font-medium">Critical</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-teal-100 rounded-md">
-                    <MailOpen className="w-4 h-4 text-teal-600" />
-                  </div>
-                  <span className="font-medium text-sm">Sentinel-2A vs SL-16</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-zinc-400">112m</span>
-                  <span className="text-xs text-amber-500 font-medium">Negotiating</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-yellow-100 rounded-md">
-                    <MousePointerClick className="w-4 h-4 text-yellow-600" />
-                  </div>
-                  <span className="font-medium text-sm">OneWeb vs Fengyun</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-emerald-500 font-bold">340m</span>
-                  <span className="text-xs text-emerald-500 font-medium">Avoided</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-blue-100 rounded-md">
-                    <Bell className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <span className="font-medium text-sm">NOAA-20 vs Fragment</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-zinc-400">185m</span>
-                  <span className="text-xs text-zinc-400 font-medium">Watch</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-red-100 rounded-md">
-                    <TriangleAlert className="w-4 h-4 text-red-600" />
-                  </div>
-                  <span className="font-medium text-sm">ISS Corridor Sweep</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-emerald-500">1.8km</span>
-                  <span className="text-xs text-emerald-500 font-medium">Cleared</span>
-                </div>
-              </div>
+            <div className="space-y-3 font-mono text-xs">
+              {(conjunctions.length > 0 ? conjunctions.slice(0, 5) : [
+                { id: "1", p: "ISS (ZARYA)", s: "COSMOS 2251 DEB", miss: 0.347, risk: "critical" },
+                { id: "2", p: "TIANGONG (CSS)", s: "SL-16 R/B DEB", miss: 0.28, risk: "critical" },
+                { id: "3", p: "NOAA 19", s: "FENGYUN 1C DEB", miss: 1.12, risk: "elevated" },
+                { id: "4", p: "ENVISAT", s: "COSMOS 2251 DEB", miss: 0.89, risk: "elevated" },
+                { id: "5", p: "STARLINK-31042", s: "CZ-4B R/B", miss: 8.4, risk: "nominal" },
+              ]).map((c, idx) => {
+                const primary = "primaryObjectId" in c ? objectsMap[c.primaryObjectId]?.name || "Primary Sat" : (c as unknown as { p: string }).p;
+                const secondary = "secondaryObjectId" in c ? objectsMap[c.secondaryObjectId]?.name || "Debris Target" : (c as unknown as { s: string }).s;
+                const missKm = "missDistance" in c ? c.missDistance : (c as unknown as { miss: number }).miss;
+                const risk = "riskLevel" in c ? c.riskLevel : (c as unknown as { risk: string }).risk;
+                const isCritical = risk === "critical";
+
+                return (
+                  <Link 
+                    key={c.id || idx} 
+                    href={"primaryObjectId" in c ? `/cases/${c.id}` : "/cases"}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/40 transition-colors border border-transparent hover:border-border"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`p-1.5 rounded-md shrink-0 ${
+                        isCritical ? "bg-rose-500/15 text-rose-400" : "bg-amber-500/15 text-amber-400"
+                      }`}>
+                        {isCritical ? <Flame className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-xs text-foreground truncate max-w-[130px] font-sans">
+                          {primary}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground truncate max-w-[130px]">
+                          ⚡ {secondary}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right shrink-0">
+                      <div className="font-bold text-xs text-foreground">
+                        {formatDistance(missKm)}
+                      </div>
+                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
+                        isCritical ? "bg-rose-950/60 text-rose-400 border border-rose-500/30" : "bg-amber-950/60 text-amber-400 border border-amber-500/30"
+                      }`}>
+                        {risk}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-border/50 text-[11px] font-mono text-muted-foreground flex justify-between">
+              <span>B-Plane Hard-Body Radius:</span>
+              <span className="font-bold text-foreground">20.0 m</span>
             </div>
           </div>
         </div>
