@@ -57,43 +57,27 @@ export interface ProcessedSatellite {
   raw: TrackedObject;
 }
 
-interface ProcessedArc {
-  id: string;
-  event: ConjunctionEvent;
-  startLat: number;
-  startLng: number;
-  startAlt: number;
-  endLat: number;
-  endLng: number;
-  endAlt: number;
-  color: string[];
-  stroke?: number;
-  dashLength: number;
-  dashGap: number;
-  dashAnimateTime: number;
-}
-
 // Compute normalized orbital clearance altitude above ThreeGlobe Earth surface (R_earth = 100).
-// Uses a multi-tiered non-linear scaling curve so satellites and orbits at different altitudes
-// (VLEO, LEO low, LEO mid, SSO, High LEO) have pronounced, visibly distinct orbital radii.
+// Uses a multi-tiered non-linear scaling curve with a guaranteed safe floor of norm >= 0.095 (R >= 109.5),
+// completely clearing the atmosphere limb (104.5) and Earth surface (100.0) by at least 5.0 units of space.
 export function computeAltitudeNorm(altitudeKm: number): number {
-  const clampedKm = Math.max(180, Math.min(2500, altitudeKm || 550));
+  const clampedKm = Math.max(200, Math.min(2500, altitudeKm || 550));
   
   // Non-linear altitude mapping creating distinct concentric orbital levels:
-  // VLEO (200-350 km)   -> R = 107.5 to 110.0
-  // Low LEO (350-500 km)-> R = 110.0 to 114.5 (ISS @ 420km -> 112.4)
-  // Mid LEO (500-700 km)-> R = 114.5 to 119.5 (Starlink @ 550km -> 115.8)
-  // Polar SSO (700-1000)-> R = 119.5 to 125.5 (SSO @ 800km -> 121.5)
-  // High LEO (1000-2500)-> R = 125.5 to 138.0 (OneWeb @ 1200km -> 128.0)
+  // VLEO (200-350 km)   -> R = 109.5 to 112.5 (generous 5.0+ units of vacuum space above atmosphere limb 104.5)
+  // Low LEO (350-500 km)-> R = 112.5 to 116.5 (ISS @ 420km -> 113.9)
+  // Mid LEO (500-700 km)-> R = 116.5 to 122.0 (Starlink @ 550km -> 117.8)
+  // Polar SSO (700-1000)-> R = 122.0 to 128.5 (SSO @ 800km -> 124.5)
+  // High LEO (1000-2500)-> R = 128.5 to 142.0 (OneWeb @ 1200km -> 131.0)
   let norm: number;
   if (clampedKm <= 500) {
-    norm = 0.075 + ((clampedKm - 180) / (500 - 180)) * (0.145 - 0.075);
+    norm = 0.095 + ((clampedKm - 200) / (500 - 200)) * (0.165 - 0.095);
   } else if (clampedKm <= 1000) {
-    norm = 0.145 + ((clampedKm - 500) / (1000 - 500)) * (0.255 - 0.145);
+    norm = 0.165 + ((clampedKm - 500) / (1000 - 500)) * (0.285 - 0.165);
   } else {
-    norm = 0.255 + ((clampedKm - 1000) / (2500 - 1000)) * (0.380 - 0.255);
+    norm = 0.285 + ((clampedKm - 1000) / (2500 - 1000)) * (0.420 - 0.285);
   }
-  return Number(Math.max(0.075, Math.min(0.380, norm)).toFixed(4));
+  return Number(Math.max(0.095, Math.min(0.420, norm)).toFixed(4));
 }
 
 // Convert ECI state vector (km) to Geodetic latitude, longitude, and normalized altitude
@@ -347,11 +331,15 @@ export default function GlobeView({
   const satelliteMeshesRef = useRef<Array<{ mesh: THREE.Object3D; data: ProcessedSatellite }>>([]);
   // Dedicated Three.js group for mathematically exact 3D Keplerian hairline orbit trajectory rings
   const orbitRingsGroupRef = useRef<THREE.Group | null>(null);
+  // Dedicated Three.js group for real-time 3D conjunction targeting laser vectors in space
+  const conjunctionLasersGroupRef = useRef<THREE.Group | null>(null);
   // Continuous anomaly angle tracker so satellites NEVER snap back or restart like a gif
   const currentThetaMapRef = useRef<Map<string, number>>(new Map());
 
   const [objects, setObjects] = useState<TrackedObject[]>(initialObjects);
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>(initialConjunctions);
+  const conjunctionsRef = useRef<ConjunctionEvent[]>(conjunctions);
+  conjunctionsRef.current = conjunctions;
   const [isRevolving, setIsRevolving] = useState(true);
   const [orbitSpeedMultiplier, setOrbitSpeedMultiplier] = useState(40); // 40x speed: ~2 min full orbit
   const [orbitDisplayMode, setOrbitDisplayMode] = useState<"tactical" | "focused" | "all" | "off">("tactical");
@@ -489,51 +477,7 @@ export default function GlobeView({
       });
   }, [objects, activeLayer, conjunctions]);
 
-  // 2. Process conjunction trajectory arcs: rendered as crisp 1px hairline laser pulses
-  const arcsData = React.useMemo<ProcessedArc[]>(() => {
-    const objMap = new Map<string, TrackedObject>();
-    objects.forEach((o) => objMap.set(o.id, o));
 
-    // Focus only on active critical/elevated conjunctions, limited to top 4 events to keep display clear and tactical
-    const targetConjunctions = conjunctions
-      .filter((c) => c.status === "active" || c.status === "monitoring" || c.status === "mitigated")
-      .filter((c) => (activeLayer === "critical" ? c.riskLevel === "critical" : c.riskLevel === "critical" || c.riskLevel === "elevated"))
-      .slice(0, 4);
-
-    return targetConjunctions
-      .map((c) => {
-        const primary = objMap.get(c.primaryObjectId);
-        const secondary = objMap.get(c.secondaryObjectId);
-        if (!primary || !secondary) return null;
-
-        const pCoord = eciToGeodetic(primary.position, primary.altitude);
-        const sCoord = eciToGeodetic(secondary.position, secondary.altitude);
-
-        let color = ["rgba(245, 158, 11, 0.75)", "rgba(234, 179, 8, 0.75)"]; // Subtle amber
-        let dashAnimateTime = 2000;
-
-        if (c.riskLevel === "critical") {
-          color = ["rgba(239, 68, 68, 0.85)", "rgba(249, 115, 22, 0.85)"]; // Subtle red-orange warning
-          dashAnimateTime = 1400;
-        }
-
-        return {
-          id: c.id,
-          event: c,
-          startLat: pCoord.lat,
-          startLng: pCoord.lng,
-          startAlt: pCoord.alt,
-          endLat: sCoord.lat,
-          endLng: sCoord.lng,
-          endAlt: sCoord.alt,
-          color,
-          dashLength: 0.5,
-          dashGap: 0.3,
-          dashAnimateTime,
-        };
-      })
-      .filter(Boolean) as ProcessedArc[];
-  }, [objects, conjunctions, activeLayer]);
 
   // Update telemetry counters
   useEffect(() => {
@@ -689,39 +633,15 @@ export default function GlobeView({
           onSelectObject(d.raw);
         }
       })
-      // Trajectory Arcs for close approaches: rendered as thin 1px hairline laser pulses
-      .arcsData(arcsData)
-      .arcStartLat("startLat")
-      .arcStartLng("startLng")
-      .arcStartAltitude("startAlt")
-      .arcEndLat("endLat")
-      .arcEndLng("endLng")
-      .arcEndAltitude("endAlt")
-      .arcColor("color")
-      .arcAltitude(0.20) // Arches safely in space between orbital bodies, never dipping into Earth
-      .arcDashLength("dashLength")
-      .arcDashGap("dashGap")
-      .arcDashAnimateTime("dashAnimateTime")
-      .arcLabel(
-        (arc: any) => `
-          <div style="background: rgba(15, 10, 10, 0.94); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; padding: 8px 12px; font-family: ui-monospace, monospace; font-size: 11px; color: #f8fafc; backdrop-filter: blur(8px);">
-            <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">⚡ CONJUNCTION TRAJECTORY</div>
-            <div style="color: #94a3b8;">Miss Distance: <span style="color: #f59e0b; font-weight: 600;">${(arc.event.missDistance * 1000).toFixed(0)} m</span></div>
-            <div style="color: #94a3b8;">Collision Probability: <span style="color: #ef4444; font-weight: 700;">${formatScientificPc(arc.event.collisionProbability)}</span></div>
-            <div style="color: #94a3b8;">TCA: <span style="color: #f1f5f9;">${arc.event.tca}</span></div>
-          </div>
-        `
-      )
-      .onArcClick((arc: any) => {
-        if (onSelectConjunction && arc.event) {
-          onSelectConjunction(arc.event);
-        }
-      });
-
     // Attach Three.js group for 3D Keplerian hairline orbit rings directly into Scene
     const orbitGroup = new THREE.Group();
     globe.scene().add(orbitGroup);
     orbitRingsGroupRef.current = orbitGroup;
+
+    // Attach Three.js group for real-time 3D conjunction targeting lasers in space
+    const laserGroup = new THREE.Group();
+    globe.scene().add(laserGroup);
+    conjunctionLasersGroupRef.current = laserGroup;
 
     // Initial camera position
     globe.pointOfView({ lat: 25, lng: 45, altitude: 2.2 }, 1000);
@@ -793,6 +713,39 @@ export default function GlobeView({
             mesh.rotation.y += 0.015;
           }
         }
+
+        // Real-time 3D space conjunction targeting laser vectors
+        if (conjunctionLasersGroupRef.current) {
+          const laserGroup = conjunctionLasersGroupRef.current;
+          while (laserGroup.children.length > 0) {
+            const child = laserGroup.children[0] as THREE.Line;
+            child.geometry.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => m.dispose());
+            } else {
+              child.material.dispose();
+            }
+            laserGroup.remove(child);
+          }
+
+          const activeConjunctions = conjunctionsRef.current.filter(
+            (c) => c.status === "active" || c.status === "monitoring"
+          );
+          activeConjunctions.forEach((crit) => {
+            const meshA = satelliteMeshesRef.current.find((m) => m.data.id === crit.primaryObjectId)?.mesh;
+            const meshB = satelliteMeshesRef.current.find((m) => m.data.id === crit.secondaryObjectId)?.mesh;
+            if (meshA && meshB) {
+              const geom = new THREE.BufferGeometry().setFromPoints([meshA.position, meshB.position]);
+              const mat = new THREE.LineBasicMaterial({
+                color: crit.riskLevel === "critical" ? 0xef4444 : 0xf59e0b,
+                transparent: true,
+                opacity: 0.85,
+                depthWrite: false,
+              });
+              laserGroup.add(new THREE.Line(geom, mat));
+            }
+          });
+        }
       }
     };
 
@@ -815,6 +768,21 @@ export default function GlobeView({
         orbitRingsGroupRef.current.clear();
       }
       orbitRingsGroupRef.current = null;
+
+      if (conjunctionLasersGroupRef.current) {
+        conjunctionLasersGroupRef.current.traverse((child) => {
+          if (child instanceof THREE.Line) {
+            child.geometry.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => m.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        });
+        conjunctionLasersGroupRef.current.clear();
+      }
+      conjunctionLasersGroupRef.current = null;
 
       try {
         const globe = globeInstanceRef.current as any;
@@ -842,12 +810,6 @@ export default function GlobeView({
       globeInstanceRef.current.customLayerData(satellitesData);
     }
   }, [satellitesData, activeLayer]);
-
-  // Update arcsData
-  useEffect(() => {
-    if (!globeInstanceRef.current) return;
-    globeInstanceRef.current.arcsData(arcsData);
-  }, [arcsData]);
 
   // Handle auto-rotation toggle
   useEffect(() => {
@@ -1061,8 +1023,8 @@ export default function GlobeView({
             <span className="text-foreground font-medium">ISS / Station</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-gradient-to-r from-red-500 to-orange-500" />
-            <span className="text-foreground font-medium">Conjunction Arc</span>
+            <span className="w-4 h-0.5 bg-gradient-to-r from-red-500 to-amber-500" />
+            <span className="text-foreground font-medium">Collision Vector</span>
           </div>
         </div>
       )}
