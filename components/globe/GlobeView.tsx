@@ -15,16 +15,11 @@ import {
   Pause,
   Crosshair,
   Maximize2,
-  Minimize2,
-  Layers,
   Radio,
-  Satellite,
-  AlertTriangle,
-  FastForward,
-  Flame,
   Orbit as OrbitIcon,
   ExternalLink,
-  X
+  X,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 
@@ -88,12 +83,11 @@ function eciToGeodetic(pos: { x: number; y: number; z: number }, altKm: number) 
   const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z) || 6771;
   const lat = Math.asin(Math.max(-1, Math.min(1, pos.z / r))) * (180 / Math.PI);
   const lng = Math.atan2(pos.y, pos.x) * (180 / Math.PI);
-  // Normalized altitude for globe.gl: Earth radius = 6371 km -> altNorm = altKm / 6371
   const alt = Math.max(0.04, Math.min(0.25, altKm / 6371));
   return { lat, lng, alt };
 }
 
-// Compute full 360-degree orbital trajectory ring points from Keplerian elements
+// Compute mathematically exact 360-degree orbital trajectory ring points from Keplerian elements
 function computeOrbitRingPoints(
   inclinationDeg: number,
   raanDeg: number,
@@ -104,62 +98,62 @@ function computeOrbitRingPoints(
   const raanRad = (raanDeg * Math.PI) / 180;
   const altNorm = Math.max(0.04, Math.min(0.25, altitudeKm / 6371));
 
-  for (let u = 0; u <= 360; u += 4) {
+  for (let u = 0; u <= 360; u += 3) {
     const uRad = (u * Math.PI) / 180;
-    const xOrb = Math.cos(uRad);
-    const yOrb = Math.sin(uRad);
+    const zEci = Math.sin(uRad) * Math.sin(incRad);
+    const xEci = Math.cos(uRad) * Math.cos(raanRad) - Math.sin(uRad) * Math.sin(raanRad) * Math.cos(incRad);
+    const yEci = Math.cos(uRad) * Math.sin(raanRad) + Math.sin(uRad) * Math.cos(raanRad) * Math.cos(incRad);
 
-    const x = xOrb * Math.cos(raanRad) - yOrb * Math.cos(incRad) * Math.sin(raanRad);
-    const y = xOrb * Math.sin(raanRad) + yOrb * Math.cos(incRad) * Math.cos(raanRad);
-    const z = yOrb * Math.sin(incRad);
-
-    const lat = Math.asin(Math.max(-1, Math.min(1, z))) * (180 / Math.PI);
-    const lng = Math.atan2(y, x) * (180 / Math.PI);
+    const lat = Math.asin(Math.max(-1, Math.min(1, zEci))) * (180 / Math.PI);
+    const lng = Math.atan2(yEci, xEci) * (180 / Math.PI);
     points.push({ lat, lng, alt: altNorm });
   }
   return points;
 }
 
-// Create custom 3D floating space mesh for each satellite (NO vertical lines or ground stalks!)
+// Create custom 3D glowing orbital orb for each satellite (ZERO cylinders, bars, or surface spikes!)
 function createSatelliteMesh(d: ProcessedSatellite): THREE.Object3D {
   const group = new THREE.Group();
 
   if (d.name.includes("ISS") || d.name.includes("TIANGONG")) {
-    // Space Station model: Core habitat module + solar array wings + glowing beacon
-    const moduleGeom = new THREE.CylinderGeometry(0.5, 0.5, 2.2, 8);
-    const moduleMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const moduleMesh = new THREE.Mesh(moduleGeom, moduleMat);
-    moduleMesh.rotation.z = Math.PI / 2;
-    group.add(moduleMesh);
-
-    // Glowing cyan core orb
-    const coreGeom = new THREE.SphereGeometry(0.85, 10, 10);
+    // Space Station: Luminous cyan core orb + equatorial orbital halo ring
+    const coreGeom = new THREE.SphereGeometry(0.7, 12, 12);
     const coreMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     group.add(new THREE.Mesh(coreGeom, coreMat));
 
-    // Solar panels
-    const panelGeom = new THREE.BoxGeometry(4.0, 0.08, 1.0);
-    const panelMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
-    group.add(new THREE.Mesh(panelGeom, panelMat));
-  } else if (d.type === "satellite") {
-    // Active satellite: Central satellite bus + blue solar panel wings
-    const bodyGeom = new THREE.BoxGeometry(0.7, 0.7, 0.7);
-    const bodyMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
-    group.add(new THREE.Mesh(bodyGeom, bodyMat));
-
-    const panelGeom = new THREE.BoxGeometry(2.2, 0.06, 0.55);
-    const panelMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    group.add(new THREE.Mesh(panelGeom, panelMat));
+    const ringGeom = new THREE.RingGeometry(0.95, 1.25, 24);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.7,
+    });
+    const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+    ringMesh.rotation.x = Math.PI / 2;
+    group.add(ringMesh);
+  } else if (d.type === "debris") {
+    // Debris fragment: Sharp tumbling crystalline warning-red octahedron
+    const debrisGeom = new THREE.OctahedronGeometry(0.24, 0);
+    const debrisMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    group.add(new THREE.Mesh(debrisGeom, debrisMat));
   } else if (d.type === "rocket_body") {
-    // Spent Rocket Stage: Bronze/orange cylindrical booster
-    const boosterGeom = new THREE.CylinderGeometry(0.45, 0.45, 1.5, 6);
+    // Spent Rocket Stage: Glowing amber orb
+    const boosterGeom = new THREE.SphereGeometry(0.3, 8, 8);
     const boosterMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
     group.add(new THREE.Mesh(boosterGeom, boosterMat));
   } else {
-    // Debris fragment: Sharp tumbling crystalline red octahedron
-    const debrisGeom = new THREE.OctahedronGeometry(0.55, 0);
-    const debrisMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-    group.add(new THREE.Mesh(debrisGeom, debrisMat));
+    // Active satellite: Crisp emerald orb with subtle outer glow sphere
+    const bodyGeom = new THREE.SphereGeometry(0.34, 10, 10);
+    const bodyMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+    group.add(new THREE.Mesh(bodyGeom, bodyMat));
+
+    const haloGeom = new THREE.SphereGeometry(0.52, 8, 8);
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      transparent: true,
+      opacity: 0.25,
+    });
+    group.add(new THREE.Mesh(haloGeom, haloMat));
   }
 
   return group;
@@ -182,7 +176,7 @@ export default function GlobeView({
   const [objects, setObjects] = useState<TrackedObject[]>(initialObjects);
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>(initialConjunctions);
   const [isRevolving, setIsRevolving] = useState(true);
-  const [orbitSpeedMultiplier, setOrbitSpeedMultiplier] = useState(40); // 40x speed: ~90s full orbit
+  const [orbitSpeedMultiplier, setOrbitSpeedMultiplier] = useState(40); // 40x speed: ~2 min full orbit
   const [autoRotate, setAutoRotate] = useState(true);
   const [activeLayer, setActiveLayer] = useState<"all" | "satellites" | "debris" | "critical">("all");
   const [selectedObject, setSelectedObject] = useState<TrackedObject | null>(null);
@@ -228,10 +222,10 @@ export default function GlobeView({
           radius = 0.3;
         } else if (obj.name.includes("ISS") || obj.name.includes("TIANGONG")) {
           color = "#38bdf8"; // cyan highlight for space stations
-          radius = 0.6;
+          radius = 0.65;
         }
 
-        // Orbital elements from data or derived from state vector
+        // Orbital elements from telemetry or derived from state vector
         const inclination = obj.orbitalElements?.inclination ?? (30 + ((idx * 17) % 65));
         const raan = obj.orbitalElements?.raan ?? ((idx * 37) % 360);
         const phase = (idx * 0.45) % (Math.PI * 2);
@@ -396,16 +390,15 @@ export default function GlobeView({
       .backgroundImageUrl("//unpkg.com/three-globe/example/img/night-sky.png")
       .atmosphereColor("#38bdf8")
       .atmosphereAltitude(0.18)
-      // Custom 3D Object Layer: Floating satellites in 3D orbit (NO VERTICAL LINES/PILLARS!)
+      // Custom 3D Object Layer: Floating luminous orbs revolving in 3D orbit (NO STICKS OR CYLINDERS!)
       .customLayerData(satellitesData)
       .customThreeObject((d: any) => {
         const mesh = createSatelliteMesh(d);
+        // Position mesh initially at satellite orbital coordinate
+        const coords = globe.getCoords(d.lat, d.lng, d.alt);
+        mesh.position.set(coords.x, coords.y, coords.z);
         satelliteMeshesRef.current.push({ mesh, data: d });
         return mesh;
-      })
-      .customThreeObjectUpdate((obj: any, d: any) => {
-        const coords = globe.getCoords(d.lat, d.lng, d.alt);
-        obj.position.set(coords.x, coords.y, coords.z);
       })
       .customLayerLabel(
         (d: any) => `
@@ -465,7 +458,7 @@ export default function GlobeView({
       .pathStroke("stroke")
       .pathDashLength(0.06)
       .pathDashGap(0.02)
-      .pathDashAnimateTime(5000);
+      .pathDashAnimateTime(4000);
 
     // Initial camera position
     globe.pointOfView({ lat: 25, lng: 45, altitude: 2.2 }, 1000);
@@ -502,7 +495,7 @@ export default function GlobeView({
       const deltaSeconds = Math.min(0.05, (currentTimestamp - lastTimestamp) / 1000);
       lastTimestamp = currentTimestamp;
 
-      if (isRevolving && satelliteMeshesRef.current.length > 0) {
+      if (isRevolving && globeInstanceRef.current && satelliteMeshesRef.current.length > 0) {
         const speedMult = orbitSpeedMultiplier;
 
         for (let i = 0; i < satelliteMeshesRef.current.length; i++) {
@@ -511,32 +504,32 @@ export default function GlobeView({
 
           const { mesh, data } = item;
 
-          // Advance orbital anomaly angle along ellipse:
+          // Advance orbital anomaly angle along orbit:
           data.currentTheta = (data.currentTheta ?? data.phase) + data.angularVelocity * deltaSeconds * speedMult;
 
-          const theta = data.currentTheta;
+          const u = data.currentTheta;
           const incRad = (data.inclination * Math.PI) / 180;
           const raanRad = (data.raan * Math.PI) / 180;
-          // ThreeGlobe Earth sphere radius = 100
-          const r = 100 * (1 + data.alt);
 
-          // Position in 2D orbital plane:
-          const xOrb = r * Math.cos(theta);
-          const yOrb = r * Math.sin(theta);
+          // 3D Cartesian coordinates in ECI
+          const zEci = Math.sin(u) * Math.sin(incRad);
+          const xEci = Math.cos(u) * Math.cos(raanRad) - Math.sin(u) * Math.sin(raanRad) * Math.cos(incRad);
+          const yEci = Math.cos(u) * Math.sin(raanRad) + Math.sin(u) * Math.cos(raanRad) * Math.cos(incRad);
 
-          // Rotate to 3D Cartesian coordinates in ThreeGlobe space:
-          const x = xOrb * Math.cos(raanRad) - yOrb * Math.cos(incRad) * Math.sin(raanRad);
-          const z = xOrb * Math.sin(raanRad) + yOrb * Math.cos(incRad) * Math.cos(raanRad);
-          const y = yOrb * Math.sin(incRad);
+          const lat = Math.asin(Math.max(-1, Math.min(1, zEci))) * (180 / Math.PI);
+          const lng = Math.atan2(yEci, xEci) * (180 / Math.PI);
 
-          mesh.position.set(x, y, z);
+          data.lat = lat;
+          data.lng = lng;
 
-          // Tumble debris fragments; orient satellites along orbital flight vector
+          // Project smoothly onto ThreeGlobe 3D coordinates
+          const coords = globeInstanceRef.current.getCoords(lat, lng, data.alt);
+          mesh.position.set(coords.x, coords.y, coords.z);
+
+          // Tumble debris fragments
           if (data.type === "debris") {
-            mesh.rotation.x += 0.02;
-            mesh.rotation.y += 0.03;
-          } else {
-            mesh.lookAt(x * 1.02, y * 1.02, z * 1.02);
+            mesh.rotation.x += 0.03;
+            mesh.rotation.y += 0.02;
           }
         }
       }
@@ -643,7 +636,7 @@ export default function GlobeView({
             <span className="text-primary font-bold">SGP4 LIVE</span>
           </Badge>
           <Badge variant="outline" className="bg-background/80 backdrop-blur-md border-border/80 text-muted-foreground font-mono text-[10px] px-2 py-0.5 hidden sm:flex items-center gap-1">
-            <OrbitIcon className="w-2.5 h-2.5 text-sky-400 animate-spin" />
+            <OrbitIcon className={`w-2.5 h-2.5 text-sky-400 ${isRevolving ? "animate-spin" : ""}`} />
             <span>{isRevolving ? `${orbitSpeedMultiplier}x Real-Time Orbit` : "Orbit Paused"}</span>
           </Badge>
         </div>
@@ -741,26 +734,26 @@ export default function GlobeView({
         </button>
       </div>
 
-      {/* Bottom Center: Legend */}
+      {/* Bottom Left: Legend */}
       <div className="absolute bottom-4 left-4 z-10 hidden lg:flex items-center gap-4 bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 text-[11px] font-mono text-muted-foreground">
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
           <span className="text-foreground font-medium">Active Satellite</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-red-500" />
+          <span className="w-2.5 h-2.5 rotate-45 bg-red-500 shadow-[0_0_6px_#ef4444]" />
           <span className="text-foreground font-medium">Debris Fragment</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-orange-500" />
+          <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_6px_#f97316]" />
           <span className="text-foreground font-medium">Rocket Body</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-sky-400 ring-2 ring-sky-500/40" />
+          <span className="w-2.5 h-2.5 rounded-full bg-sky-400 ring-2 ring-sky-500/50 shadow-[0_0_8px_#38bdf8]" />
           <span className="text-foreground font-medium">ISS / Station</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3.5 h-0.5 bg-gradient-to-r from-red-500 to-orange-500" />
+          <span className="w-4 h-0.5 bg-gradient-to-r from-red-500 to-orange-500" />
           <span className="text-foreground font-medium">Conjunction Arc</span>
         </div>
       </div>
