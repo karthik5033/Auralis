@@ -234,12 +234,12 @@ export default function Home() {
           Orbital Debris Tracking & Collision Avoidance
         </div>
 
-        <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-black dark:text-white dark:text-white max-w-4xl leading-[1.1] mb-6">
-          Mission Control for Orbital Debris & <br />
-          <span className="relative inline-block mt-2">
-            Autonomous Collision Avoidance
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-foreground max-w-4xl leading-[1.15] mb-6">
+          Autonomous Mission Control for
+          <span className="relative block mt-2 text-transparent bg-clip-text bg-gradient-to-r from-foreground via-cyan-100 to-sky-400">
+            Orbital Debris & Collision Avoidance
             <svg
-              className="absolute w-full h-3 -bottom-2 left-0 text-black dark:text-white"
+              className="absolute w-full h-3 -bottom-2 left-0 text-cyan-500/60"
               viewBox="0 0 300 12"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -255,13 +255,14 @@ export default function Home() {
           </span>
         </h1>
 
-        <p className="text-xl text-zinc-500 dark:text-zinc-400 max-w-2xl mb-8">
-          Mission control for orbital debris — track every object in orbit, predict conjunctions before they occur, and watch autonomous agents negotiate optimal maneuver yields.
+        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-8 leading-relaxed">
+          Track every cataloged object in orbit in real time, predict high-probability conjunctions before they occur, and watch autonomous AI agents negotiate optimal maneuver yields.
         </p>
 
-        <div className="text-xl text-zinc-500 dark:text-zinc-400 mb-8 flex items-center justify-center">
-          SGP4 Orbital Ephemeris Screening with <span className="text-black dark:text-white dark:text-white ml-1">Live Conjunction Screening</span>
-          <span className="w-[1.5px] h-6 bg-black ml-[1px] animate-pulse"></span>
+        <div className="text-sm md:text-base font-mono text-muted-foreground mb-8 flex items-center justify-center gap-2">
+          <span>SGP4 Orbital Ephemeris Screening with</span>
+          <span className="text-foreground font-semibold">Live Conjunction Screening</span>
+          <span className="w-[1.5px] h-5 bg-cyan-400 ml-[1px] animate-pulse"></span>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
