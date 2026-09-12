@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import Globe, { GlobeInstance } from "globe.gl";
 import type { TrackedObject, ConjunctionEvent } from "@/types/contract";
+import { deriveKeplerianElements, eciToGeodeticCoords, GM_EARTH_KM3_S2 } from "@/data/propagator";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { getObjects, getConjunctions } from "@/lib/api";
 import { formatScientificPc } from "@/lib/formatters";
@@ -82,12 +83,11 @@ export function computeAltitudeNorm(altitudeKm: number): number {
 }
 
 // Convert ECI state vector (km) to Geodetic latitude, longitude, and normalized altitude
-function eciToGeodetic(pos: { x: number; y: number; z: number }, altKm: number) {
-  const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z) || 6771;
-  const lat = Math.asin(Math.max(-1, Math.min(1, pos.z / r))) * (180 / Math.PI);
-  const lng = Math.atan2(pos.y, pos.x) * (180 / Math.PI);
-  const alt = computeAltitudeNorm(altKm);
-  return { lat, lng, alt };
+// Uses Greenwich Mean Sidereal Time (GMST) to account for Earth's actual rotational angle beneath orbit
+function eciToGeodetic(pos: { x: number; y: number; z: number }, altKm?: number) {
+  const geo = eciToGeodeticCoords(pos, new Date());
+  const alt = computeAltitudeNorm(altKm || geo.altitudeKm);
+  return { lat: geo.latitudeDeg, lng: geo.longitudeDeg, alt };
 }
 
 /**
@@ -446,18 +446,31 @@ export default function GlobeView({
           }
         }
 
-        // Orbital elements from telemetry or derived from state vector
-        const inclination = obj.orbitalElements?.inclination ?? (30 + ((idx * 17) % 65));
-        const raan = obj.orbitalElements?.raan ?? ((idx * 37) % 360);
-        const phase = (idx * 0.45) % (Math.PI * 2);
+        // Astrodynamic derivation: extract or derive real Keplerian orbital elements with zero hardcoding
+        const keplerian = (obj.orbitalElements && obj.orbitalElements.inclination != null && obj.orbitalElements.raan != null)
+          ? obj.orbitalElements
+          : deriveKeplerianElements(obj.position, obj.velocity);
 
-        // Orbital angular velocity: v / r (rad/s in real time)
-        const orbitalRadiusKm = 6371 + obj.altitude;
-        const angularVelocity = velMagnitude / orbitalRadiusKm; // ~0.0011 rad/s
+        const inclination = keplerian.inclination;
+        const raan = keplerian.raan;
+        const semiMajorAxis = keplerian.semiMajorAxis || (6371 + obj.altitude);
 
-        // Retrieve continuously tracked anomaly so satellite NEVER snaps back on data updates
+        // Exact orbital plane coordinates of real 3D state vector pos(x, y, z):
+        const incRad = (inclination * Math.PI) / 180;
+        const raanRad = (raan * Math.PI) / 180;
+        const xPlane = obj.position.x * Math.cos(raanRad) + obj.position.y * Math.sin(raanRad);
+        const yPlane = -obj.position.x * Math.sin(raanRad) * Math.cos(incRad) +
+                       obj.position.y * Math.cos(raanRad) * Math.cos(incRad) +
+                       obj.position.z * Math.sin(incRad);
+        // Exact physical argument of latitude u0 directly from real 3D position vector
+        const initialU = Math.atan2(yPlane, xPlane);
+
+        // Keplerian mean motion: n = sqrt(GM_Earth / a^3) in rad/s
+        const angularVelocity = Math.sqrt(GM_EARTH_KM3_S2 / Math.pow(semiMajorAxis, 3));
+
+        // Retrieve continuously tracked anomaly or initialize with the exact physical u0
         const existingTheta = currentThetaMapRef.current.get(obj.id);
-        const theta = existingTheta ?? phase;
+        const theta = existingTheta ?? initialU;
         currentThetaMapRef.current.set(obj.id, theta);
 
         return {
@@ -478,7 +491,7 @@ export default function GlobeView({
           displaySize,
           inclination,
           raan,
-          phase,
+          phase: initialU,
           angularVelocity,
           currentTheta: theta,
           raw: obj,
@@ -528,19 +541,24 @@ export default function GlobeView({
     }
 
     if (orbitDisplayMode === "tactical" || orbitDisplayMode === "all") {
-      // 1. Prominent Orbital Shell Corridors across visibly distinct radii & inclinations:
-      // VLEO Reconnaissance Plane (280 km, 28.5°, R=109.8) - muted slate
-      group.add(createKeplerianOrbitRing(28.5, 90, 280, 0x94a3b8, 0.22));
-      // Tiangong CSS Station (385 km, 41.5°, R=112.0) - amber
-      group.add(createKeplerianOrbitRing(41.5, 315, 385, 0xf59e0b, 0.38));
-      // ISS Crewed Orbit (420 km, 51.6°, R=112.8) - luminous cyan
-      group.add(createKeplerianOrbitRing(51.6, 140, 420, 0x38bdf8, 0.45));
-      // Starlink Alpha Shell (550 km, 53.0°, R=115.8) - emerald
-      group.add(createKeplerianOrbitRing(53.0, 45, 550, 0x10b981, 0.35));
-      // Sun-Synchronous Polar SSO (800 km, 98.6°, R=121.5) - indigo
-      group.add(createKeplerianOrbitRing(98.6, 300, 800, 0x818cf8, 0.35));
-      // OneWeb / High LEO Shell (1200 km, 87.9°, R=128.0) - purple
-      group.add(createKeplerianOrbitRing(87.9, 210, 1200, 0xa855f7, 0.30));
+      // 1. Prominent Orbital Corridors dynamically sourced from live catalog objects:
+      const findObjRing = (predicate: (o: TrackedObject) => boolean, color: number, opacity: number) => {
+        const found = objects.find(predicate);
+        if (found) {
+          const kep = (found.orbitalElements && found.orbitalElements.inclination != null)
+            ? found.orbitalElements
+            : deriveKeplerianElements(found.position, found.velocity);
+          group.add(createKeplerianOrbitRing(kep.inclination, kep.raan, found.altitude, color, opacity));
+        }
+      };
+
+      // Real Space Stations & Major Constellations from live telemetry:
+      findObjRing((o) => o.noradId === 25544 || o.name.includes("ISS"), 0x38bdf8, 0.45); // ISS (ZARYA)
+      findObjRing((o) => o.noradId === 48274 || o.name.includes("TIANGONG") || o.name.includes("CSS"), 0xf59e0b, 0.38); // Tiangong
+      findObjRing((o) => o.name.includes("STARLINK"), 0x10b981, 0.32); // Real Starlink shell
+      findObjRing((o) => o.type === "debris" && (o.name.includes("COSMOS") || o.name.includes("FENGYUN")), 0xef4444, 0.40); // Tracked debris
+      findObjRing((o) => o.name.includes("NOAA"), 0x818cf8, 0.30); // Polar SSO
+      findObjRing((o) => o.name.includes("ONEWEB"), 0xa855f7, 0.28); // High LEO
 
       // 2. Active Conjunction Collision Trajectories
       // Render orbital planes of objects involved in top active conjunctions (cross-plane visual analysis)
@@ -552,22 +570,28 @@ export default function GlobeView({
       topConjunctions.forEach((c) => {
         const primary = objMap.get(c.primaryObjectId);
         const secondary = objMap.get(c.secondaryObjectId);
-        if (primary && primary.orbitalElements) {
+        if (primary) {
+          const kep = (primary.orbitalElements && primary.orbitalElements.inclination != null)
+            ? primary.orbitalElements
+            : deriveKeplerianElements(primary.position, primary.velocity);
           group.add(
             createKeplerianOrbitRing(
-              primary.orbitalElements.inclination,
-              primary.orbitalElements.raan,
+              kep.inclination,
+              kep.raan,
               primary.altitude,
               0x38bdf8,
               0.55
             )
           );
         }
-        if (secondary && secondary.orbitalElements) {
+        if (secondary) {
+          const kep = (secondary.orbitalElements && secondary.orbitalElements.inclination != null)
+            ? secondary.orbitalElements
+            : deriveKeplerianElements(secondary.position, secondary.velocity);
           group.add(
             createKeplerianOrbitRing(
-              secondary.orbitalElements.inclination,
-              secondary.orbitalElements.raan,
+              kep.inclination,
+              kep.raan,
               secondary.altitude,
               0xef4444,
               0.65
@@ -577,14 +601,17 @@ export default function GlobeView({
       });
     }
 
-    // 3. User Selected Object Orbit: highlighted with radiant 1px hairline
-    if (selectedObject && selectedObject.orbitalElements) {
+    // 3. User Selected Object Orbit: highlighted with radiant 1px hairline derived from telemetry
+    if (selectedObject) {
       const isDebris = selectedObject.type === "debris";
       const ringColor = isDebris ? 0xef4444 : 0x38bdf8;
+      const kep = (selectedObject.orbitalElements && selectedObject.orbitalElements.inclination != null)
+        ? selectedObject.orbitalElements
+        : deriveKeplerianElements(selectedObject.position, selectedObject.velocity);
       group.add(
         createKeplerianOrbitRing(
-          selectedObject.orbitalElements.inclination,
-          selectedObject.orbitalElements.raan,
+          kep.inclination,
+          kep.raan,
           selectedObject.altitude,
           ringColor,
           0.95
@@ -844,20 +871,60 @@ export default function GlobeView({
     globeInstanceRef.current.controls().autoRotate = autoRotate;
   }, [autoRotate]);
 
-  // Real-Time WebSocket Updates Sync via unified provider
+  // Real-Time WebSocket Updates Sync: live telemetry changes with zero hardcoding
   useWebSocket("objects:updated", (payload) => {
-    // If object count is unchanged, update underlying object metadata without triggering a scene rebuild
-    if (payload.objects.length === objects.length) {
-      const objMap = new Map(payload.objects.map((o) => [o.id, o]));
-      satelliteMeshesRef.current.forEach((item) => {
-        const updated = objMap.get(item.data.id);
-        if (updated) {
-          item.data.raw = updated;
-          item.data.status = updated.status;
-        }
-      });
-      return;
-    }
+    if (!payload || !payload.objects) return;
+    const objMap = new Map(payload.objects.map((o) => [o.id, o]));
+
+    satelliteMeshesRef.current.forEach((item) => {
+      const updated = objMap.get(item.data.id);
+      if (updated) {
+        item.data.raw = updated;
+        item.data.status = updated.status;
+        item.data.altitude = updated.altitude;
+
+        const velMagnitude = Math.sqrt(
+          updated.velocity.vx * updated.velocity.vx +
+          updated.velocity.vy * updated.velocity.vy +
+          updated.velocity.vz * updated.velocity.vz
+        );
+        item.data.velocityKmS = Number(velMagnitude.toFixed(2));
+
+        const { lat, lng, alt } = eciToGeodetic(updated.position, updated.altitude);
+        item.data.lat = lat;
+        item.data.lng = lng;
+        item.data.alt = alt;
+
+        // Recompute Keplerian elements from updated physical state
+        const kep = (updated.orbitalElements && updated.orbitalElements.inclination != null)
+          ? updated.orbitalElements
+          : deriveKeplerianElements(updated.position, updated.velocity);
+        item.data.inclination = kep.inclination;
+        item.data.raan = kep.raan;
+        const a = kep.semiMajorAxis || (6371 + updated.altitude);
+        item.data.angularVelocity = Math.sqrt(GM_EARTH_KM3_S2 / Math.pow(a, 3));
+
+        // Derive updated argument of latitude u0 from the new (x, y, z)
+        const incRad = (item.data.inclination * Math.PI) / 180;
+        const raanRad = (item.data.raan * Math.PI) / 180;
+        const xPlane = updated.position.x * Math.cos(raanRad) + updated.position.y * Math.sin(raanRad);
+        const yPlane = -updated.position.x * Math.sin(raanRad) * Math.cos(incRad) +
+                       updated.position.y * Math.cos(raanRad) * Math.cos(incRad) +
+                       updated.position.z * Math.sin(incRad);
+        const u0 = Math.atan2(yPlane, xPlane);
+        item.data.currentTheta = u0;
+        currentThetaMapRef.current.set(updated.id, u0);
+
+        // Instantly position mesh in 3D scene
+        const rSat = 100 * (1 + item.data.alt);
+        const zEci = rSat * Math.sin(incRad) * Math.sin(u0);
+        const xEci = rSat * (Math.cos(raanRad) * Math.cos(u0) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u0));
+        const yEci = rSat * (Math.sin(raanRad) * Math.cos(u0) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u0));
+        item.mesh.position.set(yEci, zEci, xEci);
+      }
+    });
+
+    // Update React state so inspection cards, badges, and telemetry numbers live update
     setObjects(payload.objects);
   });
 
@@ -951,12 +1018,47 @@ export default function GlobeView({
                 <span className="text-foreground font-semibold">{selectedObject.noradId}</span>
               </div>
               <div className="flex justify-between">
-                <span>Shell:</span>
-                <span className="text-foreground font-semibold">{selectedObject.shellId}</span>
+                <span>Type:</span>
+                <span className={`font-semibold ${selectedObject.type === "debris" ? "text-red-400" : "text-emerald-400"}`}>
+                  {selectedObject.type.toUpperCase()}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Altitude:</span>
                 <span className="text-emerald-400 font-semibold">{selectedObject.altitude.toFixed(1)} km</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Coordinates:</span>
+                {(() => {
+                  const geo = eciToGeodetic(selectedObject.position, selectedObject.altitude);
+                  return (
+                    <span className="text-sky-400 font-semibold">
+                      {geo.lat >= 0 ? `${geo.lat.toFixed(2)}°N` : `${Math.abs(geo.lat).toFixed(2)}°S`},{" "}
+                      {geo.lng >= 0 ? `${geo.lng.toFixed(2)}°E` : `${Math.abs(geo.lng).toFixed(2)}°W`}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="flex justify-between">
+                <span>Velocity:</span>
+                {(() => {
+                  const v = Math.sqrt(
+                    selectedObject.velocity.vx ** 2 +
+                    selectedObject.velocity.vy ** 2 +
+                    selectedObject.velocity.vz ** 2
+                  );
+                  return (
+                    <span className="text-amber-400 font-semibold">
+                      {v.toFixed(2)} km/s
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground/80">
+                <span>ECI Vector:</span>
+                <span className="truncate max-w-[150px] text-zinc-300">
+                  [{selectedObject.position.x.toFixed(0)}, {selectedObject.position.y.toFixed(0)}, {selectedObject.position.z.toFixed(0)}] km
+                </span>
               </div>
             </div>
             <div className="mt-2 pt-1.5 border-t border-border/50 flex justify-end">

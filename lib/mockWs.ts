@@ -28,6 +28,7 @@ import {
   mockConjunctions,
   mockAgents,
 } from './mockApi';
+import { deriveKeplerianElements, GM_EARTH_KM3_S2 } from '@/data/propagator';
 
 type EventListener<T = unknown> = (payload: T, message: WsMessage<T>) => void;
 type RawMessageListener = (message: WsMessage) => void;
@@ -116,23 +117,62 @@ class MockWebSocketService {
     if (this.active) return;
     this.active = true;
 
-    // Timer 1: objects:updated (Every 15 seconds — simulate periodic catalog ephemeris sync)
+    // Timer 1: objects:updated (Every 3 seconds — physical orbital propagation with Velocity Verlet)
     const objectsTimer = setInterval(() => {
-      const dt = 15; // 15 seconds advance
+      const dt = 3; // 3 seconds real time advance
+      const mu = GM_EARTH_KM3_S2;
+
       this.objectsState = this.objectsState.map((obj) => {
-        // Integrate state vector: pos = pos + vel * dt
-        const newX = obj.position.x + obj.velocity.vx * dt * 0.02;
-        const newY = obj.position.y + obj.velocity.vy * dt * 0.02;
-        const newZ = obj.position.z + obj.velocity.vz * dt * 0.02;
+        // Physical gravitational acceleration: a = -mu / r^3 * r
+        const rSq = obj.position.x * obj.position.x + obj.position.y * obj.position.y + obj.position.z * obj.position.z;
+        const r = Math.sqrt(rSq) || 6771;
+        const aFactor = -mu / (r * rSq);
+        const ax = aFactor * obj.position.x;
+        const ay = aFactor * obj.position.y;
+        const az = aFactor * obj.position.z;
+
+        // Velocity Verlet position update: r(t+dt) = r(t) + v(t)*dt + 0.5*a*dt^2
+        const newX = obj.position.x + obj.velocity.vx * dt + 0.5 * ax * dt * dt;
+        const newY = obj.position.y + obj.velocity.vy * dt + 0.5 * ay * dt * dt;
+        const newZ = obj.position.z + obj.velocity.vz * dt + 0.5 * az * dt * dt;
+
+        // Acceleration at new position
+        const newRSq = newX * newX + newY * newY + newZ * newZ;
+        const newR = Math.sqrt(newRSq) || 6771;
+        const newAFactor = -mu / (newR * newRSq);
+        const newAx = newAFactor * newX;
+        const newAy = newAFactor * newY;
+        const newAz = newAFactor * newZ;
+
+        // Velocity Verlet velocity update: v(t+dt) = v(t) + 0.5*(a + a_new)*dt
+        const newVx = obj.velocity.vx + 0.5 * (ax + newAx) * dt;
+        const newVy = obj.velocity.vy + 0.5 * (ay + newAy) * dt;
+        const newVz = obj.velocity.vz + 0.5 * (az + newAz) * dt;
+
+        const newPos = {
+          x: Number(newX.toFixed(3)),
+          y: Number(newY.toFixed(3)),
+          z: Number(newZ.toFixed(3)),
+        };
+        const newVel = {
+          vx: Number(newVx.toFixed(4)),
+          vy: Number(newVy.toFixed(4)),
+          vz: Number(newVz.toFixed(4)),
+        };
+        const newAlt = Number((newR - 6371.0).toFixed(2));
+
         return {
           ...obj,
-          position: { x: Number(newX.toFixed(2)), y: Number(newY.toFixed(2)), z: Number(newZ.toFixed(2)) },
+          position: newPos,
+          velocity: newVel,
+          altitude: newAlt,
+          orbitalElements: deriveKeplerianElements(newPos, newVel),
           lastUpdated: new Date().toISOString(),
         };
       });
 
       this.emit('objects:updated', { objects: this.objectsState });
-    }, 15000);
+    }, 3000);
 
     // Timer 2: conjunction:updated (Every 7 seconds — simulate recalculation)
     const conjunctionTimer = setInterval(() => {

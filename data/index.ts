@@ -36,6 +36,7 @@ export {
   createSatrecFromGP,
   propagateSatrec,
   deriveKeplerianElements,
+  eciToGeodeticCoords,
   GM_EARTH_KM3_S2,
   RAD2DEG,
   DEG2RAD,

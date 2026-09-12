@@ -171,3 +171,31 @@ export function propagateSatrec(satrec: any, date: Date = new Date()): StateVect
     return null;
   }
 }
+
+/**
+ * Convert ECI coordinates to exact WGS-84 Geodetic latitude, longitude, and altitude
+ * using Greenwich Mean Sidereal Time (GMST) accounting for Earth's rotation.
+ */
+export function eciToGeodeticCoords(
+  pos: { x: number; y: number; z: number },
+  date: Date = new Date()
+): { latitudeDeg: number; longitudeDeg: number; altitudeKm: number } {
+  try {
+    const gmst = (satellite as any).gstime(date);
+    const geodetic = (satellite as any).eciToGeodetic(pos, gmst);
+    const latDeg = (satellite as any).degreesLat(geodetic.latitude);
+    const lonDeg = (satellite as any).degreesLong(geodetic.longitude);
+    return {
+      latitudeDeg: latDeg,
+      longitudeDeg: lonDeg,
+      altitudeKm: geodetic.height,
+    };
+  } catch {
+    const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z) || 6771;
+    return {
+      latitudeDeg: Math.asin(Math.max(-1, Math.min(1, pos.z / r))) * RAD2DEG,
+      longitudeDeg: Math.atan2(pos.y, pos.x) * RAD2DEG,
+      altitudeKm: r - 6378.137,
+    };
+  }
+}
