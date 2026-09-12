@@ -6,7 +6,6 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { fileURLToPath } from "url";
 import type { RawGPElement } from "./types";
 
 const CELESTRAK_BASE_URL = "https://celestrak.org/NORAD/elements/gp.php";
@@ -14,12 +13,7 @@ const DEFAULT_TIMEOUT_MS = 5000;
 
 // Resolve fixture directory relative to this file
 function getFixturesDir(): string {
-  try {
-    const currentDir = path.dirname(fileURLToPath(import.meta.url));
-    return path.join(currentDir, "fixtures");
-  } catch {
-    return path.join(process.cwd(), "data", "fixtures");
-  }
+  return path.join(process.cwd(), "data", "fixtures");
 }
 
 /**

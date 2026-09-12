@@ -98,6 +98,9 @@ export default function ObjectGraphPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("RADIAL");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedConjunctionId, setSelectedConjunctionId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredConjunctionId, setHoveredConjunctionId] = useState<string | null>(null);
+  const [hoveredShellId, setHoveredShellId] = useState<string | null>(null);
 
   // Canvas Pan & Zoom
   const [zoom, setZoom] = useState<number>(1.0);
@@ -251,14 +254,14 @@ export default function ObjectGraphPage() {
     const nodePositionMap = new Map<string, { x: number; y: number }>();
 
     if (viewMode === "RADIAL") {
-      // 1. Position Orbital Shell Hubs
+      // 1. Orbital Shell Hubs (Only added as nodes when user specifically filters by SHELL)
       shells.forEach((shell, sIdx) => {
         const avgAlt = (shell.altitudeMin + shell.altitudeMax) / 2;
         const radius = getRadiusForAltitude(avgAlt);
-        // Anchor shell nodes on the top-right quadrant (-30 deg to -75 deg)
-        const angle = -0.5 - (sIdx * 0.18);
-        const x = cx + radius * Math.cos(angle);
-        const y = cy + radius * Math.sin(angle);
+        // Distribute shell hubs cleanly in the outer perimeter
+        const angle = -0.35 - (sIdx * 0.28);
+        const x = cx + (radius + 20) * Math.cos(angle);
+        const y = cy + (radius + 20) * Math.sin(angle);
 
         const node: GraphNode = {
           id: `SHELL_${shell.shellId}`,
@@ -275,81 +278,144 @@ export default function ObjectGraphPage() {
           maxPc: 0,
         };
 
-        calculatedNodes.push(node);
+        if (filterType === "SHELL") {
+          calculatedNodes.push(node);
+        }
         nodePositionMap.set(node.id, { x, y });
       });
 
-      // 2. Position Tracked Objects along their shell rings
-      let totalObjIndex = 0;
-      shellGroups.forEach((groupObjs, sId) => {
-        const shellCount = groupObjs.length;
-        groupObjs.forEach((obj, objIdx) => {
-          const radius = getRadiusForAltitude(obj.altitude);
-          
-          // Use Keplerian elements if present, else evenly disperse around the orbital ring
-          let angle: number;
-          if (obj.orbitalElements?.raan !== undefined) {
-            angle = ((obj.orbitalElements.raan + (obj.orbitalElements.meanAnomaly || 0)) * Math.PI) / 180;
-          } else {
-            // Even angular spacing offset per shell so nodes don't bunch
-            angle = (2 * Math.PI * objIdx) / shellCount + (totalObjIndex * 0.15);
-          }
+      // 2. Position Tracked Objects along their shell rings with true 360-degree mathematical dispersion
+      // Priority 1: High-risk conjunction encounters to ensure localized, clean geometry
+      // Priority 2: Equitable angular distribution around each shell ring using golden-ratio offsets
+      const assignedCoords = new Map<string, { x: number; y: number; angle: number; radius: number }>();
+      const shellIndices = Array.from(shellGroups.keys());
 
+      // Helper to compute deterministic orbital phase [0, 360)
+      const getOrbitalPhase = (obj: TrackedObject, fallbackIdx: number, totalInShell: number): number => {
+        if (obj.orbitalElements?.raan !== undefined) {
+          const raan = obj.orbitalElements.raan || 0;
+          const argP = obj.orbitalElements.argOfPerigee || 0;
+          const ma = obj.orbitalElements.meanAnomaly || 0;
+          return (raan + argP + ma) % 360;
+        }
+        return (fallbackIdx * (360 / Math.max(totalInShell, 1))) % 360;
+      };
+
+      // Step A: First, position conjunction primary anchors so critical encounters have localized geometry
+      const criticalOrElevatedConjs = conjunctions.filter(c => c.riskLevel === "critical" || c.riskLevel === "elevated");
+      criticalOrElevatedConjs.forEach((conj, conjIdx) => {
+        const prim = objectsMap.get(conj.primaryObjectId);
+        const sec = objectsMap.get(conj.secondaryObjectId);
+        if (!prim) return;
+
+        // Anchor primary at an angular slot based on conjunction index around the radar
+        if (!assignedCoords.has(prim.id)) {
+          const primAlt = prim.altitude || 420;
+          const primRadius = getRadiusForAltitude(primAlt);
+          // Distribute active threat encounters across distinct angular sectors
+          const primAngle = ((conjIdx * 1.37) % (2 * Math.PI)) - Math.PI / 4;
+          const px = cx + primRadius * Math.cos(primAngle);
+          const py = cy + primRadius * Math.sin(primAngle);
+          assignedCoords.set(prim.id, { x: px, y: py, angle: primAngle, radius: primRadius });
+        }
+
+        // Place secondary object in physical close encounter proximity:
+        // Angular offset: ~4.8 degrees (0.085 rad), Radial offset: ±14px (distinct altitude track)
+        if (sec && !assignedCoords.has(sec.id)) {
+          const primCoord = assignedCoords.get(prim.id)!;
+          const dir = conjIdx % 2 === 0 ? 1 : -1;
+          const secAngle = primCoord.angle + dir * 0.085;
+          const secRadius = primCoord.radius + (sec.altitude > (prim.altitude || 400) ? 14 : -14);
+          const sx = cx + secRadius * Math.cos(secAngle);
+          const sy = cy + secRadius * Math.sin(secAngle);
+          assignedCoords.set(sec.id, { x: sx, y: sy, angle: secAngle, radius: secRadius });
+        }
+      });
+
+      // Step B: Position all remaining objects per shell using full 360-degree equidistant dispersion
+      shellGroups.forEach((groupObjs, sId) => {
+        const shellIdx = shellIndices.indexOf(sId);
+        // Golden ratio phase offset so adjacent shells don't create radial spokes
+        const shellPhase = (shellIdx * 0.6180339887 * 2 * Math.PI) % (2 * Math.PI);
+        
+        // Filter out already anchored conjunction objects in this shell
+        const unplaced = groupObjs.filter(o => !assignedCoords.has(o.id));
+        const N = unplaced.length;
+        if (N === 0) return;
+
+        // Sort unplaced objects by their natural orbital phase to preserve relative astrodynamic ordering
+        const sorted = [...unplaced].sort((a, b) => {
+          const pA = getOrbitalPhase(a, 0, N);
+          const pB = getOrbitalPhase(b, 0, N);
+          if (Math.abs(pA - pB) > 0.01) return pA - pB;
+          return a.id.localeCompare(b.id);
+        });
+
+        // Distribute uniformly across the 2*PI circumference
+        sorted.forEach((obj, k) => {
+          const angle = (shellPhase + (2 * Math.PI * k) / N) % (2 * Math.PI);
+          const radius = getRadiusForAltitude(obj.altitude);
           const x = cx + radius * Math.cos(angle);
           const y = cy + radius * Math.sin(angle);
-
-          // Find connected conjunctions
-          const conjs = objectConjunctionsMap.get(obj.id) || [];
-          let maxPc = 0;
-          let nodeRisk: "NOMINAL" | "ELEVATED" | "CRITICAL" = "NOMINAL";
-
-          conjs.forEach((c) => {
-            if (c.collisionProbability > maxPc) maxPc = c.collisionProbability;
-            if (c.riskLevel === "critical") nodeRisk = "CRITICAL";
-            else if (c.riskLevel === "elevated" && nodeRisk !== "CRITICAL") nodeRisk = "ELEVATED";
-          });
-
-          const node: GraphNode = {
-            id: obj.id,
-            kind: "object",
-            name: obj.name,
-            type: obj.type,
-            altitude: obj.altitude,
-            shellId: obj.shellId,
-            risk: nodeRisk,
-            x,
-            y,
-            rawObject: obj,
-            conjunctionCount: conjs.length,
-            maxPc,
-          };
-
-          calculatedNodes.push(node);
-          nodePositionMap.set(obj.id, { x, y });
-          totalObjIndex++;
+          assignedCoords.set(obj.id, { x, y, angle, radius });
         });
+      });
+
+      // Step C: Compile GraphNode array with coordinates
+      objects.forEach((obj) => {
+        const coords = assignedCoords.get(obj.id);
+        if (!coords) return;
+
+        const conjs = objectConjunctionsMap.get(obj.id) || [];
+        let maxPc = 0;
+        let nodeRisk: "NOMINAL" | "ELEVATED" | "CRITICAL" = "NOMINAL";
+
+        conjs.forEach((c) => {
+          if (c.collisionProbability > maxPc) maxPc = c.collisionProbability;
+          if (c.riskLevel === "critical") nodeRisk = "CRITICAL";
+          else if (c.riskLevel === "elevated" && nodeRisk !== "CRITICAL") nodeRisk = "ELEVATED";
+        });
+
+        const node: GraphNode = {
+          id: obj.id,
+          kind: "object",
+          name: obj.name,
+          type: obj.type,
+          altitude: obj.altitude,
+          shellId: obj.shellId,
+          risk: nodeRisk,
+          x: coords.x,
+          y: coords.y,
+          rawObject: obj,
+          conjunctionCount: conjs.length,
+          maxPc,
+        };
+
+        calculatedNodes.push(node);
+        nodePositionMap.set(obj.id, { x: coords.x, y: coords.y });
       });
     } else {
       // CONJUNCTION_CLUSTER Mode: Group by active conjunction pairings in radial clusters
       const processedPairs = new Set<string>();
       let clusterIndex = 0;
       const clusterRadius = 340;
+      const maxClusters = Math.min(conjunctions.length, 14);
 
-      conjunctions.forEach((conj) => {
+      conjunctions.slice(0, 16).forEach((conj) => {
         const primary = objectsMap.get(conj.primaryObjectId);
         const secondary = objectsMap.get(conj.secondaryObjectId);
         if (!primary || !secondary) return;
 
-        const clusterAngle = (2 * Math.PI * clusterIndex) / Math.max(conjunctions.length, 1);
+        const clusterAngle = (2 * Math.PI * clusterIndex) / Math.max(maxClusters, 1);
         const clusterCenterX = cx + clusterRadius * Math.cos(clusterAngle);
         const clusterCenterY = cy + clusterRadius * Math.sin(clusterAngle);
 
         // Position pair offset around cluster center
-        const offset = 45;
-        const p1x = clusterCenterX - offset;
-        const p1y = clusterCenterY - offset;
-        const p2x = clusterCenterX + offset;
-        const p2y = clusterCenterY + offset;
+        const offset = 32;
+        const p1x = clusterCenterX - offset * Math.cos(clusterAngle);
+        const p1y = clusterCenterY - offset * Math.sin(clusterAngle);
+        const p2x = clusterCenterX + offset * Math.cos(clusterAngle);
+        const p2y = clusterCenterY + offset * Math.sin(clusterAngle);
 
         if (!nodePositionMap.has(primary.id)) {
           nodePositionMap.set(primary.id, { x: p1x, y: p1y });
@@ -448,7 +514,7 @@ export default function ObjectGraphPage() {
       shellRings: rings,
       center: centerPoint,
     };
-  }, [objects, conjunctions, shells, viewMode, objectConjunctionsMap, objectsMap]);
+  }, [objects, conjunctions, shells, viewMode, objectConjunctionsMap, objectsMap, filterType]);
 
   // Filtered nodes according to search and filter criteria
   const filteredNodes = useMemo(() => {
@@ -497,6 +563,19 @@ export default function ObjectGraphPage() {
   const criticalConjunctionCount = useMemo(() => {
     return conjunctions.filter((c) => c.riskLevel === "critical").length;
   }, [conjunctions]);
+
+  // Milestone altitude rings spaced at least 48px apart along radius to prevent any label collision
+  const milestoneRings = useMemo(() => {
+    const res: typeof shellRings = [];
+    let lastRad = 0;
+    shellRings.forEach((r) => {
+      if (r.radius - lastRad >= 48) {
+        res.push(r);
+        lastRad = r.radius;
+      }
+    });
+    return res;
+  }, [shellRings]);
 
   // Zoom / Pan handlers
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -695,29 +774,74 @@ export default function ObjectGraphPage() {
               {viewMode === "RADIAL" && (
                 <>
                   {/* Concentric Orbital Shell Rings */}
-                  {shellRings.map((ring) => (
-                    <g key={ring.shellId} className="transition-opacity">
-                      <circle
-                        cx={center.x}
-                        cy={center.y}
-                        r={ring.radius}
-                        fill="none"
-                        stroke={ring.color}
-                        strokeWidth={ring.isCritical ? "1.5" : "1"}
-                        strokeDasharray={ring.isCritical ? "6 6" : "3 5"}
-                        className={ring.isCritical ? "animate-pulse" : ""}
+                  {shellRings.map((ring) => {
+                    const isHovered = hoveredShellId === ring.shellId;
+                    const isSelected = selectedNode?.kind === "shell" && selectedNode?.shellId === ring.shellId;
+                    return (
+                      <g 
+                        key={ring.shellId} 
+                        className="cursor-pointer pointer-events-auto transition-all"
+                        onMouseEnter={() => setHoveredShellId(ring.shellId)}
+                        onMouseLeave={() => setHoveredShellId(null)}
+                        onClick={() => {
+                          setSelectedNodeId(`SHELL_${ring.shellId}`);
+                          setSelectedConjunctionId(null);
+                        }}
+                      >
+                        <circle
+                          cx={center.x}
+                          cy={center.y}
+                          r={ring.radius}
+                          fill="none"
+                          stroke={
+                            isSelected
+                              ? "#818cf8"
+                              : isHovered
+                              ? "#e4e4e7"
+                              : ring.isCritical
+                              ? "rgba(244, 63, 94, 0.45)"
+                              : "rgba(63, 63, 70, 0.35)"
+                          }
+                          strokeWidth={isSelected ? "2.5" : isHovered ? "2.0" : ring.isCritical ? "1.5" : "0.75"}
+                          strokeDasharray={ring.isCritical ? "6 6" : "3 5"}
+                          className={ring.isCritical ? "animate-pulse" : ""}
+                        />
+                      </g>
+                    );
+                  })}
+
+                  {/* Clean Milestone Altitude Scale along the top radial axis - ZERO overlapping! */}
+                  {milestoneRings.map((ring) => (
+                    <g key={`scale_${ring.shellId}`} className="pointer-events-none select-none">
+                      <line
+                        x1={center.x - 8}
+                        y1={center.y - ring.radius}
+                        x2={center.x + 8}
+                        y2={center.y - ring.radius}
+                        stroke="#71717a"
+                        strokeWidth="1"
+                        strokeOpacity="0.8"
                       />
-                      {/* Orbital altitude indicator */}
+                      <rect
+                        x={center.x - 44}
+                        y={center.y - ring.radius - 8}
+                        width="88"
+                        height="16"
+                        rx="3"
+                        fill="#09090b"
+                        fillOpacity="0.85"
+                        stroke={ring.isCritical ? "#f43f5e" : "#3f3f46"}
+                        strokeWidth="0.75"
+                      />
                       <text
                         x={center.x}
-                        y={center.y - ring.radius - 4}
-                        fill={ring.isCritical ? "#f43f5e" : "#71717a"}
-                        fontSize="9"
+                        y={center.y - ring.radius + 3.5}
+                        fill={ring.isCritical ? "#f43f5e" : "#a1a1aa"}
+                        fontSize="8.5"
                         textAnchor="middle"
-                        className="font-mono select-none font-semibold"
-                        opacity="0.85"
+                        className="font-mono font-bold"
                       >
-                        {ring.shellId.replace("LEO_", "").replace(/_/g, "-")} km {ring.isCritical ? "⚠️ R₀>1.0" : ""}
+                        {Math.round(ring.avgAlt)} km {ring.isCritical ? "⚠️ R₀>1" : ""}
                       </text>
                     </g>
                   ))}
@@ -803,41 +927,69 @@ export default function ObjectGraphPage() {
               </defs>
 
               {/* Conjunction Threat Links */}
-              {links.map((link) => {
+              {links.map((link, linkIdx) => {
                 const isSelected = 
                   selectedNodeId === link.sourceId || 
                   selectedNodeId === link.targetId ||
                   selectedConjunctionId === link.id;
 
+                const isHovered =
+                  hoveredNodeId === link.sourceId ||
+                  hoveredNodeId === link.targetId ||
+                  hoveredConjunctionId === link.id;
+
                 const isCritical = link.riskLevel === "critical";
                 const isElevated = link.riskLevel === "elevated";
 
                 const strokeColor = isCritical 
-                  ? "#e11d48" 
+                  ? "#f43f5e" 
                   : isElevated 
                   ? "#f59e0b" 
-                  : "#10b981";
+                  : "#0284c7";
 
-                const strokeWidth = isSelected 
-                  ? 3.5 
-                  : isCritical 
-                  ? 2.5 
-                  : 1.5;
+                const invZoom = 1 / Math.max(zoom, 0.4);
+                const strokeWidth = ((isSelected || isHovered) ? 2.0 : isCritical ? 1.4 : 0.8) * invZoom;
+
+                // Only show midpoint badge when selected or hovered
+                const showBadge = isSelected || isHovered;
+
+                // Midpoint placement along the threat line
+                const staggerT = 0.45 + ((linkIdx % 2) * 0.1);
+                const badgeX = link.sourceX + (link.targetX - link.sourceX) * staggerT;
+                const badgeY = link.sourceY + (link.targetY - link.sourceY) * staggerT;
 
                 return (
-                  <g key={link.id} className="cursor-pointer pointer-events-auto">
-                    {/* Pulsing halo for critical pairings */}
-                    {isCritical && (
+                  <g 
+                    key={link.id} 
+                    className="cursor-pointer pointer-events-auto"
+                    onMouseEnter={() => setHoveredConjunctionId(link.id)}
+                    onMouseLeave={() => setHoveredConjunctionId(null)}
+                    onClick={() => {
+                      setSelectedConjunctionId(link.id);
+                      setSelectedNodeId(link.sourceId);
+                    }}
+                  >
+                    {/* Wider hit area for hovering and clicking */}
+                    <line
+                      x1={link.sourceX}
+                      y1={link.sourceY}
+                      x2={link.targetX}
+                      y2={link.targetY}
+                      stroke="transparent"
+                      strokeWidth={14 * invZoom}
+                    />
+                    {/* Pulsing glow for critical or selected pairings */}
+                    {(isCritical || isSelected) && (
                       <line
                         x1={link.sourceX}
                         y1={link.sourceY}
                         x2={link.targetX}
                         y2={link.targetY}
-                        stroke="#f43f5e"
-                        strokeWidth={strokeWidth + 4}
-                        strokeOpacity="0.25"
+                        stroke={strokeColor}
+                        strokeWidth={strokeWidth + (3 * invZoom)}
+                        strokeOpacity={isSelected ? 0.35 : 0.2}
                         strokeLinecap="round"
-                        className="animate-pulse"
+                        className={isCritical ? "animate-pulse" : ""}
                       />
                     )}
                     {/* Main threat vector line */}
@@ -848,157 +1000,267 @@ export default function ObjectGraphPage() {
                       y2={link.targetY}
                       stroke={strokeColor}
                       strokeWidth={strokeWidth}
-                      strokeDasharray={isCritical ? "6 4" : "4 4"}
+                      strokeDasharray={`${5 * invZoom} ${3.5 * invZoom}`}
+                      strokeOpacity={isSelected || isHovered ? 1.0 : 0.6}
                       className={isCritical ? "animate-pulse" : ""}
-                      onClick={() => {
-                        setSelectedConjunctionId(link.id);
-                        setSelectedNodeId(link.sourceId);
-                      }}
                     />
-                    {/* Midpoint Conjunction Badge */}
-                    <g 
-                      transform={`translate(${(link.sourceX + link.targetX) / 2}, ${(link.sourceY + link.targetY) / 2})`}
-                      onClick={() => {
-                        setSelectedConjunctionId(link.id);
-                        setSelectedNodeId(link.sourceId);
-                      }}
-                      className="cursor-pointer group"
-                    >
-                      <rect
-                        x="-38"
-                        y="-10"
-                        width="76"
-                        height="20"
-                        rx="4"
-                        fill="#09090b"
-                        stroke={strokeColor}
-                        strokeWidth="1"
-                        className="transition-transform group-hover:scale-110"
-                      />
-                      <text
-                        x="0"
-                        y="3"
-                        fill={strokeColor}
-                        fontSize="8.5"
-                        fontWeight="bold"
-                        textAnchor="middle"
-                        className="font-mono select-none"
+                    {/* Midpoint Conjunction Badge - ONLY shown when selected or hovered */}
+                    {showBadge && (
+                      <g 
+                        transform={`translate(${badgeX}, ${badgeY}) scale(${invZoom})`}
+                        className="pointer-events-none"
                       >
-                        {link.collisionProbability ? formatScientificPc(link.collisionProbability) : "CLOSE APP"}
-                      </text>
-                    </g>
+                        <rect
+                          x="-30"
+                          y="-8"
+                          width="60"
+                          height="16"
+                          rx="3"
+                          fill="#09090b"
+                          fillOpacity="0.95"
+                          stroke={strokeColor}
+                          strokeWidth="1.0"
+                        />
+                        <text
+                          x="0"
+                          y="3"
+                          fill={strokeColor}
+                          fontSize="7"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          fontFamily="monospace"
+                        >
+                          {link.collisionProbability ? `Pc: ${link.collisionProbability.toExponential(1)}` : "TCA PAIR"}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Native SVG Nodes Layer - Mission Control Aerospace Vector Radar Symbology */}
+              {filteredNodes.map((node) => {
+                const isSelected = selectedNodeId === node.id;
+                const isHovered = hoveredNodeId === node.id;
+                const isCritical = node.risk === "CRITICAL";
+                const isElevated = node.risk === "ELEVATED";
+
+                // Scale compensation: Elements stay crisp & fixed in screen pixels when zooming in!
+                const invZoom = 1 / Math.max(zoom, 0.4);
+
+                // Tactical color palette: Cyan for satellites, Crimson for debris, Amber for rocket bodies
+                const glyphColor = node.type === "satellite" 
+                  ? "#38bdf8" 
+                  : node.type === "debris" 
+                  ? "#f43f5e" 
+                  : "#f59e0b";
+
+                return (
+                  <g
+                    key={node.id}
+                    className="cursor-pointer pointer-events-auto"
+                    onMouseEnter={() => setHoveredNodeId(node.id)}
+                    onMouseLeave={() => setHoveredNodeId(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedNodeId(node.id);
+                      setSelectedConjunctionId(null);
+                    }}
+                  >
+                    {/* Invisible 20px hit area for easy click & hover */}
+                    <circle cx={node.x} cy={node.y} r={12 * invZoom} fill="transparent" />
+
+                    {/* Critical Pulsing Outer Hazard Reticle */}
+                    {isCritical && (
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={8.5 * invZoom}
+                        fill="none"
+                        stroke="#f43f5e"
+                        strokeWidth={0.8 * invZoom}
+                        strokeDasharray={`${2.5 * invZoom} ${2.5 * invZoom}`}
+                        className="animate-pulse"
+                      />
+                    )}
+
+                    {/* Target Acquisition Corner Brackets for Selected Node */}
+                    {isSelected && (
+                      <g className="pointer-events-none">
+                        {/* Top-Left Bracket */}
+                        <path
+                          d={`M ${node.x - 9 * invZoom} ${node.y - 4 * invZoom} L ${node.x - 9 * invZoom} ${node.y - 9 * invZoom} L ${node.x - 4 * invZoom} ${node.y - 9 * invZoom}`}
+                          fill="none"
+                          stroke="#38bdf8"
+                          strokeWidth={1.4 * invZoom}
+                        />
+                        {/* Top-Right Bracket */}
+                        <path
+                          d={`M ${node.x + 4 * invZoom} ${node.y - 9 * invZoom} L ${node.x + 9 * invZoom} ${node.y - 9 * invZoom} L ${node.x + 9 * invZoom} ${node.y - 4 * invZoom}`}
+                          fill="none"
+                          stroke="#38bdf8"
+                          strokeWidth={1.4 * invZoom}
+                        />
+                        {/* Bottom-Left Bracket */}
+                        <path
+                          d={`M ${node.x - 9 * invZoom} ${node.y + 4 * invZoom} L ${node.x - 9 * invZoom} ${node.y + 9 * invZoom} L ${node.x - 4 * invZoom} ${node.y + 9 * invZoom}`}
+                          fill="none"
+                          stroke="#38bdf8"
+                          strokeWidth={1.4 * invZoom}
+                        />
+                        {/* Bottom-Right Bracket */}
+                        <path
+                          d={`M ${node.x + 4 * invZoom} ${node.y + 9 * invZoom} L ${node.x + 9 * invZoom} ${node.y + 9 * invZoom} L ${node.x + 9 * invZoom} ${node.y + 4 * invZoom}`}
+                          fill="none"
+                          stroke="#38bdf8"
+                          strokeWidth={1.4 * invZoom}
+                        />
+                      </g>
+                    )}
+
+                    {/* Precision Vector Radar Glyph */}
+                    {node.type === "satellite" ? (
+                      /* Operational Satellite: Cyan hollow precision ring with pinpoint core */
+                      <g>
+                        <circle
+                          cx={node.x}
+                          cy={node.y}
+                          r={4.0 * invZoom}
+                          fill="rgba(56, 189, 248, 0.12)"
+                          stroke={isSelected ? "#ffffff" : isCritical ? "#f43f5e" : glyphColor}
+                          strokeWidth={0.9 * invZoom}
+                        />
+                        <circle
+                          cx={node.x}
+                          cy={node.y}
+                          r={1.8 * invZoom}
+                          fill={isSelected ? "#ffffff" : isCritical ? "#f43f5e" : glyphColor}
+                        />
+                      </g>
+                    ) : node.type === "debris" ? (
+                      /* Debris: Razor-sharp hazard diamond */
+                      <g>
+                        <polygon
+                          points={`
+                            ${node.x},${node.y - 4.5 * invZoom} 
+                            ${node.x + 4.5 * invZoom},${node.y} 
+                            ${node.x},${node.y + 4.5 * invZoom} 
+                            ${node.x - 4.5 * invZoom},${node.y}
+                          `}
+                          fill="rgba(244, 63, 94, 0.20)"
+                          stroke={isSelected ? "#ffffff" : glyphColor}
+                          strokeWidth={1.0 * invZoom}
+                        />
+                        <circle
+                          cx={node.x}
+                          cy={node.y}
+                          r={1.2 * invZoom}
+                          fill={isSelected ? "#ffffff" : glyphColor}
+                        />
+                      </g>
+                    ) : (
+                      /* Rocket Body: Tactical hollow square */
+                      <g>
+                        <rect
+                          x={node.x - 3.5 * invZoom}
+                          y={node.y - 3.5 * invZoom}
+                          width={7 * invZoom}
+                          height={7 * invZoom}
+                          rx={1.0 * invZoom}
+                          fill="rgba(245, 158, 11, 0.15)"
+                          stroke={isSelected ? "#ffffff" : glyphColor}
+                          strokeWidth={1.0 * invZoom}
+                        />
+                        <circle
+                          cx={node.x}
+                          cy={node.y}
+                          r={1.2 * invZoom}
+                          fill={isSelected ? "#ffffff" : glyphColor}
+                        />
+                      </g>
+                    )}
+
+                    {/* Tactical Hover Tooltip - Clean, compact, scale-invariant */}
+                    {isHovered && !isSelected && (
+                      <g transform={`translate(${node.x}, ${node.y - 14 * invZoom}) scale(${invZoom})`} className="pointer-events-none">
+                        <rect
+                          x="-55"
+                          y="-16"
+                          width="110"
+                          height="16"
+                          rx="3"
+                          fill="#09090b"
+                          fillOpacity="0.95"
+                          stroke={isCritical ? "#f43f5e" : "#38bdf8"}
+                          strokeWidth="0.9"
+                        />
+                        <text
+                          y="-5"
+                          textAnchor="middle"
+                          fill="#e0f2fe"
+                          fontSize="7.5"
+                          fontWeight="bold"
+                          fontFamily="monospace"
+                        >
+                          {node.name.length > 13 ? node.name.slice(0, 12) + '…' : node.name} // {Math.round(node.altitude)}km
+                        </text>
+                      </g>
+                    )}
+
+                    {/* Selected Node Compact Target Tag */}
+                    {isSelected && (
+                      <g transform={`translate(${node.x}, ${node.y - 12 * invZoom}) scale(${invZoom})`} className="pointer-events-auto">
+                        <line x1="0" y1="0" x2="0" y2="-6" stroke="#38bdf8" strokeWidth="1.2" />
+                        <rect
+                          x="-75"
+                          y="-36"
+                          width="150"
+                          height="30"
+                          rx="4"
+                          fill="#09090b"
+                          fillOpacity="0.95"
+                          stroke={isCritical ? "#f43f5e" : isElevated ? "#f59e0b" : "#38bdf8"}
+                          strokeWidth="1.2"
+                        />
+                        <text
+                          x="-68"
+                          y="-22"
+                          fill="#ffffff"
+                          fontSize="9"
+                          fontWeight="bold"
+                          fontFamily="monospace"
+                        >
+                          {node.name.length > 15 ? node.name.slice(0, 14) + '…' : node.name}
+                        </text>
+                        <text
+                          x="-68"
+                          y="-10"
+                          fill="#94a3b8"
+                          fontSize="7"
+                          fontFamily="monospace"
+                        >
+                          {Math.round(node.altitude)} KM • {node.type.toUpperCase()} • {node.risk}
+                        </text>
+                      </g>
+                    )}
                   </g>
                 );
               })}
             </g>
           </svg>
 
-          {/* Interactive HTML Node Elements (Rendered above SVG) */}
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: "800px 600px",
-              transition: isDragging ? "none" : "transform 0.1s ease-out",
-            }}
-          >
-            {filteredNodes.map((node) => {
-              const isSelected = selectedNodeId === node.id;
-              const isCritical = node.risk === "CRITICAL";
-              const isElevated = node.risk === "ELEVATED";
-
-              // Distinct styles by node type
-              const isShell = node.kind === "shell";
-
-              return (
-                <div
-                  key={node.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedNodeId(node.id);
-                    setSelectedConjunctionId(null);
-                  }}
-                  style={{ left: `${node.x}px`, top: `${node.y}px` }}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-pointer group transition-all duration-150 ${
-                    isSelected ? "z-30 scale-110" : "z-10 hover:scale-105"
-                  }`}
-                >
-                  {isShell ? (
-                    // Orbital Shell Node Hub
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border shadow-lg backdrop-blur-md transition-all font-mono ${
-                      isCritical
-                        ? "bg-rose-950/80 border-rose-500 text-rose-200 ring-1 ring-rose-500/50"
-                        : "bg-zinc-900/90 border-zinc-700 text-zinc-200 hover:border-zinc-500"
-                    } ${isSelected ? "ring-2 ring-white shadow-xl shadow-white/10" : ""}`}>
-                      <Layers className="h-3.5 w-3.5 text-indigo-400" />
-                      <div>
-                        <p className="text-[11px] font-bold leading-tight whitespace-nowrap">{node.name}</p>
-                        <p className="text-[9px] text-muted-foreground uppercase">
-                          {node.rawShell ? `R₀: ${node.rawShell.r0.toFixed(2)} • ${node.rawShell.totalObjectCount} OBJS` : "SHELL"}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    // Tracked Object Node Pill
-                    <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border shadow-xl backdrop-blur-md transition-all ${
-                      isCritical
-                        ? "bg-rose-950/90 border-rose-600 text-white shadow-rose-950/50"
-                        : isElevated
-                        ? "bg-amber-950/90 border-amber-600 text-white shadow-amber-950/50"
-                        : node.type === "satellite"
-                        ? "bg-zinc-950/90 border-emerald-600/70 text-zinc-100"
-                        : node.type === "rocket_body"
-                        ? "bg-zinc-950/90 border-amber-600/60 text-zinc-100"
-                        : "bg-zinc-950/90 border-zinc-700 text-zinc-300"
-                    } ${
-                      isSelected 
-                        ? "ring-2 ring-white shadow-2xl scale-105" 
-                        : "hover:border-foreground/80"
-                    }`}>
-                      {/* Node Icon */}
-                      <div className="p-1 rounded bg-black/40 shrink-0">
-                        {getNodeIcon(node.type, node.kind)}
-                      </div>
-
-                      {/* Node Details */}
-                      <div className="text-left font-mono">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-[11px] font-bold whitespace-nowrap leading-none text-foreground">
-                            {node.name}
-                          </p>
-                          {node.conjunctionCount > 0 && (
-                            <span className={`text-[8px] font-extrabold px-1 rounded ${
-                              isCritical ? "bg-rose-500 text-white animate-pulse" : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                            }`}>
-                              {node.conjunctionCount} CJ
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-[9px] text-muted-foreground mt-0.5 whitespace-nowrap">
-                          <span>{Math.round(node.altitude)} km</span>
-                          <span>•</span>
-                          <span className="uppercase">{node.type.replace("_", " ")}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
           {/* Floating Canvas Legend (Bottom Left) */}
           <div className="absolute bottom-4 left-4 z-20 flex flex-wrap items-center gap-3 p-2.5 rounded-lg bg-card/90 border border-border text-[11px] text-foreground backdrop-blur-md font-mono shadow-lg">
             <span className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <div className="w-2.5 h-2.5 rounded-full border border-sky-400 bg-sky-400/20" />
               Active Satellite ({objects.filter(o => o.type === "satellite").length})
             </span>
             <span className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+              <div className="w-2.5 h-2.5 rotate-45 border border-rose-500 bg-rose-500/30" />
               Lethal Debris ({objects.filter(o => o.type === "debris").length})
             </span>
             <span className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <div className="w-2.5 h-2.5 border border-amber-500 bg-amber-500/20" />
               Rocket Body ({objects.filter(o => o.type === "rocket_body").length})
             </span>
             <span className="flex items-center gap-1.5">
@@ -1040,7 +1302,7 @@ export default function ObjectGraphPage() {
                 title="Center on Selected Node"
                 className="p-1.5 rounded hover:bg-muted text-foreground transition-colors border-l border-border pl-2"
               >
-                <Crosshair className="h-4 w-4 text-emerald-400" />
+                <Crosshair className="h-4 w-4 text-sky-400" />
               </button>
             )}
           </div>

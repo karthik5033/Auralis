@@ -48,6 +48,19 @@ export function computeEncounterGeometry(
   xe: number;
   ye: number;
 } {
+  if (!primary?.position || !secondary?.position || !primary?.velocity || !secondary?.velocity) {
+    return {
+      missDistanceKm: Infinity,
+      relativeSpeedKmS: 0,
+      vRel: { x: 0, y: 0, z: 0 },
+      deltaR: { x: 0, y: 0, z: 0 },
+      iHat: { x: 1, y: 0, z: 0 },
+      jHat: { x: 0, y: 1, z: 0 },
+      kHat: { x: 0, y: 0, z: 1 },
+      xe: 0,
+      ye: 0,
+    };
+  }
   // Relative position vector: Δr = r1 - r2
   const deltaR = {
     x: primary.position.x - secondary.position.x,

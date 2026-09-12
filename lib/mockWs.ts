@@ -169,36 +169,7 @@ class MockWebSocketService {
       this.emit('agent:status', updatedAgent);
     }, 10000);
 
-    // Timer 4: advisory:new (Every 30 seconds — emit fresh narrative alert)
-    const advisoryTimer = setInterval(() => {
-      const sampleAdvisories = [
-        {
-          title: "Periodic Orbital Conjunction Rescreening Completed",
-          body: "Autonomous screening across all LEO shells verified that separation distances remain within safety margins. Zero uncoordinated burns detected.",
-          severity: "nominal" as const,
-        },
-        {
-          title: "LEO 750–800 km Flux Density Fluctuation",
-          body: "Debris flux density in the 750-800 km altitude band experienced a minor stochastic perturbation. S-I-R epidemic trajectory remains bounded.",
-          severity: "elevated" as const,
-        },
-      ];
-      const selected = sampleAdvisories[Math.floor(Math.random() * sampleAdvisories.length)];
-      const newAdvisory: Advisory = {
-        id: `adv-${Date.now().toString(36)}`,
-        timestamp: new Date().toISOString(),
-        severity: selected.severity,
-        title: selected.title,
-        body: selected.body,
-        relatedEventIds: [],
-        relatedObjectIds: [],
-        agentSource: 'advisory',
-      };
-
-      this.emit('advisory:new', newAdvisory);
-    }, 30000);
-
-    this.intervalIds = [objectsTimer, conjunctionTimer, agentTimer, advisoryTimer];
+    this.intervalIds = [objectsTimer, conjunctionTimer, agentTimer];
   }
 
   /**

@@ -138,14 +138,18 @@ Create `.env.local` in the project root:
 # ==============================================================================
 # FRONTEND CONFIGURATION
 # ==============================================================================
-# Toggle between 'mock' (internal mock data generator) and 'live' (backend server)
-NEXT_PUBLIC_API_MODE=mock
+# Toggle between 'mock' (internal mock data generator) and 'live' (Next.js runtime)
+NEXT_PUBLIC_API_MODE=live
 
-# Base URL for Backend REST API
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
+# Leave unset for the same-origin runtime routes
+# NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
 
-# Base URL for Backend Realtime WebSocket
-NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
+# Leave unset to use the same-origin SSE event stream
+# NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
+
+# Backend runtime state and optional protection for operational POST routes
+AURALIS_PERSISTENCE=true
+AURALIS_API_KEY=
 
 # ==============================================================================
 # DATA LAYER CONFIGURATION
@@ -183,23 +187,24 @@ npm run dev
 # Open http://localhost:3000 in your browser
 ```
 
-#### 2. Backend Agent Service (Port 8000)
-*(Refer to [BRIEF_BACKEND.md](file:///d:/coding_files/gdg/BRIEF_BACKEND.md) for detailed runtime setup)*
+#### 2. Backend Agent Runtime
+The six agents run inside the Next.js server runtime. The first live API request starts them; tracker propagation then repeats on its configured interval.
 ```bash
-# Example if using Python FastAPI in backend/
-cd backend
-python -m venv venv
-source venv/bin/activate  # Or `venv\Scripts\activate` on Windows
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+# Start the runtime and frontend together
+npm run dev
+
+# Health and live event endpoints
+# http://localhost:3000/api/v1/health
+# http://localhost:3000/api/v1/events
 ```
 
-#### 3. Data & Propagation Service
-*(Refer to [BRIEF_DATA.md](file:///d:/coding_files/gdg/BRIEF_DATA.md) for ingestion & SGP4 harness)*
+To expose the same runtime on the legacy backend port, build once and run `npm run start:backend`; use `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1` for an external frontend. Realtime updates use Server-Sent Events at `/api/v1/events`; a standalone FastAPI/WebSocket service is not required by this implementation.
+
+#### 3. Data & Propagation Verification
+The data and propagation modules are imported directly by the tracker agent.
 ```bash
-# Example test run for TLE ingestion & SGP4 verification
-cd data
-python ingest.py --group active --limit 500
+# Run the existing data-layer verification
+npm run test:data
 ```
 
 ---
@@ -215,7 +220,7 @@ Each section of the repository has a single point of contact responsible for rev
 | `lib/` | Theme, Auth, Translations, Mock Data Generator, and API client | **Frontend Lead** | [BRIEF_FRONTEND.md](file:///d:/coding_files/gdg/BRIEF_FRONTEND.md) |
 | `types/` | Frontend-specific UI and viewmodel typings | **Frontend Lead** | [BRIEF_FRONTEND.md](file:///d:/coding_files/gdg/BRIEF_FRONTEND.md) |
 | `public/` | Static media, icons, and textures | **Frontend Lead** | [BRIEF_FRONTEND.md](file:///d:/coding_files/gdg/BRIEF_FRONTEND.md) |
-| `backend/` | 6 Autonomous Agents, FastAPI/Express app, WebSocket server, maneuver logic | **Backend Lead** | [BRIEF_BACKEND.md](file:///d:/coding_files/gdg/BRIEF_BACKEND.md) |
+| `lib/backend/` | 6 Autonomous Agents, runtime orchestration, persistence, rate limiting, and event publishing | **Backend Lead** | [BRIEF_BACKEND.md](file:///d:/coding_files/gdg/BRIEF_BACKEND.md) |
 | `data/` | CelesTrak scraper, SGP4 propagator, SIR epidemiological cascade simulator | **Data Lead** | [BRIEF_DATA.md](file:///d:/coding_files/gdg/BRIEF_DATA.md) |
 | `INTERFACE_CONTRACT.md` | Canonical TypeScript data shapes, REST paths, and WebSocket schemas | **Shared (All 3)** | [INTERFACE_CONTRACT.md](file:///d:/coding_files/gdg/INTERFACE_CONTRACT.md) |
 | `PRD.md` | Product Requirements & Hackathon Scope | **Shared (All 3)** | [PRD.md](file:///d:/coding_files/gdg/PRD.md) |

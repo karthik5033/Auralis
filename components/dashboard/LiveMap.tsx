@@ -111,6 +111,7 @@ export function LiveMap() {
         <GlobeView
           initialObjects={objects}
           initialConjunctions={conjunctions}
+          fetchOnEmpty={false}
           height={500}
           className="shadow-2xl border-border/80"
         />

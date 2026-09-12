@@ -3,7 +3,7 @@
  *
  * Provides a unified API interface that seamlessly flips between:
  * - Mock API (`lib/mockApi.ts`): Offline, realistic seed data conforming to INTERFACE_CONTRACT.md
- * - Live Backend API: Real HTTP requests against `http://localhost:8000/api/v1`
+ * Live Backend API: Real HTTP requests against the configured API base URL
  *
  * Governed by `NEXT_PUBLIC_API_MODE`:
  * - `mock` (default): zero backend dependency
@@ -38,10 +38,12 @@ import * as mockApi from './mockApi';
 import { mockWs } from './mockWs';
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
+  process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1';
 
 export const WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
+  process.env.NEXT_PUBLIC_WS_URL || '';
+
+export const EVENTS_URL = `${API_BASE_URL}/events`;
 
 export type ApiMode = 'mock' | 'live';
 

@@ -14,7 +14,7 @@ import type {
   WsEventPayloadMap,
   WsMessage,
 } from "@/types/contract";
-import { WS_URL, getApiMode, ApiMode } from "@/lib/api";
+import { EVENTS_URL, WS_URL, getApiMode, ApiMode } from "@/lib/api";
 import { mockWs } from "@/lib/mockWs";
 
 type EventCallback<T = any> = (payload: T, message?: WsMessage<T>) => void;
@@ -101,16 +101,36 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     }
 
     // Live mode: connect to real WebSocket endpoint with auto-reconnect backoff
+    const configuredWsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (configuredWsUrl === undefined || configuredWsUrl === "") {
+      const eventSource = new EventSource(EVENTS_URL);
+      eventSource.onopen = () => setIsConnected(true);
+      eventSource.onmessage = (event) => {
+        if (!isMountedRef.current) return;
+        try {
+          const parsed = JSON.parse(event.data) as WsMessage;
+          if (parsed && typeof parsed.event === "string") dispatchMessage(parsed);
+        } catch { /* Ignore malformed event frames. */ }
+      };
+      eventSource.onerror = () => setIsConnected(false);
+      return () => {
+        isMountedRef.current = false;
+        eventSource.close();
+      };
+    }
+
+    const externalWsUrl = configuredWsUrl;
+
     function connectLiveWs() {
       if (!isMountedRef.current) return;
 
       try {
-        const ws = new WebSocket(WS_URL);
+        const ws = new WebSocket(externalWsUrl);
         nativeWsRef.current = ws;
 
         ws.onopen = () => {
           if (!isMountedRef.current) return;
-          console.info(`[WebSocketProvider] Connected to live backend at ${WS_URL}`);
+          console.info(`[WebSocketProvider] Connected to live backend at ${externalWsUrl}`);
           setIsConnected(true);
           retryCountRef.current = 0; // reset backoff
         };

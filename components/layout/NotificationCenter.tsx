@@ -178,7 +178,7 @@ export function NotificationCenter() {
     });
   });
 
-  // 3. WebSocket listener: advisory:new (Blue toast)
+  // 3. WebSocket listener: advisory:new (Silent notification entry, no intrusive toast popup)
   useWebSocket("advisory:new", (advisory: Advisory) => {
     const id = `notif-adv-${advisory.id}-${Date.now()}`;
     const title = `Advisory: ${advisory.title}`;
@@ -197,14 +197,6 @@ export function NotificationCenter() {
       },
       ...prev,
     ]);
-
-    addToast({
-      id,
-      type: "INFO",
-      title,
-      message,
-      link,
-    });
   });
 
   // 4. WebSocket listener: crisis:injected (Amber / Warning toast)

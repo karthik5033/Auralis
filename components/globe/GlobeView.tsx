@@ -31,6 +31,7 @@ interface GlobeViewProps {
   onSelectConjunction?: (event: ConjunctionEvent) => void;
   className?: string;
   compact?: boolean;
+  fetchOnEmpty?: boolean;
 }
 
 export interface ProcessedSatellite {
@@ -323,6 +324,7 @@ export default function GlobeView({
   onSelectConjunction,
   className = "",
   compact = false,
+  fetchOnEmpty = true,
 }: GlobeViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeInstanceRef = useRef<GlobeInstance | null>(null);
@@ -350,15 +352,22 @@ export default function GlobeView({
   const [selectedObject, setSelectedObject] = useState<TrackedObject | null>(null);
   const [telemetryCount, setTelemetryCount] = useState({ satellites: 0, debris: 0, critical: 0 });
 
+  // Keep externally supplied dashboard data authoritative without rebuilding the WebGL scene.
+  useEffect(() => {
+    if (initialObjects.length > 0) setObjects(initialObjects);
+    if (initialConjunctions.length > 0) setConjunctions(initialConjunctions);
+  }, [initialObjects, initialConjunctions]);
+
   // Initial fetch if empty
   useEffect(() => {
+    if (!fetchOnEmpty) return;
     if (objects.length === 0) {
-      getObjects({ limit: 650 }).then((res) => setObjects(res.data)).catch(console.error);
+      getObjects({ limit: 150 }).then((res) => setObjects(res.data)).catch(console.error);
     }
     if (conjunctions.length === 0) {
       getConjunctions({ limit: 50 }).then((res) => setConjunctions(res.data)).catch(console.error);
     }
-  }, [objects.length, conjunctions.length]);
+  }, [fetchOnEmpty, objects.length, conjunctions.length]);
 
   // 1. Process satellites into structured data with orbital velocity, tiered altitude, & diverse physical sizes
   const satellitesData = React.useMemo<ProcessedSatellite[]>(() => {
@@ -735,12 +744,30 @@ export default function GlobeView({
             const meshA = satelliteMeshesRef.current.find((m) => m.data.id === crit.primaryObjectId)?.mesh;
             const meshB = satelliteMeshesRef.current.find((m) => m.data.id === crit.secondaryObjectId)?.mesh;
             if (meshA && meshB) {
-              const geom = new THREE.BufferGeometry().setFromPoints([meshA.position, meshB.position]);
+              const pA = meshA.position;
+              const pB = meshB.position;
+
+              // Physical Proximity Check: Only render threat vectors during encounter proximity in orbit (<= 28 scene units)
+              const dist = pA.distanceTo(pB);
+              if (dist > 28) return;
+
+              // Earth Line-of-Sight Clearance Check: Ensure vector never pierces the planet surface or atmosphere limb (R = 104.5)
+              const seg = new THREE.Vector3().subVectors(pB, pA);
+              const segLenSq = seg.lengthSq();
+              if (segLenSq > 0) {
+                const t = Math.max(0, Math.min(1, -pA.dot(seg) / segLenSq));
+                const closestPoint = new THREE.Vector3().copy(pA).addScaledVector(seg, t);
+                if (closestPoint.length() < 104.5) {
+                  return; // Line-of-sight occluded by Earth sphere
+                }
+              }
+
+              const geom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
               const mat = new THREE.LineBasicMaterial({
                 color: crit.riskLevel === "critical" ? 0xef4444 : 0xf59e0b,
                 transparent: true,
                 opacity: 0.85,
-                depthWrite: false,
+                depthWrite: true,
               });
               laserGroup.add(new THREE.Line(geom, mat));
             }

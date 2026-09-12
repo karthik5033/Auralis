@@ -6,7 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:data": "tsx data/__tests__/data-engine.test.ts"
+    "start:backend": "next start --port 8000",
+    "test:data": "tsx data/__tests__/data-engine.test.ts",
+    "test:message-bus": "tsx lib/messageBus.test.ts",
+    "test:backend-foundation": "tsx lib/backend/foundation.test.ts",
+    "test:crisis-injection": "tsx app/api/v1/crisis/inject/route.test.ts",
+    "test:tracker": "tsx lib/backend/tracker.test.ts",
+    "test:risk-assessor": "tsx lib/backend/riskAssessor.test.ts",
+    "test:anomaly": "tsx lib/backend/anomaly.test.ts",
+    "test:agent-chain": "tsx lib/backend/agents.test.ts"
+    ,"test:runtime": "tsx lib/backend/runtime.test.ts",
+    "test:read-routes": "tsx lib/backend/readRoutes.test.ts",
+    "test:crisis-cascade": "tsx lib/backend/crisisCascade.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

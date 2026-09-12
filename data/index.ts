@@ -88,3 +88,6 @@ export { runEpidemicForecast } from "./epidemic-forecaster";
 // Crisis Fragment Generator
 export { generateBreakupFragments } from "./crisis";
 export type { BreakupOptions } from "./crisis";
+
+// Space-Track Live Ingestion Engine
+export { spaceTrackClient } from "./spacetrack";
