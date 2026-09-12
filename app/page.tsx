@@ -1053,49 +1053,284 @@ export default function Home() {
         {/* Row 1: 2-col then 3-col */}
         <div className="border-t border-b border-zinc-200 dark:border-zinc-800 border-dashed mb-0">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-            {/* Import/Export */}
-            <div className="p-6 md:p-10 border-b border-zinc-200 dark:border-zinc-800 border-dashed lg:border-b-0 lg:border-r flex flex-col items-center text-center overflow-hidden">
-              <h3 className="text-2xl font-bold mb-4">Ingest & Export Conjunction Messages (CDM)</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-8 max-w-sm text-sm">Streamline data exchange between ground stations, Space-Track ephemeris, and automated flight dynamics systems.</p>
+            {/* Ingest & Export Conjunction Messages (CDM) */}
+            <div className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed lg:border-b-0 lg:border-r flex flex-col items-center text-center overflow-hidden">
+              <h3 className="text-2xl font-bold mb-3">Ingest & Export Conjunction Messages (CDM)</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-6 max-w-md text-sm leading-relaxed">
+                Streamline real-time data exchange between radar ground stations, Space-Track ephemeris, and automated flight dynamics systems.
+              </p>
               
-              <div className="w-full overflow-x-auto pb-4 -mx-4 px-4 flex justify-center no-scrollbar">
-                <div className="relative w-[650px] h-48 flex-shrink-0 mt-auto">
-                  <svg className="absolute inset-0 w-full h-full z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <path d="M 16 25 L 30 25 L 30 50 L 35 50" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <path d="M 16 75 L 30 75 L 30 50" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <line x1="35" y1="50" x2="65" y2="50" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <path d="M 65 50 L 70 50 L 70 25 L 84 25" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <path d="M 70 50 L 70 75 L 84 75" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                  </svg>
-                  <div className="absolute left-[16%] top-[25%] -translate-x-1/2 -translate-y-1/2 px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-xs font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><FileCode className="w-3 h-3"/> Your Project</div>
-                  <div className="absolute left-[16%] top-[75%] -translate-x-1/2 -translate-y-1/2 px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-xs font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><FileCode className="w-3 h-3"/> Ground Station</div>
-                  <div className="absolute left-[35%] top-[50%] -translate-x-1/2 -translate-y-1/2 px-2 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-xs font-medium shadow-sm flex items-center gap-1 z-10 whitespace-nowrap"><Download className="w-3 h-3" /> Import</div>
-                  <div className="absolute left-[50%] top-[50%] -translate-x-1/2 -translate-y-1/2 px-4 py-2 bg-black dark:bg-zinc-900 text-white rounded-md text-xs font-medium shadow-md flex items-center gap-2 z-20 whitespace-nowrap"><Sparkles className="w-4 h-4"/> Auralis Engine</div>
-                  <div className="absolute left-[65%] top-[50%] -translate-x-1/2 -translate-y-1/2 px-2 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-xs font-medium shadow-sm flex items-center gap-1 z-10 whitespace-nowrap"><Upload className="w-3 h-3" /> Export</div>
-                  <div className="absolute left-[84%] top-[25%] -translate-x-1/2 -translate-y-1/2 px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-xs font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><FileCode className="w-3 h-3"/> Your Project</div>
-                  <div className="absolute left-[84%] top-[75%] -translate-x-1/2 -translate-y-1/2 px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-xs font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><FileCode className="w-3 h-3"/> Ground Station</div>
+              <div className="w-full mt-auto bg-zinc-50/60 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden h-64 relative flex items-center justify-between p-4 md:p-6">
+                {/* SVG Conduits Layer */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 600 240" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="cdm-in-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#0284c7" stopOpacity="0.4" />
+                    </linearGradient>
+                    <linearGradient id="cdm-out-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#a855f7" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity="0.4" />
+                    </linearGradient>
+                    <filter id="cdm-glow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+
+                  {/* Left Ingestion Conduits */}
+                  <path id="cdm-in-top" d="M 170 65 C 240 65, 230 120, 275 120" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+                  <path id="cdm-in-bot" d="M 170 175 C 240 175, 230 120, 275 120" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+
+                  {/* Right Export Conduits */}
+                  <path id="cdm-out-top" d="M 325 120 C 370 120, 360 65, 430 65" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+                  <path id="cdm-out-bot" d="M 325 120 C 370 120, 360 175, 430 175" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+
+                  {/* Flowing animated dashes */}
+                  <path d="M 170 65 C 240 65, 230 120, 275 120" fill="none" stroke="url(#cdm-in-grad)" strokeWidth="2" strokeDasharray="6 6" className="animate-dash-move" />
+                  <path d="M 170 175 C 240 175, 230 120, 275 120" fill="none" stroke="url(#cdm-in-grad)" strokeWidth="2" strokeDasharray="6 6" className="animate-dash-move" />
+                  <path d="M 325 120 C 370 120, 360 65, 430 65" fill="none" stroke="url(#cdm-out-grad)" strokeWidth="2" strokeDasharray="6 6" className="animate-dash-move" />
+                  <path d="M 325 120 C 370 120, 360 175, 430 175" fill="none" stroke="url(#cdm-out-grad)" strokeWidth="2" strokeDasharray="6 6" className="animate-dash-move" />
+
+                  {/* Telemetry Packets: Ingest into Core */}
+                  <circle r="4" fill="#38bdf8" filter="url(#cdm-glow)">
+                    <animateMotion dur="2.2s" repeatCount="indefinite">
+                      <mpath href="#cdm-in-top" />
+                    </animateMotion>
+                  </circle>
+                  <circle r="1.5" fill="#ffffff">
+                    <animateMotion dur="2.2s" repeatCount="indefinite">
+                      <mpath href="#cdm-in-top" />
+                    </animateMotion>
+                  </circle>
+
+                  <circle r="4" fill="#38bdf8" filter="url(#cdm-glow)">
+                    <animateMotion dur="2.2s" begin="1.1s" repeatCount="indefinite">
+                      <mpath href="#cdm-in-bot" />
+                    </animateMotion>
+                  </circle>
+                  <circle r="1.5" fill="#ffffff">
+                    <animateMotion dur="2.2s" begin="1.1s" repeatCount="indefinite">
+                      <mpath href="#cdm-in-bot" />
+                    </animateMotion>
+                  </circle>
+
+                  {/* Telemetry Packets: Export from Core */}
+                  <circle r="4" fill="#a855f7" filter="url(#cdm-glow)">
+                    <animateMotion dur="2.2s" begin="0.5s" repeatCount="indefinite">
+                      <mpath href="#cdm-out-top" />
+                    </animateMotion>
+                  </circle>
+                  <circle r="1.5" fill="#ffffff">
+                    <animateMotion dur="2.2s" begin="0.5s" repeatCount="indefinite">
+                      <mpath href="#cdm-out-top" />
+                    </animateMotion>
+                  </circle>
+
+                  <circle r="4" fill="#6366f1" filter="url(#cdm-glow)">
+                    <animateMotion dur="2.2s" begin="1.6s" repeatCount="indefinite">
+                      <mpath href="#cdm-out-bot" />
+                    </animateMotion>
+                  </circle>
+                  <circle r="1.5" fill="#ffffff">
+                    <animateMotion dur="2.2s" begin="1.6s" repeatCount="indefinite">
+                      <mpath href="#cdm-out-bot" />
+                    </animateMotion>
+                  </circle>
+                </svg>
+
+                {/* Left Sources Column (Inputs) */}
+                <div className="flex flex-col gap-6 z-10 w-44 text-left">
+                  <div className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-sky-500/40 transition-colors animate-float-slow">
+                    <Satellite className="w-4 h-4 text-sky-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">Space-Track CDM</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">CCSDS v1.0 Ingest</span>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-emerald-500/40 transition-colors animate-float-slower">
+                    <Radio className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">Ground Radar (SSN)</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Tracking Network</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Center Core Processing Node */}
+                <div className="z-10 flex flex-col items-center">
+                  <div className="relative">
+                    {/* Pulsing halo */}
+                    <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-sky-500/20 to-purple-500/20 blur-md animate-pulse pointer-events-none" />
+                    <div className="px-4 py-3 bg-zinc-900 text-zinc-100 dark:bg-zinc-950 border border-sky-500/40 rounded-xl text-xs font-semibold shadow-[0_0_20px_rgba(56,189,248,0.2)] flex flex-col items-center gap-1.5 relative">
+                      <div className="flex items-center gap-1.5 text-sky-400">
+                        <Sparkles className="w-4 h-4 animate-spin" style={{ animationDuration: '8s' }} />
+                        <span className="font-mono tracking-wide">Auralis Engine</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] font-mono">
+                        <span className="inline-flex items-center gap-1 text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                          FILTER: ACTIVE
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Destinations Column (Outputs) */}
+                <div className="flex flex-col gap-6 z-10 w-44 text-left">
+                  <div className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-purple-500/40 transition-colors animate-float-slower">
+                    <Rocket className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">Maneuver Proposal</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Delta-V Burn Vector</span>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-indigo-500/40 transition-colors animate-float-slow">
+                    <ArrowUp className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">Ground Telecommand</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Uplink Synced</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Theme Starters */}
-            <div className="p-6 md:p-10 flex flex-col items-center text-center overflow-hidden">
-              <h3 className="text-2xl font-bold mb-4">Orbital Shell Visualizers</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-8 max-w-sm text-sm">Inspect polar corridors, sun-synchronous bands, and equatorial orbits in real time.</p>
+            {/* Orbital Shell Visualizers */}
+            <div className="p-6 md:p-8 flex flex-col items-center text-center overflow-hidden">
+              <h3 className="text-2xl font-bold mb-3">Orbital Shell Visualizers</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-6 max-w-md text-sm leading-relaxed">
+                Inspect polar corridors, sun-synchronous bands, and equatorial orbits in real time through multi-spectrum telemetry visualizers.
+              </p>
               
-              <div className="w-full overflow-x-auto pb-4 -mx-4 px-4 flex justify-center no-scrollbar">
-                <div className="relative w-[500px] h-48 flex-shrink-0 mt-auto">
-                  <svg className="absolute inset-0 w-full h-full z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <path d="M 30 50 L 50 50 L 50 25 L 70 25" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    <path d="M 50 50 L 50 75 L 70 75" fill="none" stroke="#e5e7eb" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                  </svg>
-                  
-                  <div className="absolute left-[30%] top-[20%] -translate-x-1/2 -translate-y-1/2 px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-sm font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><span className="w-4 h-4 grid grid-cols-2 gap-0.5"><span className="bg-red-400 rounded-sm"></span><span className="bg-blue-400 rounded-sm"></span><span className="bg-yellow-400 rounded-sm"></span><span className="bg-green-400 rounded-sm"></span></span> LEO Polar Corridor</div>
-                  <div className="absolute left-[30%] top-[50%] -translate-x-1/2 -translate-y-1/2 px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-sm font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><span className="w-4 h-4 grid grid-cols-2 gap-0.5"><span className="bg-pink-300 rounded-sm"></span><span className="bg-blue-300 rounded-sm"></span><span className="bg-yellow-200 rounded-sm"></span><span className="bg-purple-300 rounded-sm"></span></span> Sun-Synchronous 780km</div>
-                  <div className="absolute left-[30%] top-[80%] -translate-x-1/2 -translate-y-1/2 px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-sm font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><span className="w-4 h-4 grid grid-cols-2 gap-0.5"><span className="bg-yellow-600 rounded-sm"></span><span className="bg-orange-500 rounded-sm"></span><span className="bg-yellow-700 rounded-sm"></span><span className="bg-orange-600 rounded-sm"></span></span> Equatorial LEO 550km</div>
-                  
-                  <div className="absolute left-[70%] top-[25%] -translate-x-1/2 -translate-y-1/2 px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-sm font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><Sun className="w-4 h-4"/> Light Mode</div>
-                  <div className="absolute left-[70%] top-[75%] -translate-x-1/2 -translate-y-1/2 px-4 py-2 bg-black text-white border border-black rounded-full text-sm font-medium shadow-sm flex items-center gap-2 z-10 whitespace-nowrap"><Moon className="w-4 h-4"/> Dark Mode</div>
+              <div className="w-full mt-auto bg-zinc-50/60 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden h-64 relative flex items-center justify-between p-4 md:p-6">
+                {/* SVG Conduits Layer */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 600 240" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="vis-cyan-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.4" />
+                    </linearGradient>
+                    <linearGradient id="vis-amber-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#ec4899" stopOpacity="0.4" />
+                    </linearGradient>
+                    <linearGradient id="vis-emerald-grad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.4" />
+                    </linearGradient>
+                    <filter id="vis-glow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+
+                  {/* 3 Horizontal Telemetry Channels connecting Left Regimes to Right Lenses */}
+                  <path id="vis-path-1" d="M 180 55 L 420 55" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+                  <path id="vis-path-2" d="M 180 120 L 420 120" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+                  <path id="vis-path-3" d="M 180 185 L 420 185" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
+
+                  {/* Flowing dashes */}
+                  <path d="M 180 55 L 420 55" fill="none" stroke="url(#vis-cyan-grad)" strokeWidth="2" strokeDasharray="6 6" className="animate-dash-move" />
+                  <path d="M 180 120 L 420 120" fill="none" stroke="url(#vis-amber-grad)" strokeWidth="2" strokeDasharray="6 6" className="animate-dash-move" />
+                  <path d="M 180 185 L 420 185" fill="none" stroke="url(#vis-emerald-grad)" strokeWidth="2" strokeDasharray="6 6" className="animate-dash-move" />
+
+                  {/* Telemetry Packets gliding across the visualizer channels */}
+                  <circle r="4" fill="#38bdf8" filter="url(#vis-glow)">
+                    <animateMotion dur="2.4s" repeatCount="indefinite">
+                      <mpath href="#vis-path-1" />
+                    </animateMotion>
+                  </circle>
+                  <circle r="1.5" fill="#ffffff">
+                    <animateMotion dur="2.4s" repeatCount="indefinite">
+                      <mpath href="#vis-path-1" />
+                    </animateMotion>
+                  </circle>
+
+                  <circle r="4" fill="#f59e0b" filter="url(#vis-glow)">
+                    <animateMotion dur="2.4s" begin="0.8s" repeatCount="indefinite">
+                      <mpath href="#vis-path-2" />
+                    </animateMotion>
+                  </circle>
+                  <circle r="1.5" fill="#ffffff">
+                    <animateMotion dur="2.4s" begin="0.8s" repeatCount="indefinite">
+                      <mpath href="#vis-path-2" />
+                    </animateMotion>
+                  </circle>
+
+                  <circle r="4" fill="#10b981" filter="url(#vis-glow)">
+                    <animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite">
+                      <mpath href="#vis-path-3" />
+                    </animateMotion>
+                  </circle>
+                  <circle r="1.5" fill="#ffffff">
+                    <animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite">
+                      <mpath href="#vis-path-3" />
+                    </animateMotion>
+                  </circle>
+                </svg>
+
+                {/* Left Side: Orbital Shell Regimes */}
+                <div className="flex flex-col gap-3.5 z-10 w-44 text-left">
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-cyan-500/30 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-cyan-500/60 transition-colors animate-float-slow">
+                    <Orbit className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">LEO Polar Corridor</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">800km • 98.6° inc</span>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-amber-500/30 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-amber-500/60 transition-colors animate-float-slower">
+                    <Activity className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">Sun-Synchronous</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">780km • 97.4° inc</span>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-emerald-500/30 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-emerald-500/60 transition-colors animate-float-slow">
+                    <Satellite className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">Equatorial Mega-Shell</span>
+                      <span className="text-[10px] text-zinc-400 font-mono">550km • 53.0° inc</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Side: Sensor Visualizer Feeds */}
+                <div className="flex flex-col gap-3.5 z-10 w-44 text-left">
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-cyan-500/40 transition-colors animate-float-slow">
+                    <Sun className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">Optical Terminator</span>
+                      <span className="text-[10px] text-emerald-500 font-mono">● Dusk/Dawn Array</span>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-amber-500/40 transition-colors animate-float-slower">
+                    <Radio className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">Phased-Array Radar</span>
+                      <span className="text-[10px] text-amber-500 font-mono">● 2cm RCS Resolving</span>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium shadow-sm flex items-center gap-2 hover:border-emerald-500/40 transition-colors animate-float-slow">
+                    <Layers className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">3D Covariance Vector</span>
+                      <span className="text-[10px] text-sky-400 font-mono">● Keplerian Projection</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
