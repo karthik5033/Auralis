@@ -47,6 +47,8 @@ export interface ProcessedSatellite {
   alt: number;
   color: string;
   radius: number;
+  sizeCategory: "station" | "heavy" | "standard" | "smallsat" | "rocket_body" | "debris_large" | "debris_medium" | "debris_small";
+  displaySize: number;
   inclination: number;
   raan: number;
   phase: number;
@@ -72,13 +74,26 @@ interface ProcessedArc {
 }
 
 // Compute normalized orbital clearance altitude above ThreeGlobe Earth surface (R_earth = 100).
-// Ensures all satellites and orbit rings are strictly outside the Earth's radius (100) and atmosphere (104.5),
-// eliminating any visual penetration or clipping inside the globe.
+// Uses a multi-tiered non-linear scaling curve so satellites and orbits at different altitudes
+// (VLEO, LEO low, LEO mid, SSO, High LEO) have pronounced, visibly distinct orbital radii.
 export function computeAltitudeNorm(altitudeKm: number): number {
   const clampedKm = Math.max(180, Math.min(2500, altitudeKm || 550));
-  // Linear scaling from 200km (norm 0.085 -> R=108.5) to 2000km (norm 0.220 -> R=122.0)
-  const norm = 0.085 + ((clampedKm - 200) / (2000 - 200)) * (0.220 - 0.085);
-  return Number(Math.max(0.085, Math.min(0.240, norm)).toFixed(4));
+  
+  // Non-linear altitude mapping creating distinct concentric orbital levels:
+  // VLEO (200-350 km)   -> R = 107.5 to 110.0
+  // Low LEO (350-500 km)-> R = 110.0 to 114.5 (ISS @ 420km -> 112.4)
+  // Mid LEO (500-700 km)-> R = 114.5 to 119.5 (Starlink @ 550km -> 115.8)
+  // Polar SSO (700-1000)-> R = 119.5 to 125.5 (SSO @ 800km -> 121.5)
+  // High LEO (1000-2500)-> R = 125.5 to 138.0 (OneWeb @ 1200km -> 128.0)
+  let norm: number;
+  if (clampedKm <= 500) {
+    norm = 0.075 + ((clampedKm - 180) / (500 - 180)) * (0.145 - 0.075);
+  } else if (clampedKm <= 1000) {
+    norm = 0.145 + ((clampedKm - 500) / (1000 - 500)) * (0.255 - 0.145);
+  } else {
+    norm = 0.255 + ((clampedKm - 1000) / (2500 - 1000)) * (0.380 - 0.255);
+  }
+  return Number(Math.max(0.075, Math.min(0.380, norm)).toFixed(4));
 }
 
 // Convert ECI state vector (km) to Geodetic latitude, longitude, and normalized altitude
@@ -95,17 +110,15 @@ function eciToGeodetic(pos: { x: number; y: number; z: number }, altKm: number) 
  * 
  * Physics & Astrodynamics Formulation:
  * - Earth is centered at origin (0, 0, 0) with ThreeGlobe radius R_globe = 100 (representing R_earth = 6371 km).
- * - For altitude h (km), normalized clearance altNorm = computeAltitudeNorm(h) in [0.085, 0.220].
- * - Orbital radius R_orbit = 100 * (1 + altNorm) in [108.5, 122.0] > 100, strictly in outer space above atmosphere (104.5).
+ * - For altitude h (km), normalized clearance altNorm = computeAltitudeNorm(h) in [0.075, 0.380].
+ * - Orbital radius R_orbit = 100 * (1 + altNorm) in [107.5, 138.0] > 100, strictly outside atmosphere (104.5).
  * - In ECI coordinates, with orbital inclination i and RAAN Ω, for true anomaly / argument of latitude u ∈ [0, 2π]:
  *     z_eci = R_orbit * sin(i) * sin(u)
  *     x_eci = R_orbit * (cos(Ω) * cos(u) - sin(Ω) * cos(i) * sin(u))
  *     y_eci = R_orbit * (sin(Ω) * cos(u) + cos(Ω) * cos(i) * sin(u))
  * - In ThreeGlobe 3D scene coordinates: Y is Earth's polar spin axis (North Pole), Z is the Prime Meridian, and X is 90°E.
  *   Therefore: X_3d = y_eci, Y_3d = z_eci, Z_3d = x_eci.
- * - Every point is at constant distance R_orbit > 100 from (0,0,0), strictly outside the Earth's radius of 100.
- * - Connected via THREE.LineLoop with THREE.LineBasicMaterial, forming a pure 1px hairline ring with ZERO thick SVG tubes
- *   and ZERO antimeridian discontinuity chords cutting through Earth.
+ * - Connected via THREE.LineLoop with THREE.LineBasicMaterial (pure 1px hairline ring).
  */
 function createKeplerianOrbitRing(
   inclinationDeg: number,
@@ -231,47 +244,86 @@ function buildCatalogOrbitLines(satellites: ProcessedSatellite[]): THREE.LineSeg
   return new THREE.LineSegments(geometry, material);
 }
 
-// Create custom 3D glowing orbital orb for each satellite (ZERO cylinders, bars, or surface spikes!)
+// Create custom 3D glowing orbital mesh with diverse physical geometries and sizes
 function createSatelliteMesh(d: ProcessedSatellite): THREE.Object3D {
   const group = new THREE.Group();
 
-  if (d.name.includes("ISS") || d.name.includes("TIANGONG")) {
-    // Space Station: Luminous cyan core orb + equatorial orbital halo ring
-    const coreGeom = new THREE.SphereGeometry(0.7, 12, 12);
+  if (d.sizeCategory === "station") {
+    // Space Station (ISS, Tiangong): Large pressurized core + dual solar array wings + halo
+    const coreGeom = new THREE.SphereGeometry(0.72, 14, 14);
     const coreMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     group.add(new THREE.Mesh(coreGeom, coreMat));
 
-    const ringGeom = new THREE.RingGeometry(0.95, 1.25, 24);
+    // Dual solar array crossbar wings
+    const wingGeom = new THREE.BoxGeometry(1.6, 0.04, 0.28);
+    const wingMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.85 });
+    group.add(new THREE.Mesh(wingGeom, wingMat));
+
+    // Luminous orbital halo ring
+    const ringGeom = new THREE.RingGeometry(0.95, 1.35, 24);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.65,
     });
     const ringMesh = new THREE.Mesh(ringGeom, ringMat);
     ringMesh.rotation.x = Math.PI / 2;
     group.add(ringMesh);
-  } else if (d.type === "debris") {
-    // Debris fragment: Sharp tumbling crystalline warning-red octahedron
-    const debrisGeom = new THREE.OctahedronGeometry(0.24, 0);
+  } else if (d.sizeCategory === "rocket_body") {
+    // Spent Rocket Booster Stage: Cylindrical booster stage + conical engine nozzle bell
+    const boosterGeom = new THREE.CylinderGeometry(0.18, 0.18, 0.58, 8);
+    const boosterMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+    const boosterMesh = new THREE.Mesh(boosterGeom, boosterMat);
+    boosterMesh.rotation.z = Math.PI / 4;
+    group.add(boosterMesh);
+
+    // Glowing engine exhaust nozzle
+    const nozzleGeom = new THREE.ConeGeometry(0.12, 0.14, 8);
+    const nozzleMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+    const nozzleMesh = new THREE.Mesh(nozzleGeom, nozzleMat);
+    nozzleMesh.position.y = -0.32;
+    group.add(nozzleMesh);
+  } else if (d.sizeCategory === "heavy") {
+    // Heavy Flagship / Earth Observation Payload (Envisat, Terra, NOAA): Large bus + solar wings
+    const bodyGeom = new THREE.BoxGeometry(0.42, 0.35, 0.35);
+    const bodyMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    group.add(new THREE.Mesh(bodyGeom, bodyMat));
+
+    const wingGeom = new THREE.BoxGeometry(0.95, 0.04, 0.22);
+    const wingMat = new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.8 });
+    group.add(new THREE.Mesh(wingGeom, wingMat));
+  } else if (d.sizeCategory === "smallsat") {
+    // SmallSat / CubeSat: Compact micro-satellite glint
+    const cubeGeom = new THREE.BoxGeometry(0.18, 0.18, 0.18);
+    const cubeMat = new THREE.MeshBasicMaterial({ color: 0x34d399 });
+    group.add(new THREE.Mesh(cubeGeom, cubeMat));
+  } else if (d.sizeCategory === "debris_large") {
+    // Large Tracked Collision Fragment (>1m): Tumbling jagged irregular polyhedron
+    const debrisGeom = new THREE.DodecahedronGeometry(0.30, 0);
     const debrisMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
     group.add(new THREE.Mesh(debrisGeom, debrisMat));
-  } else if (d.type === "rocket_body") {
-    // Spent Rocket Stage: Glowing amber orb
-    const boosterGeom = new THREE.SphereGeometry(0.3, 8, 8);
-    const boosterMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
-    group.add(new THREE.Mesh(boosterGeom, boosterMat));
+  } else if (d.sizeCategory === "debris_medium") {
+    // Medium Debris Fragment (10cm - 1m): Tumbling octahedron
+    const debrisGeom = new THREE.OctahedronGeometry(0.20, 0);
+    const debrisMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    group.add(new THREE.Mesh(debrisGeom, debrisMat));
+  } else if (d.sizeCategory === "debris_small") {
+    // Small Debris Fleck (<10cm): Tiny hazard particle
+    const debrisGeom = new THREE.TetrahedronGeometry(0.12, 0);
+    const debrisMat = new THREE.MeshBasicMaterial({ color: 0xf87171 });
+    group.add(new THREE.Mesh(debrisGeom, debrisMat));
   } else {
-    // Active satellite: Crisp emerald orb with subtle outer glow sphere
-    const bodyGeom = new THREE.SphereGeometry(0.34, 10, 10);
+    // Standard Constellation Satellite: Sleek glowing emerald orb with outer halo
+    const bodyGeom = new THREE.SphereGeometry(0.30, 8, 8);
     const bodyMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
     group.add(new THREE.Mesh(bodyGeom, bodyMat));
 
-    const haloGeom = new THREE.SphereGeometry(0.52, 8, 8);
+    const haloGeom = new THREE.SphereGeometry(0.44, 8, 8);
     const haloMat = new THREE.MeshBasicMaterial({
       color: 0x10b981,
       transparent: true,
-      opacity: 0.25,
+      opacity: 0.22,
     });
     group.add(new THREE.Mesh(haloGeom, haloMat));
   }
@@ -302,6 +354,7 @@ export default function GlobeView({
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>(initialConjunctions);
   const [isRevolving, setIsRevolving] = useState(true);
   const [orbitSpeedMultiplier, setOrbitSpeedMultiplier] = useState(40); // 40x speed: ~2 min full orbit
+  const [orbitDisplayMode, setOrbitDisplayMode] = useState<"tactical" | "focused" | "all" | "off">("tactical");
   const [autoRotate, setAutoRotate] = useState(true);
   const [activeLayer, setActiveLayer] = useState<"all" | "satellites" | "debris" | "critical">("all");
   const prevLayerRef = useRef<"all" | "satellites" | "debris" | "critical">("all");
@@ -319,7 +372,7 @@ export default function GlobeView({
     }
   }, [objects.length, conjunctions.length]);
 
-  // 1. Process satellites into structured data with orbital velocity & inclination
+  // 1. Process satellites into structured data with orbital velocity, tiered altitude, & diverse physical sizes
   const satellitesData = React.useMemo<ProcessedSatellite[]>(() => {
     return objects
       .filter((obj) => {
@@ -338,18 +391,62 @@ export default function GlobeView({
           obj.velocity.vx ** 2 + obj.velocity.vy ** 2 + obj.velocity.vz ** 2
         ) || 7.6;
 
+        let sizeCategory: ProcessedSatellite["sizeCategory"] = "standard";
+        let displaySize = 0.30;
         let color = "#10b981"; // emerald for active satellites
-        let radius = 0.35;
 
-        if (obj.type === "debris") {
-          color = "#ef4444"; // red for debris
-          radius = 0.25;
-        } else if (obj.type === "rocket_body") {
-          color = "#f97316"; // orange for spent stages
-          radius = 0.3;
-        } else if (obj.name.includes("ISS") || obj.name.includes("TIANGONG")) {
-          color = "#38bdf8"; // cyan highlight for space stations
-          radius = 0.65;
+        const nameUpper = obj.name.toUpperCase();
+
+        if (nameUpper.includes("ISS") || nameUpper.includes("TIANGONG")) {
+          sizeCategory = "station";
+          displaySize = 0.72;
+          color = "#38bdf8";
+        } else if (obj.type === "rocket_body" || nameUpper.includes("R/B") || nameUpper.includes("STAGE")) {
+          sizeCategory = "rocket_body";
+          displaySize = 0.42;
+          color = "#f97316";
+        } else if (obj.type === "debris") {
+          color = "#ef4444";
+          const hash = Math.abs(((obj.noradId || idx) * 7) % 10);
+          if (hash > 7) {
+            sizeCategory = "debris_large";
+            displaySize = 0.30;
+          } else if (hash > 3) {
+            sizeCategory = "debris_medium";
+            displaySize = 0.20;
+          } else {
+            sizeCategory = "debris_small";
+            displaySize = 0.12;
+          }
+        } else {
+          // Active satellites: distinguish heavy payloads, standard constellation, and smallsats/CubeSats
+          if (
+            nameUpper.includes("ENVISAT") ||
+            nameUpper.includes("TERRA") ||
+            nameUpper.includes("AQUA") ||
+            nameUpper.includes("NOAA") ||
+            nameUpper.includes("HUBBLE") ||
+            nameUpper.includes("LANDSAT") ||
+            nameUpper.includes("SENTINEL")
+          ) {
+            sizeCategory = "heavy";
+            displaySize = 0.45;
+            color = "#38bdf8";
+          } else if (
+            nameUpper.includes("CUBESAT") ||
+            nameUpper.includes("NANOSAT") ||
+            nameUpper.includes("LEMUR") ||
+            nameUpper.includes("FLOCK") ||
+            (idx % 6 === 0)
+          ) {
+            sizeCategory = "smallsat";
+            displaySize = 0.18;
+            color = "#34d399";
+          } else {
+            sizeCategory = "standard";
+            displaySize = 0.30;
+            color = "#10b981";
+          }
         }
 
         // Orbital elements from telemetry or derived from state vector
@@ -379,7 +476,9 @@ export default function GlobeView({
           lng,
           alt,
           color,
-          radius,
+          radius: displaySize,
+          sizeCategory,
+          displaySize,
           inclination,
           raan,
           phase,
@@ -445,7 +544,8 @@ export default function GlobeView({
   }, [objects, conjunctions]);
 
   // 3. Populate 3D Keplerian hairline orbit rings in Three.js scene
-  // Every single satellite and debris dot has its own mathematically exact orbital ring!
+  // Tactical Mode (Default): Curated prominent reference corridors + active conjunction collision pairs + selected object
+  // Avoids drawing hundreds of overlapping lines into an overwhelming wireframe cage!
   useEffect(() => {
     const group = orbitRingsGroupRef.current;
     if (!group) return;
@@ -463,22 +563,68 @@ export default function GlobeView({
     });
     group.clear();
 
-    // 1. Catalog-Wide Orbits: Every dot and debris fragment gets its mathematically aligned 3D orbit ring (1 draw call)
-    if (satellitesData.length > 0) {
-      group.add(buildCatalogOrbitLines(satellitesData));
+    if (orbitDisplayMode === "off") return;
+
+    if (orbitDisplayMode === "all") {
+      // Very faint full catalog web (subtle cosmic background grid at 0.035 opacity)
+      if (satellitesData.length > 0) {
+        const fullMesh = buildCatalogOrbitLines(satellitesData);
+        (fullMesh.material as THREE.LineBasicMaterial).opacity = 0.035;
+        group.add(fullMesh);
+      }
     }
 
-    // 2. Prominent Orbital Shell Trajectory Rings (reference shells)
-    // ISS Crewed Orbit (420 km, 51.6°)
-    group.add(createKeplerianOrbitRing(51.6, 140, 420, 0x38bdf8, 0.45));
-    // Starlink Megaconstellation Shell (550 km, 53.0°)
-    group.add(createKeplerianOrbitRing(53.0, 45, 550, 0x10b981, 0.35));
-    // Sun-Synchronous Polar Shell (800 km, 98.6°)
-    group.add(createKeplerianOrbitRing(98.6, 300, 800, 0x818cf8, 0.35));
-    // Tiangong CSS Orbit (390 km, 41.5°)
-    group.add(createKeplerianOrbitRing(41.5, 315, 390, 0xf59e0b, 0.40));
+    if (orbitDisplayMode === "tactical" || orbitDisplayMode === "all") {
+      // 1. Prominent Orbital Shell Corridors across visibly distinct radii & inclinations:
+      // VLEO Reconnaissance Plane (280 km, 28.5°, R=109.8) - muted slate
+      group.add(createKeplerianOrbitRing(28.5, 90, 280, 0x94a3b8, 0.22));
+      // Tiangong CSS Station (385 km, 41.5°, R=112.0) - amber
+      group.add(createKeplerianOrbitRing(41.5, 315, 385, 0xf59e0b, 0.38));
+      // ISS Crewed Orbit (420 km, 51.6°, R=112.8) - luminous cyan
+      group.add(createKeplerianOrbitRing(51.6, 140, 420, 0x38bdf8, 0.45));
+      // Starlink Alpha Shell (550 km, 53.0°, R=115.8) - emerald
+      group.add(createKeplerianOrbitRing(53.0, 45, 550, 0x10b981, 0.35));
+      // Sun-Synchronous Polar SSO (800 km, 98.6°, R=121.5) - indigo
+      group.add(createKeplerianOrbitRing(98.6, 300, 800, 0x818cf8, 0.35));
+      // OneWeb / High LEO Shell (1200 km, 87.9°, R=128.0) - purple
+      group.add(createKeplerianOrbitRing(87.9, 210, 1200, 0xa855f7, 0.30));
 
-    // 3. If an object is selected by user, trace its active orbital plane in radiant, razor-sharp hairline
+      // 2. Active Conjunction Collision Trajectories
+      // Render orbital planes of objects involved in top active conjunctions (cross-plane visual analysis)
+      const objMap = new Map(objects.map((o) => [o.id, o]));
+      const topConjunctions = conjunctions
+        .filter((c) => c.status === "active" || c.status === "monitoring")
+        .slice(0, 3);
+
+      topConjunctions.forEach((c) => {
+        const primary = objMap.get(c.primaryObjectId);
+        const secondary = objMap.get(c.secondaryObjectId);
+        if (primary && primary.orbitalElements) {
+          group.add(
+            createKeplerianOrbitRing(
+              primary.orbitalElements.inclination,
+              primary.orbitalElements.raan,
+              primary.altitude,
+              0x38bdf8,
+              0.55
+            )
+          );
+        }
+        if (secondary && secondary.orbitalElements) {
+          group.add(
+            createKeplerianOrbitRing(
+              secondary.orbitalElements.inclination,
+              secondary.orbitalElements.raan,
+              secondary.altitude,
+              0xef4444,
+              0.65
+            )
+          );
+        }
+      });
+    }
+
+    // 3. User Selected Object Orbit: highlighted with radiant 1px hairline
     if (selectedObject && selectedObject.orbitalElements) {
       const isDebris = selectedObject.type === "debris";
       const ringColor = isDebris ? 0xef4444 : 0x38bdf8;
@@ -488,11 +634,11 @@ export default function GlobeView({
           selectedObject.orbitalElements.raan,
           selectedObject.altitude,
           ringColor,
-          0.90
+          0.95
         )
       );
     }
-  }, [satellitesData, selectedObject]);
+  }, [satellitesData, selectedObject, orbitDisplayMode, conjunctions, objects]);
 
   // 4. Initialize Globe.gl WebGL Canvas
   useEffect(() => {
@@ -638,10 +784,13 @@ export default function GlobeView({
           // Directly position mesh in ThreeGlobe 3D coordinate space (X = yEci, Y = zEci, Z = xEci)
           mesh.position.set(yEci, zEci, xEci);
 
-          // Tumble debris fragments
+          // Dynamic tumbling and rotation based on physical vehicle category
           if (data.type === "debris") {
-            mesh.rotation.x += 0.03;
-            mesh.rotation.y += 0.02;
+            const rotSpeed = data.sizeCategory === "debris_small" ? 0.05 : 0.025;
+            mesh.rotation.x += rotSpeed;
+            mesh.rotation.y += rotSpeed * 0.75;
+          } else if (data.sizeCategory === "rocket_body") {
+            mesh.rotation.y += 0.015;
           }
         }
       }
@@ -920,6 +1069,58 @@ export default function GlobeView({
 
       {/* Bottom Right HUD: Camera & Orbit Controls */}
       <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 max-w-[calc(100%-1.5rem)] overflow-x-auto no-scrollbar">
+        {/* Orbit Lines Display Selector */}
+        <div className="flex items-center bg-background/85 backdrop-blur-md rounded-lg border border-border/80 p-0.5 shadow-md shrink-0">
+          <button
+            type="button"
+            onClick={() => setOrbitDisplayMode("tactical")}
+            title="Tactical Orbits (Reference Shells + Conjunction Pairs)"
+            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+              orbitDisplayMode === "tactical"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Tactical
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrbitDisplayMode("focused")}
+            title="Focused Only (Selected Object & Conjunctions)"
+            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+              orbitDisplayMode === "focused"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Focus
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrbitDisplayMode("all")}
+            title="All Orbits (Sparse Cosmic Grid)"
+            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+              orbitDisplayMode === "all"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrbitDisplayMode("off")}
+            title="Hide All Orbits (Satellites Only)"
+            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+              orbitDisplayMode === "off"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Off
+          </button>
+        </div>
+
         {/* Orbital Speed Selector */}
         <div className="flex items-center bg-background/85 backdrop-blur-md rounded-lg border border-border/80 p-0.5 shadow-md shrink-0">
           <button
