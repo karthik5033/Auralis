@@ -34,9 +34,7 @@ export class GeminiRotator {
   private readonly failCounts = new Map<number, number>();
   private readonly quarantined = new Set<number>();
   private readonly candidateModels = [
-    "gemini-3.1-flash-lite",
-    "gemini-flash-latest",
-    "gemini-2.5-flash",
+    process.env.GEMINI_MODEL || "gemini-2.5-flash",
   ];
   private readonly loggedQuarantines = new Set<number>();
 
@@ -210,8 +208,8 @@ export class GeminiRotator {
 
           // 1. Quota Exhaustion / Rate Limit
           if (response.status === 429) {
-            console.warn(`[GeminiRotator] Key #${index + 1} hit 429 (Rate Limit) on ${model}. Cooling for 30s...`);
-            this.markCooldown(index, 30_000);
+            console.warn(`[GeminiRotator] Key #${index + 1} hit 429 (Rate Limit) on ${model}. Cooling for 45s...`);
+            this.markCooldown(index, 45_000);
             continue;
           }
 
@@ -236,7 +234,7 @@ export class GeminiRotator {
 
           // 5. Model Not Available for this Key/Project
           if (response.status === 404) {
-            this.markCooldown(index, 60_000);
+            this.markQuarantined(index, `404 Model ${model} not enabled for this key`);
             continue;
           }
 
