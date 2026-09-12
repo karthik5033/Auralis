@@ -1,67 +1,198 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowRight, Orbit } from "lucide-react";
+import { AlertTriangle, ArrowRight, Orbit, Flame, ShieldAlert, Radio } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getConjunctions, getShells, getObjects } from "@/lib/api";
+import { mockWs } from "@/lib/mockWs";
+import type { ConjunctionEvent, ShellRiskSnapshot, TrackedObject } from "@/types/contract";
 
 export function EarlyWarningSection() {
-  const alerts = [
-    {
-      id: "ew-1",
-      title: "Critical Conjunction: Starlink-4821 vs Cosmos-2251",
-      location: "Orbital Shell: LEO 550.2 km | Inclination: 53.2°",
-      confidence: "96.8% Covariance Confidence",
-      impact: "CRITICAL COLLISION RISK",
-      suggestion: "TCA in T-11h 54m (Miss distance: 48m, Pc: 3.8e-4). Autonomous yield protocol scheduled."
-    },
-    {
-      id: "ew-2",
-      title: "Kessler Cascade Density Spike in SSO-780 Band",
-      location: "Sun-Synchronous 780-800km Polar Corridor",
-      confidence: "91.4% SIR Model Confidence",
-      impact: "HIGH CASCADE RISK",
-      suggestion: "Percolation threshold exceeded around SL-16 rocket body. Recommend proactive Sentinel-2A orbital phasing."
+  const [criticalConjunctions, setCriticalConjunctions] = useState<ConjunctionEvent[]>([]);
+  const [criticalShells, setCriticalShells] = useState<ShellRiskSnapshot[]>([]);
+  const [objectsMap, setObjectsMap] = useState<Record<string, TrackedObject>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAlerts() {
+      try {
+        const [conjRes, shellRes, objRes] = await Promise.all([
+          getConjunctions({ riskLevel: "critical", limit: 5 }),
+          getShells(),
+          getObjects({ limit: 100 }),
+        ]);
+
+        if (!mounted) return;
+
+        setCriticalConjunctions(conjRes.data);
+
+        // Filter shells that exceed percolation threshold R0 > 1.0 or are in 'increasing' trend
+        const riskyShells = shellRes.data.filter((s) => s.r0 >= 1.0 || s.trend === "increasing");
+        setCriticalShells(riskyShells);
+
+        const map: Record<string, TrackedObject> = {};
+        objRes.data.forEach((obj) => {
+          map[obj.id] = obj;
+        });
+        setObjectsMap(map);
+      } catch (err) {
+        console.error("Failed loading early warning alerts:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
-  ];
+
+    loadAlerts();
+
+    // Listen to real-time events from WebSocket
+    const unsubConj = mockWs.on("conjunction:created", (newConj) => {
+      if (newConj.riskLevel === "critical") {
+        setCriticalConjunctions((prev) => [newConj, ...prev.slice(0, 4)]);
+      }
+    });
+
+    const unsubCrisis = mockWs.on("crisis:injected", (crisis) => {
+      // Re-fetch shells when crisis is injected
+      getShells().then((res) => {
+        if (mounted) {
+          setCriticalShells(res.data.filter((s) => s.r0 >= 1.0 || s.trend === "increasing"));
+        }
+      });
+    });
+
+    return () => {
+      mounted = false;
+      unsubConj();
+      unsubCrisis();
+    };
+  }, []);
 
   return (
-    <Card className="border-amber-500/30 bg-amber-500/5">
+    <Card className="border-red-500/30 bg-red-950/10 backdrop-blur-sm">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Orbit className="h-5 w-5 text-amber-500" />
-            <CardTitle className="text-base font-bold text-foreground">
-              Orbital Cascade & Conjunction Alerts
-            </CardTitle>
+            <div className="p-1.5 rounded-lg bg-red-500/20 text-red-400">
+              <ShieldAlert className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                Automated Early Warning & Cascade Alerts
+                <Badge variant="outline" className="text-[10px] font-mono text-red-400 border-red-500/30 bg-red-950/50">
+                  LIVE TELEMETRY
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Real-time Foster-1992 covariance collision forecasts & epidemiological SIR cascade warnings predicting runaway events.
+              </CardDescription>
+            </div>
           </div>
           <Link href="/alerts">
-            <Button variant="ghost" size="sm" className="text-xs font-semibold text-amber-500 hover:text-amber-500/80">
+            <Button variant="ghost" size="sm" className="text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-950/30">
               View All Alerts <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </Link>
         </div>
-        <CardDescription className="text-xs">
-          Epidemiological SIR cascade modeling & SGP4 covariance propagation predicting collision chains before escalation.
-        </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-        {alerts.map((alert) => (
-          <div key={alert.id} className="p-3.5 rounded-lg border bg-card/80 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <Badge variant="outline" className="text-[10px] font-bold text-amber-500 border-amber-500/40">
-                  {alert.impact}
-                </Badge>
-                <span className="text-[11px] font-mono text-muted-foreground">{alert.confidence}</span>
+        {/* Critical Conjunction Cards */}
+        {criticalConjunctions.slice(0, 2).map((conj) => {
+          const primary = objectsMap[conj.primaryObjectId];
+          const secondary = objectsMap[conj.secondaryObjectId];
+          const primaryName = primary ? primary.name : "Primary Asset";
+          const secondaryName = secondary ? secondary.name : "Secondary Body";
+
+          return (
+            <div
+              key={conj.id}
+              className="p-4 rounded-lg border border-red-500/30 bg-card/90 flex flex-col justify-between shadow-sm relative overflow-hidden group"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Badge className="text-[10px] font-bold font-mono bg-red-500/20 text-red-400 border-red-500/40">
+                    CRITICAL COLLISION RISK
+                  </Badge>
+                  <span className="text-[11px] font-mono text-red-300 font-semibold">
+                    Pc: {conj.collisionProbability.toExponential(2)}
+                  </span>
+                </div>
+                <h4 className="font-bold text-sm text-foreground mb-1 flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-red-500" />
+                  {primaryName} vs {secondaryName}
+                </h4>
+                <p className="text-xs font-mono text-muted-foreground mb-2">
+                  TCA: {conj.tca.replace("T", " ").replace("Z", " UTC")} | Miss: {(conj.missDistance * 1000).toFixed(0)}m
+                </p>
+                <div className="text-xs text-foreground/90 bg-muted/60 p-2.5 rounded border border-border/60 font-mono flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-muted-foreground">Rel Velocity: {conj.relativeVelocity.toFixed(2)} km/s</span>
+                    <span className="text-amber-400 font-bold uppercase">{conj.status}</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-300">
+                    {conj.maneuverProposalId
+                      ? "Bilateral autonomous delta-v negotiation scheduled. Operator burn approval pending."
+                      : "SGP4 covariance threshold exceeded. Autonomous evasion geometry synthesized."}
+                  </div>
+                </div>
               </div>
-              <h4 className="font-semibold text-sm text-foreground mb-1">{alert.title}</h4>
-              <p className="text-xs font-mono text-muted-foreground mb-2">{alert.location}</p>
-              <p className="text-xs text-foreground/80 bg-muted/50 p-2 rounded border border-border/50 font-mono">
-                {alert.suggestion}
+              <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between">
+                <span className="text-[10px] font-mono text-muted-foreground">EVENT: {conj.id.slice(0, 16)}...</span>
+                <Link href={`/cases/${conj.id}`}>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs font-semibold text-primary">
+                    Review Geometry <ArrowRight className="ml-1 h-3 w-3" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Critical Orbital Shell Cascade Cards */}
+        {criticalShells.slice(0, 2).map((shell) => (
+          <div
+            key={shell.shellId}
+            className="p-4 rounded-lg border border-amber-500/30 bg-card/90 flex flex-col justify-between shadow-sm relative overflow-hidden group"
+          >
+            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Badge className="text-[10px] font-bold font-mono bg-amber-500/20 text-amber-400 border-amber-500/40">
+                  KESSLER CASCADE ALERT
+                </Badge>
+                <span className="text-[11px] font-mono text-amber-300 font-semibold">
+                  R₀ = {shell.r0.toFixed(2)} &gt; 1.0
+                </span>
+              </div>
+              <h4 className="font-bold text-sm text-foreground mb-1 flex items-center gap-1.5">
+                <Orbit className="h-4 w-4 text-amber-500" />
+                Shell {shell.shellId} ({shell.altitudeMin}–{shell.altitudeMax} km)
+              </h4>
+              <p className="text-xs font-mono text-muted-foreground mb-2">
+                Total Objects: {shell.totalObjectCount.toLocaleString()} | Debris Density: {shell.debrisDensity.toExponential(2)} obj/km³
               </p>
+              <div className="text-xs text-foreground/90 bg-muted/60 p-2.5 rounded border border-border/60 font-mono flex flex-col gap-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground">Infected / Debris: {shell.infectedCount}</span>
+                  <span className="text-amber-400 font-bold uppercase">{shell.trend} risk</span>
+                </div>
+                <div className="text-[11px] text-zinc-300">
+                  Percolation threshold exceeded. Critical cascade regime where secondary collisions outpace atmospheric drag decay.
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-muted-foreground">BAND: {shell.altitudeMin}–{shell.altitudeMax} KM</span>
+              <Link href="/analytics">
+                <Button variant="link" size="sm" className="h-auto p-0 text-xs font-semibold text-amber-400 hover:text-amber-300">
+                  Inspect SIR Curves <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </Link>
             </div>
           </div>
         ))}

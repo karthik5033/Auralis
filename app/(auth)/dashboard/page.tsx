@@ -28,14 +28,19 @@ import {
   Download,
   Orbit,
   Radio,
-  ExternalLink
+  ExternalLink,
+  ShieldAlert,
+  Trash2,
+  Satellite
 } from "lucide-react";
 import { CrimeTrendChart } from "@/components/charts/CrimeTrendChart";
 import { LiveMap } from "@/components/dashboard/LiveMap";
 import { LiveEventFeed } from "@/components/dashboard/LiveEventFeed";
 import { EarlyWarningSection } from "@/components/dashboard/EarlyWarningSection";
+import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { QuickMLBar } from "@/components/dashboard/QuickMLBar";
 import { getDashboardSummary, getConjunctions, getObjects } from "@/lib/api";
+import { mockWs } from "@/lib/mockWs";
 import type { DashboardSummary, ConjunctionEvent, TrackedObject } from "@/types/contract";
 import { downloadDataAsCsv } from "@/lib/utils";
 import Link from "next/link";
@@ -44,15 +49,20 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>([]);
   const [objectsMap, setObjectsMap] = useState<Record<string, TrackedObject>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     async function fetchDashboardData() {
       try {
         const [sumRes, conjRes, objRes] = await Promise.all([
           getDashboardSummary(),
           getConjunctions({ limit: 20 }),
-          getObjects({ limit: 100 }),
+          getObjects({ limit: 150 }),
         ]);
+
+        if (!mounted) return;
 
         setSummary(sumRes);
         setConjunctions(conjRes.data);
@@ -64,9 +74,53 @@ export default function DashboardPage() {
         setObjectsMap(map);
       } catch (err) {
         console.error("Failed fetching dashboard data:", err);
+      } finally {
+        if (mounted) setLoading(false);
       }
     }
+
     fetchDashboardData();
+
+    // Wire live WebSocket events for real-time dashboard updates
+    const unsubCreated = mockWs.on("conjunction:created", (newConj) => {
+      setConjunctions((prev) => [newConj, ...prev.slice(0, 19)]);
+      setSummary((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          activeConjunctions: prev.activeConjunctions + 1,
+          criticalConjunctions:
+            newConj.riskLevel === "critical"
+              ? prev.criticalConjunctions + 1
+              : prev.criticalConjunctions,
+        };
+      });
+    });
+
+    const unsubUpdated = mockWs.on("conjunction:updated", (updated) => {
+      setConjunctions((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
+      );
+    });
+
+    const unsubCrisis = mockWs.on("crisis:injected", (crisis) => {
+      setSummary((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          totalTrackedObjects: prev.totalTrackedObjects + crisis.injectedObjectCount,
+          debrisObjects: prev.debrisObjects + crisis.injectedObjectCount,
+          shellsAtRisk: Math.max(prev.shellsAtRisk, crisis.affectedShellIds.length),
+        };
+      });
+    });
+
+    return () => {
+      mounted = false;
+      unsubCreated();
+      unsubUpdated();
+      unsubCrisis();
+    };
   }, []);
 
   const handleExportCsv = () => {
@@ -90,87 +144,128 @@ export default function DashboardPage() {
       {/* Quick AI Search Copilot Bar */}
       <QuickMLBar />
 
-      {/* Top Metric Cards - Matching INTERFACE_CONTRACT §3.1 DashboardSummary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Active Conjunctions */}
-        <Card className="shadow-sm hover:shadow transition-shadow border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
-              Active Conjunctions
-            </CardTitle>
-            <div className="p-2 rounded-lg bg-muted text-foreground">
-              <Crosshair className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold tracking-tight text-foreground font-mono">
-              {summary ? summary.activeConjunctions : 23}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-amber-500">
-              <TrendingUp className="h-3.5 w-3.5" />
-              <span>+3 close approaches in 24h</span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Autonomous Agent Orchestration Mesh Status Bar */}
+      <AgentStatusBar />
 
-        {/* Tracked Objects */}
-        <Card className="shadow-sm hover:shadow transition-shadow border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
+      {/* 6 Top Metric KPI Cards - Matching INTERFACE_CONTRACT §3.1 DashboardSummary */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Total Tracked Objects */}
+        <Card className="shadow-sm hover:shadow transition-shadow border-border/80 bg-card/70">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground font-mono truncate">
               Tracked Objects
             </CardTitle>
-            <div className="p-2 rounded-lg bg-muted text-foreground">
-              <Boxes className="h-4 w-4" />
+            <div className="p-1.5 rounded-lg bg-muted text-foreground">
+              <Boxes className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold tracking-tight text-foreground font-mono">
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
               {summary ? summary.totalTrackedObjects.toLocaleString() : "1,847"}
             </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-emerald-500">
-              <Radio className="h-3.5 w-3.5" />
-              <span>{summary ? summary.activeSatellites : 623} active satellites in LEO</span>
-            </div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">
+              Catalog SGP4 synched
+            </p>
           </CardContent>
         </Card>
 
-        {/* High-Risk Alerts */}
-        <Card className="shadow-sm hover:shadow transition-shadow border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
-              Critical Conjunctions
+        {/* Active Satellites */}
+        <Card className="shadow-sm hover:shadow transition-shadow border-border/80 bg-card/70">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground font-mono truncate">
+              Active Satellites
             </CardTitle>
-            <div className="p-2 rounded-lg bg-red-500/10 text-red-500">
-              <AlertTriangle className="h-4 w-4" />
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <Satellite className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold tracking-tight text-red-500 font-mono">
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-extrabold tracking-tight text-emerald-400 font-mono">
+              {summary ? summary.activeSatellites.toLocaleString() : "623"}
+            </div>
+            <p className="text-[10px] text-emerald-500/80 mt-1 font-mono truncate">
+              Active LEO payloads
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Debris Objects */}
+        <Card className="shadow-sm hover:shadow transition-shadow border-border/80 bg-card/70">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground font-mono truncate">
+              Debris & Fragments
+            </CardTitle>
+            <div className="p-1.5 rounded-lg bg-zinc-500/10 text-zinc-400">
+              <Trash2 className="h-3.5 w-3.5" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
+              {summary ? summary.debrisObjects.toLocaleString() : "1,189"}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">
+              Non-steerable bodies
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Active Conjunctions */}
+        <Card className="shadow-sm hover:shadow transition-shadow border-border/80 bg-card/70">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground font-mono truncate">
+              Conjunctions
+            </CardTitle>
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+              <Crosshair className="h-3.5 w-3.5" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
+              {summary ? summary.activeConjunctions : 23}
+            </div>
+            <p className="text-[10px] text-amber-500 mt-1 font-mono truncate">
+              Approaches in 72h
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Critical Conjunctions */}
+        <Card className="shadow-sm hover:shadow transition-shadow border-red-500/30 bg-red-950/10">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-red-400 font-mono truncate">
+              Critical Risk
+            </CardTitle>
+            <div className="p-1.5 rounded-lg bg-red-500/20 text-red-400">
+              <ShieldAlert className="h-3.5 w-3.5 animate-pulse" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-extrabold tracking-tight text-red-400 font-mono">
               {summary ? summary.criticalConjunctions : 2}
             </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-red-500">
-              <span>Pc &ge; 10⁻³ emergency threshold</span>
-            </div>
+            <p className="text-[10px] text-red-400 mt-1 font-mono truncate">
+              Pc &ge; 10⁻³ action trigger
+            </p>
           </CardContent>
         </Card>
 
-        {/* Maneuvers Resolved */}
-        <Card className="shadow-sm hover:shadow transition-shadow border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
-              Maneuvered (24h)
+        {/* Shells at Risk */}
+        <Card className="shadow-sm hover:shadow transition-shadow border-amber-500/30 bg-amber-950/10">
+          <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3.5">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 font-mono truncate">
+              Shells at Risk
             </CardTitle>
-            <div className="p-2 rounded-lg bg-muted text-foreground">
-              <ShieldCheck className="h-4 w-4" />
+            <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400">
+              <Orbit className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold tracking-tight text-foreground font-mono">
-              {summary ? summary.maneuveredLast24h : 1}
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-2xl font-extrabold tracking-tight text-amber-400 font-mono">
+              {summary ? summary.shellsAtRisk : 1}
             </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-muted-foreground">
-              <span>Bilateral autonomous yield rate: 100%</span>
-            </div>
+            <p className="text-[10px] text-amber-400 mt-1 font-mono truncate">
+              R₀ &ge; 1.0 Supercritical
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -282,7 +377,9 @@ export default function DashboardPage() {
                   return (
                     <TableRow key={conj.id} className="hover:bg-muted/30 cursor-pointer">
                       <TableCell className="font-mono text-xs font-bold text-primary">
-                        {conj.id.slice(0, 11)}...
+                        <Link href={`/cases/${conj.id}`} className="hover:underline">
+                          {conj.id.slice(0, 11)}...
+                        </Link>
                       </TableCell>
                       <TableCell className="text-xs font-semibold">
                         <div className="flex flex-col">
@@ -332,8 +429,8 @@ export default function DashboardPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         {conj.maneuverProposalId ? (
-                          <Link href="/financial">
-                            <Badge className="text-[10px] font-mono bg-primary/20 text-primary hover:bg-primary/30 border-primary/30 gap-1">
+                          <Link href={`/financial`}>
+                            <Badge className="text-[10px] font-mono bg-primary/20 text-primary hover:bg-primary/30 border-primary/30 gap-1 cursor-pointer">
                               Maneuver <ExternalLink className="h-2.5 w-2.5" />
                             </Badge>
                           </Link>
