@@ -2025,26 +2025,20 @@ export default function Home() {
           </p>
         </div>
         
-        {/* Space Industry Logos */}
-        <div className="flex flex-wrap justify-center items-center gap-8 md:gap-14 max-w-5xl mx-auto mb-16 opacity-70 grayscale hover:grayscale-0 transition-all duration-300">
-          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
-            <Orbit className="w-5 h-5 text-sky-400" /> ASTROSCALE
+        {/* Space Industry Logos (Styled to match the design typography) */}
+        <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 max-w-5xl mx-auto mb-16 opacity-60 dark:opacity-40 grayscale hover:grayscale-0 transition-all duration-300">
+          <div className="text-2xl font-serif italic font-light">astroscale</div>
+          <div className="text-2xl font-bold flex items-center gap-1">
+            <Orbit className="w-6 h-6 text-sky-400" />leolabs<span className="border border-black dark:border-white rounded-lg px-1.5 text-xs bg-black dark:bg-white text-white dark:text-black uppercase font-mono">radar</span>
           </div>
-          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
-            <Radio className="w-5 h-5 text-cyan-400" /> LEOLABS
+          <div className="text-2xl font-bold lowercase">celestrak®</div>
+          <div className="text-xl font-bold leading-none text-right font-mono">
+            space<br/>track
           </div>
-          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
-            <Satellite className="w-5 h-5 text-emerald-400" /> CELESTRAK
-          </div>
-          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
-            <ShieldAlert className="w-5 h-5 text-amber-400" /> SPACE-TRACK
-          </div>
-          <div className="flex items-center gap-2 font-mono font-bold tracking-widest text-sm md:text-base">
-            <Layers className="w-5 h-5 text-purple-400" /> PLANET LABS
-          </div>
+          <div className="text-2xl font-bold tracking-tight">PlanetLabs</div>
         </div>
 
-        <div className="text-center max-w-3xl mx-auto mb-12">
+        <div className="text-center max-w-3xl mx-auto mb-10">
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
             <span className="font-bold text-black dark:text-white">Flight-Critical Precision:</span> Every orbital propagator, covariance model & negotiation algorithm is verified against standard CCSDS benchmarks.
           </p>
@@ -2053,138 +2047,84 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Pricing Cards Grid */}
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Academic & Research */}
-          <div className="p-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-            <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-xs font-semibold mb-4">
-                Academic & Open Science
-              </div>
-              <h3 className="text-2xl font-bold mb-2">Research</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
-                For universities, orbital researchers, and non-profit space observatories.
-              </p>
-              <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-4xl font-black font-mono">$0</span>
-                <span className="text-zinc-500 text-sm">/ month</span>
-              </div>
-              <div className="space-y-3 text-sm font-sans">
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>SGP4 orbital propagation (up to 25 targets)</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>CelesTrak daily TLE auto-ingestion</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Foster-1992 2D collision probability</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Epidemiological SIR cascade viewer</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-400">
-                  <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-xs">—</span>
-                  <span className="line-through">Autonomous agent negotiation</span>
-                </div>
-              </div>
+        {/* Horizontal 5-Column Operational Licensing Ribbon */}
+        <div className="max-w-6xl mx-auto overflow-hidden mb-8">
+          <div className="flex flex-nowrap md:flex-wrap md:grid md:grid-cols-5 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm bg-white dark:bg-zinc-950 p-2 gap-2 overflow-x-auto">
+            {/* COMMERCIAL HEADER */}
+            <div className="p-6 bg-zinc-50 dark:bg-zinc-900 rounded-xl min-w-[200px] flex flex-col justify-center">
+              <span className="text-[10px] font-mono text-zinc-400 font-semibold tracking-wider">TIER MATRIX</span>
+              <h3 className="font-bold text-lg text-foreground mt-0.5">COMMERCIAL</h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">Flight-proven SLAs</p>
             </div>
-            <Link href="/dashboard" className="mt-8 w-full py-3 text-center border border-zinc-200 dark:border-zinc-800 rounded-xl font-semibold text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
-              Access Open Catalog
-            </Link>
+            
+            {/* Community */}
+            <div className="p-6 min-w-[200px] flex flex-col justify-center border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 rounded-xl transition-colors">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                Community <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]"></span>
+              </h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">Academic & Research</p>
+              <div className="mt-2 text-xs font-mono font-semibold text-foreground">$0 <span className="text-zinc-400 font-normal">/ mo (Free)</span></div>
+              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 mt-1">Up to 25 sats</span>
+            </div>
+            
+            {/* Basic */}
+            <div className="p-6 min-w-[200px] flex flex-col justify-center border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 rounded-xl transition-colors">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                Basic <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"></span>
+              </h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">Small Fleets (&lt;10 sats)</p>
+              <div className="mt-2 text-xs font-mono font-semibold text-foreground">$190 <span className="text-zinc-400 font-normal">/ mo</span></div>
+              <span className="text-[10px] font-mono text-cyan-600 dark:text-cyan-400 mt-1">SGP4 Screening</span>
+            </div>
+            
+            {/* Pro (Best Value) */}
+            <div className="p-6 bg-zinc-100 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 relative min-w-[200px] flex flex-col justify-center shadow-sm">
+              <div className="absolute top-0 right-4 -translate-y-1/2 bg-black dark:bg-white text-white dark:text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                Best Value
+              </div>
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                Pro <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_6px_#f59e0b]"></span>
+              </h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">Mega-Constellations (&gt;100 sats)</p>
+              <div className="mt-2 text-xs font-mono font-semibold text-foreground">$490 <span className="text-zinc-400 font-normal">/ mo</span></div>
+              <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 mt-1">Autonomous Δv Negotiation</span>
+            </div>
+            
+            {/* Team / Defense */}
+            <div className="p-6 min-w-[200px] flex flex-col justify-center border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 rounded-xl transition-colors">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                Defense <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_6px_#a855f7]"></span>
+              </h3>
+              <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">Civil & Defense Agencies</p>
+              <div className="mt-2 text-xs font-mono font-semibold text-foreground">Custom <span className="text-zinc-400 font-normal">SLA</span></div>
+              <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 mt-1">Air-Gapped Sovereign</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Feature Highlights & Direct Action Card */}
+        <div className="max-w-6xl mx-auto p-6 bg-zinc-50/60 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono w-full md:w-auto">
+            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+              <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <span>Foster-1992 2D Pc Engine</span>
+            </div>
+            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+              <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <span>NASA CARA & ESA Risk Thresholds</span>
+            </div>
+            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+              <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <span>SHA-256 Merkle Audit Proofs</span>
+            </div>
           </div>
 
-          {/* Commercial Flight Operations */}
-          <div className="p-8 bg-zinc-50/80 dark:bg-zinc-900/60 border-2 border-primary/60 rounded-2xl shadow-xl flex flex-col justify-between relative">
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-md">
-              Most Popular
-            </div>
-            <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold mb-4 border border-emerald-500/20">
-                Commercial Operators
-              </div>
-              <h3 className="text-2xl font-bold mb-2">Flight Ops</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
-                For commercial satellite fleets, payload operators, and launch services.
-              </p>
-              <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-4xl font-black font-mono">$490</span>
-                <span className="text-zinc-500 text-sm">/ month billed annually</span>
-              </div>
-              <div className="space-y-3 text-sm font-sans">
-                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Up to 100 active constellation payloads</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200 font-semibold">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Autonomous Multi-Agent Δv Negotiation</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Real-time 3D Covariance Ellipsoid Screening</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>NASA CARA & ESA risk threshold alerts</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>SHA-256 Merkle audit trail for compliance</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-800 dark:text-zinc-200">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Standard CCSDS OEM/CDM export API</span>
-                </div>
-              </div>
-            </div>
-            <Link href="/dashboard" className="mt-8 w-full py-3 text-center bg-primary text-primary-foreground rounded-xl font-semibold text-sm hover:opacity-90 shadow-md transition-opacity">
-              Launch Flight Ops License
-            </Link>
-          </div>
-
-          {/* Defense & Sovereign Agency */}
-          <div className="p-8 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
-            <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 text-xs font-semibold mb-4">
-                National Space Agencies
-              </div>
-              <h3 className="text-2xl font-bold mb-2">Sovereign / Defense</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6 leading-relaxed">
-                For mega-constellations (&gt;1,000 sats) and sovereign defense space commands.
-              </p>
-              <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-4xl font-black font-mono">Custom</span>
-                <span className="text-zinc-500 text-sm">/ tailored SLA</span>
-              </div>
-              <div className="space-y-3 text-sm font-sans">
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Unlimited tracked payloads & debris objects</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300 font-semibold">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Sub-second RK4 numerical trajectory propagator</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>On-premise air-gapped sovereign deployment</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Direct Phased-Array Ground Radar integration</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300">
-                  <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>24/7 dedicated flight dynamics officer hotline</span>
-                </div>
-              </div>
-            </div>
-            <Link href="/dashboard" className="mt-8 w-full py-3 text-center border border-zinc-200 dark:border-zinc-800 rounded-xl font-semibold text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
-              Contact Mission Control
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            <Link 
+              href="/dashboard" 
+              className="px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl font-semibold text-xs flex items-center gap-2 hover:opacity-90 transition-opacity shadow-sm whitespace-nowrap"
+            >
+              Launch Command Center <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
