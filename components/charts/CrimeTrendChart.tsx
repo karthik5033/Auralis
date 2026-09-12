@@ -12,8 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from "recharts";
-import { Activity, Target, AlertCircle, Radio } from "lucide-react";
-import { useLanguage } from "@/lib/LanguageContext";
+import { Activity, Target, AlertCircle, Radio, ShieldCheck, Zap } from "lucide-react";
 
 const sample7MonthTrends = [
   { date: "Feb", flagged: 42, avoided: 39 },
@@ -77,9 +76,9 @@ export function CrimeTrendChart() {
   const [chartMode, setChartMode] = useState<"trends" | "telemetry">("trends");
 
   return (
-    <div className="flex flex-col xl:flex-row gap-6 w-full h-full mt-2">
-      {/* Main Chart Area */}
-      <div className="flex-1 h-[320px] relative z-10">
+    <div className="flex flex-col lg:flex-row gap-6 w-full h-full min-w-0 mt-2">
+      {/* Main Chart Area - Expands fully to fill all available horizontal space */}
+      <div className="flex-1 min-w-0 w-full flex flex-col justify-between relative z-10">
         <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
           <div className="flex items-center gap-1.5 p-1 bg-muted/40 border border-border/50 rounded-lg">
             <button
@@ -109,166 +108,197 @@ export function CrimeTrendChart() {
           </div>
 
           {chartMode === "trends" ? (
-            <div className="text-[10px] text-muted-foreground uppercase flex gap-4 font-semibold">
-              <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500" /> FLAGGED CONJUNCTIONS</span>
-              <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500" /> SUCCESSFULLY AVOIDED</span>
+            <div className="text-[10px] text-muted-foreground uppercase flex flex-wrap items-center gap-3 font-semibold">
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-500" /> FLAGGED CONJUNCTIONS</span>
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500" /> SUCCESSFULLY AVOIDED</span>
             </div>
           ) : (
-            <div className="text-[10px] text-muted-foreground uppercase flex gap-4 font-semibold">
-              <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-muted-foreground/30" /> BASELINE</span>
-              <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary" /> ACTUAL</span>
-              <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-destructive" /> ANOMALY</span>
+            <div className="text-[10px] text-muted-foreground uppercase flex flex-wrap items-center gap-3 font-semibold">
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-muted-foreground/30" /> BASELINE</span>
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-primary" /> ACTUAL</span>
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-destructive" /> ANOMALY</span>
             </div>
           )}
         </div>
 
-        <ResponsiveContainer width="100%" height="90%">
-          {chartMode === "trends" ? (
-            <ComposedChart
-              data={sample7MonthTrends}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="flaggedGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="avoidedGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
-              <XAxis 
-                dataKey="date" 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
-                dx={-10}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Area 
-                type="monotone" 
-                dataKey="flagged" 
-                name="Flagged Conjunctions" 
-                stroke="#f59e0b" 
-                strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#flaggedGrad)" 
-                isAnimationActive={false}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="avoided" 
-                name="Successfully Avoided" 
-                stroke="#10b981" 
-                strokeWidth={2.5} 
-                dot={{ r: 3, fill: "#10b981" }}
-                isAnimationActive={false}
-              />
-            </ComposedChart>
-          ) : (
-            <ComposedChart
-              data={sampleTelemetry}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
-              
-              <XAxis 
-                dataKey="date" 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
-                dy={10}
-              />
-              
-              <YAxis 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
-                dx={-10}
-              />
-              
-              <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--muted)', strokeWidth: 1, strokeDasharray: '4 4', fill: 'var(--muted)', opacity: 0.1 }} />
-              
-              <Line 
-                type="monotone" 
-                dataKey="baseline" 
-                name="Baseline" 
-                stroke="var(--muted-foreground)" 
-                strokeWidth={1.5} 
-                strokeDasharray="4 4"
-                dot={false}
-                isAnimationActive={false}
-              />
+        <div className="w-full min-w-0 h-[280px] sm:h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            {chartMode === "trends" ? (
+              <ComposedChart
+                data={sample7MonthTrends}
+                margin={{ top: 10, right: 10, left: -15, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="flaggedGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="avoidedGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
+                  dx={-10}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area 
+                  type="monotone" 
+                  dataKey="flagged" 
+                  name="Flagged Conjunctions" 
+                  stroke="#f59e0b" 
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill="url(#flaggedGrad)" 
+                  isAnimationActive={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="avoided" 
+                  name="Successfully Avoided" 
+                  stroke="#10b981" 
+                  strokeWidth={2.5} 
+                  dot={{ r: 3.5, fill: "#10b981" }}
+                  isAnimationActive={false}
+                />
+              </ComposedChart>
+            ) : (
+              <ComposedChart
+                data={sampleTelemetry}
+                margin={{ top: 10, right: 10, left: -15, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
+                
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
+                  dy={10}
+                />
+                
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
+                  dx={-10}
+                />
+                
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--muted)', strokeWidth: 1, strokeDasharray: '4 4', fill: 'var(--muted)', opacity: 0.1 }} />
+                
+                <Line 
+                  type="monotone" 
+                  dataKey="baseline" 
+                  name="Baseline" 
+                  stroke="var(--muted-foreground)" 
+                  strokeWidth={1.5} 
+                  strokeDasharray="4 4"
+                  dot={false}
+                  isAnimationActive={false}
+                />
 
-              <Area 
-                type="monotone" 
-                dataKey="actual" 
-                name="Actual Volume" 
-                stroke="var(--primary)" 
-                strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#areaFill)" 
-                isAnimationActive={false}
-              />
+                <Area 
+                  type="monotone" 
+                  dataKey="actual" 
+                  name="Actual Volume" 
+                  stroke="var(--primary)" 
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill="url(#areaFill)" 
+                  isAnimationActive={false}
+                />
 
-              <Scatter 
-                dataKey="anomaly" 
-                name="Anomaly Spike" 
-                fill="var(--destructive)" 
-                isAnimationActive={false}
-              />
-            </ComposedChart>
-          )}
-        </ResponsiveContainer>
+                <Scatter 
+                  dataKey="anomaly" 
+                  name="Anomaly Spike" 
+                  fill="var(--destructive)" 
+                  isAnimationActive={false}
+                />
+              </ComposedChart>
+            )}
+          </ResponsiveContainer>
+        </div>
       </div>
 
-      {/* Accuracy & Threat Telemetry Card */}
-      <div className="xl:w-64 flex flex-col justify-between p-4 bg-muted/20 border border-border/50 rounded-xl">
+      {/* Accuracy, Threat & Autonomous Maneuver Telemetry Panel */}
+      <div className="w-full lg:w-72 xl:w-80 shrink-0 flex flex-col justify-between p-4 bg-muted/20 border border-border/60 rounded-xl space-y-4">
         <div className="space-y-4">
+          {/* Tile 1: SGP4 Propagation Accuracy */}
           <div>
-            <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-1.5 font-mono">
-              <Target className="h-3 w-3 text-primary" />
-              PROPAGATION ACCURACY
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-1.5 font-mono">
+                <Target className="h-3 w-3 text-primary" />
+                PROPAGATION ACCURACY
+              </span>
+              <span className="text-[10px] font-mono text-muted-foreground">RMS ±14.2m</span>
+            </div>
             <div className="text-2xl font-bold tracking-tight text-foreground font-mono mt-1">98.1%</div>
             <div className="w-full bg-muted h-1.5 rounded-full mt-2 overflow-hidden">
               <div className="bg-primary h-full rounded-full w-[98.1%]" />
             </div>
           </div>
 
-          <div className="pt-2 border-t border-border/50">
-            <span className="text-[10px] font-bold tracking-wider text-amber-500 uppercase flex items-center gap-1.5 font-mono">
-              <AlertCircle className="h-3 w-3 text-amber-500" />
-              CASCADE THREAT INDEX
-            </span>
+          {/* Tile 2: Cascade Threat Index */}
+          <div className="pt-3 border-t border-border/50">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold tracking-wider text-amber-500 uppercase flex items-center gap-1.5 font-mono">
+                <AlertCircle className="h-3 w-3 text-amber-500" />
+                CASCADE THREAT INDEX
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold">
+                R₀ = 1.18
+              </span>
+            </div>
             <div className="text-sm font-bold tracking-tight text-amber-500 font-mono mt-1">ELEVATED</div>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-              LEO 550-780km shell density approaching critical percolation limit.
+              LEO 550–780km shell density approaching critical percolation limit.
+            </p>
+          </div>
+
+          {/* Tile 3: Autonomous Maneuver Resolution */}
+          <div className="pt-3 border-t border-border/50">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold tracking-wider text-emerald-400 uppercase flex items-center gap-1.5 font-mono">
+                <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                AUTONOMOUS RESOLUTION
+              </span>
+              <span className="text-[10px] font-mono text-emerald-400 font-bold">391 / 410</span>
+            </div>
+            <div className="text-sm font-bold tracking-tight text-emerald-400 font-mono mt-1">95.4% Auto-Yielded</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              Autonomous multi-agent protocol avoided operator ground latency.
             </p>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-border/50 mt-4">
+        {/* Telemetry Status Footer */}
+        <div className="pt-3 border-t border-border/50">
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-muted-foreground font-mono text-[10px]">TLE PROPAGATOR</span>
+            <span className="text-muted-foreground font-mono text-[10px] flex items-center gap-1">
+              <Zap className="w-2.5 h-2.5 text-primary" />
+              SGP4 PROPAGATOR
+            </span>
             <span className="font-mono text-[10px] text-emerald-500 font-bold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              SGP4 ONLINE
+              ONLINE (25.4ms)
             </span>
           </div>
         </div>
