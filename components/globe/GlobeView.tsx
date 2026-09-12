@@ -20,7 +20,10 @@ import {
   Orbit as OrbitIcon,
   ExternalLink,
   X,
-  AlertTriangle
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Target,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -284,34 +287,64 @@ function createSatelliteMesh(d: ProcessedSatellite): THREE.Object3D {
     const cubeMat = new THREE.MeshBasicMaterial({ color: 0x34d399 });
     group.add(new THREE.Mesh(cubeGeom, cubeMat));
   } else if (d.sizeCategory === "debris_large") {
-    // Large Tracked Collision Fragment (>1m): Tumbling jagged irregular polyhedron
-    const debrisGeom = new THREE.DodecahedronGeometry(0.30, 0);
+    // Large Tracked Collision Fragment (>1m): Tumbling jagged irregular polyhedron + glowing hazard aura
+    const debrisGeom = new THREE.DodecahedronGeometry(0.52, 0);
     const debrisMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
     group.add(new THREE.Mesh(debrisGeom, debrisMat));
+
+    const haloGeom = new THREE.SphereGeometry(0.82, 8, 8);
+    const haloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.35 });
+    group.add(new THREE.Mesh(haloGeom, haloMat));
   } else if (d.sizeCategory === "debris_medium") {
-    // Medium Debris Fragment (10cm - 1m): Tumbling octahedron
-    const debrisGeom = new THREE.OctahedronGeometry(0.20, 0);
-    const debrisMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-    group.add(new THREE.Mesh(debrisGeom, debrisMat));
-  } else if (d.sizeCategory === "debris_small") {
-    // Small Debris Fleck (<10cm): Tiny hazard particle
-    const debrisGeom = new THREE.TetrahedronGeometry(0.12, 0);
+    // Medium Debris Fragment (10cm - 1m): Tumbling octahedron + hazard glow
+    const debrisGeom = new THREE.OctahedronGeometry(0.40, 0);
     const debrisMat = new THREE.MeshBasicMaterial({ color: 0xf87171 });
     group.add(new THREE.Mesh(debrisGeom, debrisMat));
+
+    const haloGeom = new THREE.SphereGeometry(0.68, 8, 8);
+    const haloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.28 });
+    group.add(new THREE.Mesh(haloGeom, haloMat));
+  } else if (d.sizeCategory === "debris_small") {
+    // Small Debris Fleck (<10cm): Tiny hazard particle + glowing beacon
+    const debrisGeom = new THREE.TetrahedronGeometry(0.30, 0);
+    const debrisMat = new THREE.MeshBasicMaterial({ color: 0xfca5a5 });
+    group.add(new THREE.Mesh(debrisGeom, debrisMat));
+
+    const haloGeom = new THREE.SphereGeometry(0.52, 8, 8);
+    const haloMat = new THREE.MeshBasicMaterial({ color: 0xf87171, transparent: true, opacity: 0.25 });
+    group.add(new THREE.Mesh(haloGeom, haloMat));
   } else {
     // Standard Constellation Satellite: Sleek glowing emerald orb with outer halo
-    const bodyGeom = new THREE.SphereGeometry(0.30, 8, 8);
+    const bodyGeom = new THREE.SphereGeometry(0.35, 8, 8);
     const bodyMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
     group.add(new THREE.Mesh(bodyGeom, bodyMat));
 
-    const haloGeom = new THREE.SphereGeometry(0.44, 8, 8);
+    const haloGeom = new THREE.SphereGeometry(0.55, 8, 8);
     const haloMat = new THREE.MeshBasicMaterial({
       color: 0x10b981,
       transparent: true,
-      opacity: 0.22,
+      opacity: 0.25,
     });
     group.add(new THREE.Mesh(haloGeom, haloMat));
   }
+
+  // Generous 3.5-radius invisible hit target so clicking anywhere near the dot in 3D scene registers 100%
+  const hitGeom = new THREE.SphereGeometry(3.5, 8, 8);
+  const hitMat = new THREE.MeshBasicMaterial({
+    visible: false,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  });
+  const hitMesh = new THREE.Mesh(hitGeom, hitMat);
+  hitMesh.name = "hitTarget";
+  group.add(hitMesh);
+
+  // Attach data reference to root and all children for failproof raycasting & selection
+  (group as any).__data = d;
+  group.traverse((c) => {
+    (c as any).__data = d;
+  });
 
   return group;
 }
@@ -684,10 +717,30 @@ export default function GlobeView({
           </div>
         `;
       })
+      .onCustomLayerHover((d: any) => {
+        if (containerRef.current) {
+          containerRef.current.style.cursor = d ? "pointer" : "grab";
+        }
+      })
       .onCustomLayerClick((d: any) => {
-        setSelectedObject(d.raw);
-        if (onSelectObject && d.raw) {
-          onSelectObject(d.raw);
+        if (!d) return;
+        const rawObj = d.raw || objects.find((o) => o.id === d.id);
+        if (rawObj) {
+          setSelectedObject(rawObj);
+          if (onSelectObject) {
+            onSelectObject(rawObj);
+          }
+          if (globeInstanceRef.current) {
+            const u = d.currentTheta ?? d.phase ?? 0;
+            const incRad = (d.inclination * Math.PI) / 180;
+            const raanRad = (d.raan * Math.PI) / 180;
+            const rKm = 6371 + (d.altitude || 500);
+            const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+            const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+            const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
+            const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
+            globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.45 }, 800);
+          }
         }
       })
     // Attach Three.js group for 3D Keplerian hairline orbit rings directly into Scene
@@ -711,6 +764,69 @@ export default function GlobeView({
     controls.dampingFactor = 0.05;
 
     globeInstanceRef.current = globe;
+
+    // Guaranteed direct 3D raycast hit detection on canvas click (catches all clicks reliably)
+    const domEl = containerRef.current;
+    let downPos = { x: 0, y: 0 };
+
+    const handleCanvasPointerDown = (e: MouseEvent) => {
+      downPos = { x: e.clientX, y: e.clientY };
+    };
+
+    const handleCanvasPointerUp = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const dx = Math.abs(e.clientX - downPos.x);
+      const dy = Math.abs(e.clientY - downPos.y);
+      if (dx > 8 || dy > 8) return; // Disregard camera orbit drags
+
+      if (!globeInstanceRef.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+
+      const camera = globeInstanceRef.current.camera();
+      if (!camera) return;
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+
+      const meshes: THREE.Object3D[] = [];
+      satelliteMeshesRef.current.forEach((m) => {
+        if (m.mesh) meshes.push(m.mesh);
+      });
+
+      const hits = raycaster.intersectObjects(meshes, true);
+      if (hits.length > 0) {
+        let hit: THREE.Object3D | null = hits[0].object;
+        let data = (hit as any)?.__data;
+        while (!data && hit && hit.parent) {
+          hit = hit.parent;
+          data = (hit as any)?.__data;
+        }
+
+        if (data && data.raw) {
+          setSelectedObject(data.raw);
+          if (onSelectObject) onSelectObject(data.raw);
+
+          const u = data.currentTheta ?? data.phase ?? 0;
+          const incRad = (data.inclination * Math.PI) / 180;
+          const raanRad = (data.raan * Math.PI) / 180;
+          const rKm = 6371 + (data.altitude || 500);
+          const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+          const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+          const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
+          const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
+          globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.45 }, 800);
+        }
+      }
+    };
+
+    if (domEl) {
+      domEl.addEventListener("pointerdown", handleCanvasPointerDown);
+      domEl.addEventListener("pointerup", handleCanvasPointerUp);
+    }
 
     // Handle container resize
     const handleResize = () => {
@@ -760,6 +876,7 @@ export default function GlobeView({
 
           // Directly position mesh in ThreeGlobe 3D coordinate space (X = yEci, Y = zEci, Z = xEci)
           mesh.position.set(yEci, zEci, xEci);
+          mesh.updateMatrixWorld(true);
 
           // Dynamic tumbling and rotation based on physical vehicle category
           if (data.type === "debris") {
@@ -829,6 +946,10 @@ export default function GlobeView({
     return () => {
       cancelAnimationFrame(animId);
       resizeObserver.disconnect();
+      if (domEl) {
+        domEl.removeEventListener("pointerdown", handleCanvasPointerDown);
+        domEl.removeEventListener("pointerup", handleCanvasPointerUp);
+      }
       if (orbitRingsGroupRef.current) {
         orbitRingsGroupRef.current.traverse((child) => {
           if (child instanceof THREE.LineLoop || child instanceof THREE.LineSegments || child instanceof THREE.Line) {
@@ -973,17 +1094,53 @@ export default function GlobeView({
     }
   }, [satellitesData]);
 
-  const handleFocusDebris = useCallback(() => {
-    if (!globeInstanceRef.current) return;
-    const debris = satellitesData.find((s) => s.type === "debris");
-    if (debris) {
-      globeInstanceRef.current.pointOfView(
-        { lat: debris.lat, lng: debris.lng, altitude: 1.4 },
-        1500
-      );
-      setSelectedObject(debris.raw);
-    }
+  const debrisList = React.useMemo(() => {
+    return satellitesData.filter((s) => s.type === "debris" || s.type === "rocket_body");
   }, [satellitesData]);
+
+  const handleCycleDebris = useCallback((direction: 1 | -1) => {
+    if (debrisList.length === 0) return;
+    const curIdx = selectedObject ? debrisList.findIndex((d) => d.id === selectedObject.id) : -1;
+    let nextIdx = curIdx + direction;
+    if (nextIdx >= debrisList.length) nextIdx = 0;
+    if (nextIdx < 0) nextIdx = debrisList.length - 1;
+
+    const target = debrisList[nextIdx];
+    if (target) {
+      setSelectedObject(target.raw);
+      if (onSelectObject) onSelectObject(target.raw);
+      if (globeInstanceRef.current) {
+        const u = target.currentTheta ?? target.phase ?? 0;
+        const incRad = (target.inclination * Math.PI) / 180;
+        const raanRad = (target.raan * Math.PI) / 180;
+        const rKm = 6371 + (target.altitude || 500);
+        const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+        const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+        const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
+        const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
+        globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.45 }, 800);
+      }
+    }
+  }, [debrisList, selectedObject, onSelectObject]);
+
+  const handleFocusDebris = useCallback(() => {
+    if (!globeInstanceRef.current || debrisList.length === 0) return;
+    const randomIdx = Math.floor(Math.random() * debrisList.length);
+    const debris = debrisList[randomIdx];
+    if (debris) {
+      setSelectedObject(debris.raw);
+      if (onSelectObject) onSelectObject(debris.raw);
+      const u = debris.currentTheta ?? debris.phase ?? 0;
+      const incRad = (debris.inclination * Math.PI) / 180;
+      const raanRad = (debris.raan * Math.PI) / 180;
+      const rKm = 6371 + (debris.altitude || 500);
+      const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+      const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+      const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
+      const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
+      globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.45 }, 1000);
+    }
+  }, [debrisList, onSelectObject]);
 
   const handleFocusConjunction = useCallback(() => {
     if (!globeInstanceRef.current) return;
@@ -1031,163 +1188,174 @@ export default function GlobeView({
         </div>
 
         {/* Selected Entity Card */}
-        {selectedObject ? (
-          <div className="pointer-events-auto mt-1 max-w-xs p-3 rounded-lg bg-card/95 border border-primary/40 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-xs font-mono font-bold text-primary truncate">
-                {selectedObject.name}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSelectedObject(null)}
-                className="text-muted-foreground hover:text-foreground p-0.5 rounded"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-            <div className="text-[11px] font-mono space-y-0.5 text-muted-foreground">
-              <div className="flex justify-between">
-                <span>NORAD ID:</span>
-                <span className="text-foreground font-semibold">{selectedObject.noradId}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Type:</span>
-                <span className={`font-semibold ${selectedObject.type === "debris" ? "text-red-400" : "text-emerald-400"}`}>
-                  {selectedObject.type.toUpperCase()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Altitude:</span>
-                <span className="text-emerald-400 font-semibold">{selectedObject.altitude.toFixed(1)} km</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Real-Time Lat/Lng:</span>
-                </span>
-                {(() => {
-                  const meshItem = satelliteMeshesRef.current.find((m) => m.data.id === selectedObject.id);
-                  const u = meshItem?.data.currentTheta ?? currentThetaMapRef.current.get(selectedObject.id) ?? 0;
-                  const kep = (selectedObject.orbitalElements && selectedObject.orbitalElements.inclination != null)
-                    ? selectedObject.orbitalElements
-                    : deriveKeplerianElements(selectedObject.position, selectedObject.velocity);
-                  const incRad = (kep.inclination * Math.PI) / 180;
-                  const raanRad = (kep.raan * Math.PI) / 180;
-                  const rKm = 6371 + (selectedObject.altitude || 500);
-                  const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
-                  const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
-                  const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
-                  const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date(liveEpoch));
-                  return (
-                    <span className="text-sky-400 font-semibold font-mono">
-                      {geo.latitudeDeg >= 0 ? `${geo.latitudeDeg.toFixed(2)}°N` : `${Math.abs(geo.latitudeDeg).toFixed(2)}°S`},{" "}
-                      {geo.longitudeDeg >= 0 ? `${geo.longitudeDeg.toFixed(2)}°E` : `${Math.abs(geo.longitudeDeg).toFixed(2)}°W`}
-                    </span>
-                  );
-                })()}
-              </div>
-              <div className="flex justify-between">
-                <span>Velocity:</span>
-                {(() => {
-                  const v = Math.sqrt(
-                    selectedObject.velocity.vx ** 2 +
-                    selectedObject.velocity.vy ** 2 +
-                    selectedObject.velocity.vz ** 2
-                  );
-                  return (
-                    <span className="text-amber-400 font-semibold font-mono">
-                      {v.toFixed(2)} km/s
-                    </span>
-                  );
-                })()}
-              </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground/80">
-                <span>ECI [X,Y,Z]:</span>
-                {(() => {
-                  const meshItem = satelliteMeshesRef.current.find((m) => m.data.id === selectedObject.id);
-                  const u = meshItem?.data.currentTheta ?? currentThetaMapRef.current.get(selectedObject.id) ?? 0;
-                  const kep = (selectedObject.orbitalElements && selectedObject.orbitalElements.inclination != null)
-                    ? selectedObject.orbitalElements
-                    : deriveKeplerianElements(selectedObject.position, selectedObject.velocity);
-                  const incRad = (kep.inclination * Math.PI) / 180;
-                  const raanRad = (kep.raan * Math.PI) / 180;
-                  const rKm = 6371 + (selectedObject.altitude || 500);
-                  const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
-                  const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
-                  const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
-                  return (
-                    <span className="truncate max-w-[155px] text-zinc-300 font-mono">
-                      [{xEciKm.toFixed(0)}, {yEciKm.toFixed(0)}, {zEciKm.toFixed(0)}] km
-                    </span>
-                  );
-                })()}
-              </div>
-            </div>
-            <div className="mt-2 pt-1.5 border-t border-border/50 flex justify-end">
-              <Link
-                href={`/profiles/${selectedObject.id}`}
-                className="text-[10px] font-mono text-primary hover:underline flex items-center gap-1 font-semibold"
-              >
-                <span>Telemetry Inspector</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </Link>
-            </div>
-          </div>
-        ) : (
-          /* Live Debris & Satellite Telemetry Monitor (when browsing) */
-          satellitesData.length > 0 && (() => {
-            const sampleDebris = satellitesData.find((s) => s.type === "debris") || satellitesData[0];
-            if (!sampleDebris) return null;
-            const u = sampleDebris.currentTheta ?? sampleDebris.phase ?? 0;
-            const incRad = (sampleDebris.inclination * Math.PI) / 180;
-            const raanRad = (sampleDebris.raan * Math.PI) / 180;
-            const rKm = 6371 + (sampleDebris.altitude || 500);
-            const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
-            const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
-            const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
-            const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date(liveEpoch));
+        {selectedObject ? (() => {
+          const isDebris = selectedObject.type === "debris" || selectedObject.type === "rocket_body";
+          const meshItem = satelliteMeshesRef.current.find((m) => m.data.id === selectedObject.id);
+          const u = meshItem?.data.currentTheta ?? currentThetaMapRef.current.get(selectedObject.id) ?? 0;
+          const kep = (selectedObject.orbitalElements && selectedObject.orbitalElements.inclination != null)
+            ? selectedObject.orbitalElements
+            : deriveKeplerianElements(selectedObject.position, selectedObject.velocity);
+          const incRad = (kep.inclination * Math.PI) / 180;
+          const raanRad = (kep.raan * Math.PI) / 180;
+          const rKm = 6371 + (selectedObject.altitude || 500);
+          const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+          const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+          const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
+          const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date(liveEpoch));
+          const latStr = `${Math.abs(geo.latitudeDeg).toFixed(2)}°${geo.latitudeDeg >= 0 ? "N" : "S"}`;
+          const lngStr = `${Math.abs(geo.longitudeDeg).toFixed(2)}°${geo.longitudeDeg >= 0 ? "E" : "W"}`;
+          const v = Math.sqrt(
+            selectedObject.velocity.vx ** 2 +
+            selectedObject.velocity.vy ** 2 +
+            selectedObject.velocity.vz ** 2
+          ) || 7.5;
+          const curDebrisIdx = isDebris ? debrisList.findIndex((d) => d.id === selectedObject.id) : -1;
 
-            return (
-              <div className="pointer-events-auto mt-1 max-w-xs p-2.5 rounded-lg bg-card/90 border border-border/60 shadow-lg backdrop-blur-md animate-in fade-in duration-150">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="w-2 h-2 rounded-full bg-red-400 animate-ping shrink-0" />
-                    <span className="text-[11px] font-mono font-bold text-red-400 truncate">
-                      {sampleDebris.name}
-                    </span>
-                  </div>
+          return (
+            <div className={`pointer-events-auto mt-1 max-w-sm w-full p-3 rounded-xl bg-zinc-950/95 border backdrop-blur-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 ${
+              isDebris ? "border-red-500/70 shadow-red-950/50" : "border-sky-500/70 shadow-sky-950/50"
+            }`}>
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-border/50">
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isDebris ? "bg-red-500 animate-ping" : "bg-emerald-400 animate-pulse"}`} />
+                  <span className={`text-xs font-mono font-bold truncate ${isDebris ? "text-red-400" : "text-sky-400"}`}>
+                    {selectedObject.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedObject(sampleDebris.raw);
                       if (globeInstanceRef.current) {
-                        globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.4 }, 1200);
+                        globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.45 }, 800);
                       }
                     }}
-                    className="text-[9px] font-mono bg-red-950/60 text-red-300 border border-red-500/40 px-1.5 py-0.5 rounded hover:bg-red-900/60 font-semibold shrink-0"
+                    title="Center camera on this target"
+                    className={`text-[9px] font-mono px-1.5 py-0.5 rounded border font-semibold flex items-center gap-1 transition-colors ${
+                      isDebris
+                        ? "bg-red-950/60 text-red-300 border-red-500/40 hover:bg-red-900/60"
+                        : "bg-sky-950/60 text-sky-300 border-sky-500/40 hover:bg-sky-900/60"
+                    }`}
                   >
-                    Lock Target
+                    <Target className="w-2.5 h-2.5" />
+                    <span>Track</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedObject(null)}
+                    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                    title="Close"
+                  >
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="text-[10px] font-mono space-y-0.5 text-muted-foreground">
-                  <div className="flex justify-between">
+              </div>
+
+              {/* Debris Stepper Navigation (when inspecting debris) */}
+              {isDebris && debrisList.length > 1 && (
+                <div className="flex items-center justify-between gap-1 mb-2 bg-red-950/30 px-2 py-1 rounded border border-red-500/20 text-[10px] font-mono">
+                  <button
+                    type="button"
+                    onClick={() => handleCycleDebris(-1)}
+                    className="text-red-400 hover:text-red-200 flex items-center gap-0.5 font-bold transition-colors"
+                  >
+                    <ChevronLeft className="w-3 h-3" />
+                    <span>Prev</span>
+                  </button>
+                  <span className="text-zinc-400 text-[9px]">
+                    Debris Fragment #{curDebrisIdx >= 0 ? curDebrisIdx + 1 : 1} of {debrisList.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCycleDebris(1)}
+                    className="text-red-400 hover:text-red-200 flex items-center gap-0.5 font-bold transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+
+              {/* Live Real-Time Coordinates Display */}
+              <div className="bg-black/70 rounded-lg p-2.5 border border-border/50 font-mono space-y-1 text-[11px]">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     <span>Live Coordinates:</span>
-                    <span className="text-sky-400 font-bold">
-                      {geo.latitudeDeg >= 0 ? `${geo.latitudeDeg.toFixed(2)}°N` : `${Math.abs(geo.latitudeDeg).toFixed(2)}°S`},{" "}
-                      {geo.longitudeDeg >= 0 ? `${geo.longitudeDeg.toFixed(2)}°E` : `${Math.abs(geo.longitudeDeg).toFixed(2)}°W`}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Altitude & Velocity:</span>
-                    <span className="text-foreground font-semibold">{sampleDebris.altitude.toFixed(0)} km @ {sampleDebris.velocityKmS} km/s</span>
-                  </div>
-                  <div className="text-[9px] text-muted-foreground/70 italic pt-1 border-t border-border/40">
-                    Tip: Hover over or click any debris dot on Earth to inspect its coordinates.
-                  </div>
+                  </span>
+                  <span className="text-sky-400 font-bold font-mono">
+                    {latStr}, {lngStr}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Altitude & Velocity:</span>
+                  <span className="text-foreground font-semibold">
+                    {selectedObject.altitude.toFixed(1)} km @ <span className="text-amber-400 font-bold">{v.toFixed(2)} km/s</span>
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">ECI Cartesian:</span>
+                  <span className="text-zinc-300 font-mono text-[10px]">
+                    [{xEciKm.toFixed(0)}, {yEciKm.toFixed(0)}, {zEciKm.toFixed(0)}] km
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-[10px] pt-1 border-t border-border/40 text-muted-foreground">
+                  <span>NORAD #{selectedObject.noradId} • {selectedObject.type.toUpperCase()}</span>
+                  <span>Inc: {kep.inclination.toFixed(1)}°</span>
                 </div>
               </div>
-            );
-          })()
+
+              {/* Footer */}
+              <div className="mt-2 pt-1.5 border-t border-border/50 flex items-center justify-between">
+                <span className="text-[9px] font-mono text-emerald-400/80 flex items-center gap-1">
+                  <Radio className="w-2.5 h-2.5 animate-pulse" />
+                  <span>SGP4 Live Propagating</span>
+                </span>
+                <Link
+                  href={`/profiles/${selectedObject.id}`}
+                  className="text-[10px] font-mono text-primary hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <span>Telemetry Dossier</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </Link>
+              </div>
+            </div>
+          );
+        })() : (
+          /* Live Orbit Telemetry Guidance Banner (when browsing) */
+          <div className="pointer-events-auto mt-1 max-w-xs p-2.5 rounded-lg bg-zinc-950/90 border border-border/70 shadow-xl backdrop-blur-md animate-in fade-in duration-150">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-red-400 animate-ping shrink-0" />
+              <span className="text-[11px] font-mono font-bold text-foreground">
+                Orbital Surveillance Mode
+              </span>
+            </div>
+            <p className="text-[10px] text-zinc-400 font-mono leading-relaxed mb-2">
+              Click any <span className="text-red-400 font-semibold">debris dot</span> (red) or <span className="text-emerald-400 font-semibold">satellite</span> (green) on Earth to lock real-time coordinates.
+            </p>
+            <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50">
+              <button
+                type="button"
+                onClick={handleFocusDebris}
+                className="flex-1 text-[10px] font-mono py-1 px-2 rounded bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-500/40 flex items-center justify-center gap-1 font-semibold transition-colors"
+              >
+                <Crosshair className="w-3 h-3 text-red-400" />
+                <span>Track Debris</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleFocusISS}
+                className="flex-1 text-[10px] font-mono py-1 px-2 rounded bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/40 flex items-center justify-center gap-1 font-semibold transition-colors"
+              >
+                <Radio className="w-3 h-3 text-sky-400" />
+                <span>Track ISS</span>
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
