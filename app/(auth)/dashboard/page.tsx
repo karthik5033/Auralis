@@ -45,6 +45,7 @@ import { QuickMLBar } from "@/components/dashboard/QuickMLBar";
 import { CrisisInjectionModal } from "@/components/dashboard/CrisisInjectionModal";
 import { getDashboardSummary, getConjunctions, getObjects } from "@/lib/api";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
+import { formatScientificPc } from "@/lib/formatters";
 import type { DashboardSummary, ConjunctionEvent, TrackedObject, CrisisInjectionResponse } from "@/types/contract";
 import { downloadDataAsCsv } from "@/lib/utils";
 import Link from "next/link";
@@ -447,7 +448,7 @@ export default function DashboardPage() {
                       </TableCell>
                       <TableCell className="text-xs font-mono font-bold">
                         <span className={conj.riskLevel === "critical" ? "text-red-500" : conj.riskLevel === "elevated" ? "text-amber-500" : "text-emerald-500"}>
-                          {conj.collisionProbability.toExponential(2)}
+                          {formatScientificPc(conj.collisionProbability)}
                         </span>
                       </TableCell>
                       <TableCell>

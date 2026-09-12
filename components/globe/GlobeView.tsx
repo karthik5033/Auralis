@@ -5,6 +5,7 @@ import Globe, { GlobeInstance } from "globe.gl";
 import type { TrackedObject, ConjunctionEvent } from "@/types/contract";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { getObjects, getConjunctions } from "@/lib/api";
+import { formatScientificPc } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -345,7 +346,7 @@ export default function GlobeView({
           <div style="background: rgba(15, 10, 10, 0.94); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; padding: 8px 12px; font-family: ui-monospace, monospace; font-size: 11px; color: #f8fafc; backdrop-filter: blur(8px);">
             <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">⚡ CONJUNCTION TRAJECTORY</div>
             <div style="color: #94a3b8;">Miss Distance: <span style="color: #f59e0b; font-weight: 600;">${(arc.event.missDistance * 1000).toFixed(0)} m</span></div>
-            <div style="color: #94a3b8;">Collision Probability: <span style="color: #ef4444; font-weight: 700;">${arc.event.collisionProbability.toExponential(2)}</span></div>
+            <div style="color: #94a3b8;">Collision Probability: <span style="color: #ef4444; font-weight: 700;">${formatScientificPc(arc.event.collisionProbability)}</span></div>
             <div style="color: #94a3b8;">TCA: <span style="color: #f1f5f9;">${arc.event.tca}</span></div>
           </div>
         `

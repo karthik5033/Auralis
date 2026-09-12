@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getConjunctions, getShells, getObjects } from "@/lib/api";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
+import { formatScientificPc } from "@/lib/formatters";
 import type { ConjunctionEvent, ShellRiskSnapshot, TrackedObject } from "@/types/contract";
 
 export function EarlyWarningSection() {
@@ -115,7 +116,7 @@ export function EarlyWarningSection() {
                     CRITICAL COLLISION RISK
                   </Badge>
                   <span className="text-[11px] font-mono text-red-300 font-semibold">
-                    Pc: {conj.collisionProbability.toExponential(2)}
+                    Pc: {formatScientificPc(conj.collisionProbability)}
                   </span>
                 </div>
                 <h4 className="font-bold text-sm text-foreground mb-1 flex items-center gap-1.5">

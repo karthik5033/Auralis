@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { getAuditLog, getAdvisories } from "@/lib/api";
 import { useWebSocketMessage } from "@/components/providers/WebSocketProvider";
+import { formatScientificPc } from "@/lib/formatters";
 import type { WsMessage } from "@/types/contract";
 import Link from "next/link";
 
@@ -107,7 +108,7 @@ export function LiveEventFeed() {
         id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         type: "CONJUNCTION_DETECTED",
         shell: "LEO Critical",
-        message: `Conjunction ${conj.id.slice(0, 8)}... Pc updated to ${Number(conj.collisionProbability).toExponential(2)} (Miss: ${(conj.missDistance * 1000).toFixed(0)}m).`,
+        message: `Conjunction ${conj.id.slice(0, 8)}... Pc updated to ${formatScientificPc(conj.collisionProbability)} (Miss: ${(conj.missDistance * 1000).toFixed(0)}m).`,
         time: now,
         severity: conj.riskLevel,
       };
