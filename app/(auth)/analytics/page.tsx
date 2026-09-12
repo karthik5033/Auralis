@@ -1,314 +1,398 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
-  BarChart2, 
+  Orbit, 
   AlertTriangle, 
-  LineChart, 
   TrendingUp, 
+  TrendingDown, 
+  Minus, 
   Download, 
-  Compass, 
   Activity,
   Layers,
-  Orbit
+  Radio,
+  ShieldAlert,
+  Flame,
+  CheckCircle2,
+  RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ResponsiveContainer,
-  ScatterChart,
-  Scatter,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  Legend
+  Legend,
+  AreaChart,
+  Area
 } from "recharts";
-
-const MOCK_CASCADE_DATA = [
-  { shell: "LEO 400km", altitudeKm: 400, debrisDensity: 142 },
-  { shell: "LEO 500km", altitudeKm: 500, debrisDensity: 284 },
-  { shell: "LEO 550km", altitudeKm: 550, debrisDensity: 612 },
-  { shell: "LEO 650km", altitudeKm: 650, debrisDensity: 420 },
-  { shell: "LEO 780km", altitudeKm: 780, debrisDensity: 890 },
-  { shell: "SSO 850km", altitudeKm: 850, debrisDensity: 940 },
-  { shell: "LEO 1000km", altitudeKm: 1000, debrisDensity: 520 },
-  { shell: "LEO 1200km", altitudeKm: 1200, debrisDensity: 310 }
-];
-
-const MOCK_ANOMALIES = [
-  {
-    id: "ANM-01",
-    district: "LEO 550km Starlink Shell",
-    type: "Micro-conjunction Surge Rate Breach",
-    baseline: "1.8 / day",
-    detected: "5.4 / day",
-    deviation: "+200%",
-    severity: "CRITICAL",
-    timestamp: "Last 48 Hours"
-  },
-  {
-    id: "ANM-02",
-    district: "LEO 780km Iridium Shell",
-    type: "Uncoordinated Delta-V Thrust Spike",
-    baseline: "0.2 m/s",
-    detected: "1.8 m/s",
-    deviation: "+800%",
-    severity: "CRITICAL",
-    timestamp: "Last 6 Hours"
-  },
-  {
-    id: "ANM-03",
-    district: "SSO 850km Debris Band",
-    type: "Cosmos-2251 Cloud Dispersion Cluster",
-    baseline: "0.4 / day",
-    detected: "1.9 / day",
-    deviation: "+375%",
-    severity: "HIGH",
-    timestamp: "Last 3 Days"
-  }
-];
-
-const MOCK_RADAR_DATA = [
-  { metric: "Spatial Density", LEO550: 92, LEO780: 84, SSO850: 70 },
-  { metric: "Collision Flux", LEO550: 85, LEO780: 88, SSO850: 75 },
-  { metric: "Fragment Growth", LEO550: 55, LEO780: 82, SSO850: 90 },
-  { metric: "Cascade R0", LEO550: 60, LEO780: 86, SSO850: 80 },
-  { metric: "Maneuver Rate", LEO550: 94, LEO780: 65, SSO850: 45 },
-  { metric: "Decay Latency", LEO550: 82, LEO780: 45, SSO850: 30 }
-];
+import { getShells } from "@/lib/api";
+import { mockWs } from "@/lib/mockWs";
+import type { ShellRiskSnapshot } from "@/types/contract";
+import { downloadDataAsCsv } from "@/lib/utils";
 
 export default function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState<"correlations" | "anomalies" | "comparative">("correlations");
+  const [shells, setShells] = useState<ShellRiskSnapshot[]>([]);
+  const [selectedShellId, setSelectedShellId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+
+  const fetchShellsData = async () => {
+    try {
+      const res = await getShells();
+      setShells(res.data);
+      if (res.data.length > 0 && !selectedShellId) {
+        // Select first critical shell, or first shell
+        const critical = res.data.find((s) => s.r0 >= 1.0);
+        setSelectedShellId(critical ? critical.shellId : res.data[0].shellId);
+      }
+    } catch (err) {
+      console.error("Failed loading shell risk snapshots:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchShellsData();
+
+    // Subscribe to crisis injection for real-time SIR curve shifts
+    const unsub = mockWs.on("crisis:injected", () => {
+      fetchShellsData();
+    });
+
+    return () => unsub();
+  }, []);
+
+  const selectedShell = shells.find((s) => s.shellId === selectedShellId) || shells[0];
+
+  // Transform SIR data into Recharts friendly array
+  const sirChartData = selectedShell
+    ? selectedShell.projectionYears.map((year, idx) => ({
+        year: `+${year}y`,
+        susceptible: selectedShell.projectedS[idx],
+        infected: selectedShell.projectedI[idx],
+        removed: selectedShell.projectedR[idx],
+      }))
+    : [];
+
+  const handleExport = () => {
+    const exportRows = shells.map((s) => ({
+      shellId: s.shellId,
+      altitudeMinKm: s.altitudeMin,
+      altitudeMaxKm: s.altitudeMax,
+      r0: s.r0,
+      trend: s.trend,
+      debrisDensity: s.debrisDensity,
+      totalObjects: s.totalObjectCount,
+      susceptible: s.susceptibleCount,
+      infected: s.infectedCount,
+      removed: s.removedCount,
+    }));
+    downloadDataAsCsv(exportRows, "auralis-sir-cascade-model-snapshots");
+  };
+
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case "increasing":
+        return <TrendingUp className="h-4 w-4 text-red-500" />;
+      case "decreasing":
+        return <TrendingDown className="h-4 w-4 text-emerald-500" />;
+      default:
+        return <Minus className="h-4 w-4 text-blue-400" />;
+    }
+  };
 
   return (
-    <div className="flex-1 space-y-6 p-6 lg:p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-300">
+    <div className="flex-1 space-y-6 p-6 lg:p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-300 font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Analytics & Trend Models</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Kessler cascade growth curves, epidemiological SIR shell percolation models, and orbital anomaly detection.
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className="text-[10px] font-mono text-primary border-primary/30">
+              CONTRACT §1.2 • SIR EPIDEMIOLOGICAL CASCADE
+            </Badge>
+            <span className="text-xs font-mono text-muted-foreground">
+              {shells.length} ORBITAL SHELLS SCREENED
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
+            <Orbit className="w-7 h-7 text-primary" />
+            Epidemiological SIR Cascade Curves & R₀ Dynamics
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Macroscopic debris propagation modeled as an infectious epidemic (Susceptible payloads, Infected debris fragments, Removed drag sinks) with critical percolation thresholds.
           </p>
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5 self-start sm:self-auto text-xs font-semibold">
-          <Download className="h-4 w-4" />
-          Export Telemetry Report
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={fetchShellsData}
+            variant="outline" 
+            size="sm" 
+            className="text-xs font-mono gap-1.5 border-border bg-card hover:bg-muted"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh SIR
+          </Button>
+          <Button 
+            onClick={handleExport}
+            variant="outline" 
+            size="sm" 
+            className="text-xs font-mono gap-1.5 border-border bg-card hover:bg-muted"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export SIR Data
+          </Button>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex max-w-md bg-muted p-1 rounded-lg border">
-        <button
-          onClick={() => setActiveTab("correlations")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-bold transition-all ${
-            activeTab === 'correlations' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <BarChart2 className="w-3.5 h-3.5" />
-          Debris Growth & SIR
-        </button>
-        <button
-          onClick={() => setActiveTab("anomalies")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-bold transition-all ${
-            activeTab === 'anomalies' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <AlertTriangle className="w-3.5 h-3.5" />
-          Anomaly Detection
-        </button>
-        <button
-          onClick={() => setActiveTab("comparative")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-bold transition-all ${
-            activeTab === 'comparative' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Compass className="w-3.5 h-3.5" />
-          Shell Benchmark
-        </button>
+      {/* Metric KPI Overview Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-border/80 bg-card/80">
+          <CardContent className="p-4 font-mono">
+            <div className="text-[10px] uppercase text-muted-foreground font-semibold">Screened Shells</div>
+            <div className="text-2xl font-black text-foreground mt-1">{shells.length}</div>
+            <p className="text-[10px] text-muted-foreground mt-0.5">LEO 200 km to 1,400 km</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-red-500/30 bg-red-950/10">
+          <CardContent className="p-4 font-mono">
+            <div className="text-[10px] uppercase text-red-400 font-semibold">Supercritical Shells</div>
+            <div className="text-2xl font-black text-red-400 mt-1">
+              {shells.filter((s) => s.r0 >= 1.0).length}
+            </div>
+            <p className="text-[10px] text-red-400 mt-0.5">R₀ &ge; 1.0 Runaway chain risk</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/80 bg-card/80">
+          <CardContent className="p-4 font-mono">
+            <div className="text-[10px] uppercase text-muted-foreground font-semibold">Peak Shell R₀</div>
+            <div className="text-2xl font-black text-amber-400 mt-1">
+              {shells.length > 0 ? Math.max(...shells.map((s) => s.r0)).toFixed(2) : "1.42"}
+            </div>
+            <p className="text-[10px] text-amber-400 mt-0.5">Highest collision reproduction</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/80 bg-card/80">
+          <CardContent className="p-4 font-mono">
+            <div className="text-[10px] uppercase text-muted-foreground font-semibold">Stable / Decay Sink</div>
+            <div className="text-2xl font-black text-emerald-400 mt-1">
+              {shells.filter((s) => s.r0 < 1.0).length}
+            </div>
+            <p className="text-[10px] text-emerald-400 mt-0.5">Atmospheric drag dominating</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Tab 1: Correlation Matrix / Debris Growth SIR */}
-      {activeTab === "correlations" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base font-bold">Altitude vs Spatial Debris Density (Kessler Model)</CardTitle>
-                    <CardDescription className="text-xs">
-                      Scatter distribution evaluating orbital shell altitude (km) against lethal fragment density (objects/km³).
-                    </CardDescription>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] text-primary">R₀ = 1.18 (Critical Threshold at 780km)</Badge>
+      {/* Shell Selector Chips */}
+      <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-border/70 bg-card/60 backdrop-blur-sm">
+        <span className="text-xs font-mono font-bold text-muted-foreground uppercase mr-1">
+          Select Orbital Shell:
+        </span>
+        {shells.map((shell) => {
+          const isSelected = shell.shellId === selectedShell?.shellId;
+          const isSupercritical = shell.r0 >= 1.0;
+
+          return (
+            <button
+              key={shell.shellId}
+              type="button"
+              onClick={() => setSelectedShellId(shell.shellId)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                isSelected
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : isSupercritical
+                  ? "bg-red-950/40 text-red-400 border border-red-500/40 hover:bg-red-950/60"
+                  : "bg-muted/40 text-muted-foreground border border-border hover:text-foreground"
+              }`}
+            >
+              <span>{shell.shellId}</span>
+              <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${
+                isSupercritical ? "bg-red-500/20 text-red-300" : "bg-black/40 text-zinc-400"
+              }`}>
+                R₀: {shell.r0.toFixed(2)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main SIR Growth Chart & Selected Shell Telemetry */}
+      {selectedShell && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Chart (2 cols) */}
+          <Card className="lg:col-span-2 border-border/80 bg-card/80 shadow-sm">
+            <CardHeader className="pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-primary" />
+                    50-Year SIR Population Projection: Shell {selectedShell.shellId}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Altitude: {selectedShell.altitudeMin}–{selectedShell.altitudeMax} km • Density: {selectedShell.debrisDensity.toExponential(2)} obj/km³
+                  </CardDescription>
                 </div>
-              </CardHeader>
-              <CardContent className="h-[340px] pt-4">
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    className={`font-mono text-xs font-bold uppercase ${
+                      selectedShell.r0 >= 1.0 
+                        ? "bg-red-950/80 text-red-400 border-red-500/40" 
+                        : "bg-emerald-950/80 text-emerald-400 border-emerald-500/40"
+                    }`}
+                  >
+                    {selectedShell.r0 >= 1.0 ? "SUPERCRITICAL CASCADE" : "SUBCRITICAL STABLE"}
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="h-[340px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <LineChart data={sirChartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                     <XAxis 
-                      type="number" 
-                      dataKey="altitudeKm" 
-                      name="Altitude" 
-                      unit=" km" 
-                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      dataKey="year" 
+                      stroke="#71717a" 
+                      tick={{ fontSize: 11, fill: "#a1a1aa" }}
                     />
                     <YAxis 
-                      type="number" 
-                      dataKey="debrisDensity" 
-                      name="Density" 
-                      unit=" obj" 
-                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      stroke="#71717a" 
+                      tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                      domain={[0, "auto"]}
                     />
-                    <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                    <Scatter name="Orbital Shells" data={MOCK_CASCADE_DATA} fill="var(--primary)" />
-                  </ScatterChart>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "#18181b", 
+                        borderColor: "#3f3f46", 
+                        borderRadius: "8px", 
+                        fontSize: "12px",
+                        fontFamily: "monospace" 
+                      }} 
+                    />
+                    <Legend 
+                      wrapperStyle={{ fontSize: "12px", fontFamily: "monospace", paddingTop: "10px" }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="susceptible" 
+                      name="Susceptible Payloads (S)" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: "#3b82f6" }}
+                      activeDot={{ r: 5 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="infected" 
+                      name="Infected Debris (I)" 
+                      stroke="#ef4444" 
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: "#ef4444" }}
+                      activeDot={{ r: 5 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="removed" 
+                      name="Removed / Drag Decay (R)" 
+                      stroke="#10b981" 
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: "#10b981" }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
+              </div>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold">Cascade Sensitivity Weights</CardTitle>
-                <CardDescription className="text-xs">
-                  Key drivers determining Kessler runaway probability in orbital shells.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 text-xs">
-                <div>
-                  <div className="flex justify-between font-semibold mb-1">
-                    <span>Shell Spatial Density</span>
-                    <span className="text-primary font-mono">44%</span>
-                  </div>
-                  <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full w-[44%]" />
-                  </div>
+              <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border/50 text-center font-mono text-xs">
+                <div className="p-2 rounded bg-blue-950/20 border border-blue-500/20">
+                  <span className="text-blue-400 font-bold block">S (Susceptible)</span>
+                  <span className="text-muted-foreground text-[11px]">Intact operational payloads</span>
                 </div>
-
-                <div>
-                  <div className="flex justify-between font-semibold mb-1">
-                    <span>Relative Impact Velocity</span>
-                    <span className="text-primary font-mono">32%</span>
-                  </div>
-                  <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full w-[32%]" />
-                  </div>
+                <div className="p-2 rounded bg-red-950/20 border border-red-500/20">
+                  <span className="text-red-400 font-bold block">I (Infected)</span>
+                  <span className="text-muted-foreground text-[11px]">Hypervelocity collision debris</span>
                 </div>
-
-                <div>
-                  <div className="flex justify-between font-semibold mb-1">
-                    <span>Atmospheric Drag Decay Latency</span>
-                    <span className="text-primary font-mono">24%</span>
-                  </div>
-                  <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full w-[24%]" />
-                  </div>
+                <div className="p-2 rounded bg-emerald-950/20 border border-emerald-500/20">
+                  <span className="text-emerald-400 font-bold block">R (Removed)</span>
+                  <span className="text-muted-foreground text-[11px]">Atmospheric de-orbit sink</span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                <div className="pt-2 border-t text-muted-foreground text-[11px] leading-relaxed">
-                  Calibrated via NASA EVM 5.0 and ESA MASTER empirical fragmentation models cross-referenced with CelesTrak.
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: Anomaly Detection */}
-      {activeTab === "anomalies" && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Activity className="h-5 w-5 text-rose-500" />
-                Real-Time Deviations & Surge Warnings
+          {/* Selected Shell Astrodynamic Metrics (1 col) */}
+          <Card className="border-border/80 bg-card/80 shadow-sm flex flex-col justify-between">
+            <CardHeader className="pb-3 border-b border-border/60">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Orbit className="h-4 w-4 text-primary" />
+                Shell Dynamics: {selectedShell.shellId}
               </CardTitle>
               <CardDescription className="text-xs">
-                Z-Score thresholds triggered where conjunction frequencies or unexpected burns breach 3-sigma baselines.
+                Epidemiological transmission coefficient analysis.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {MOCK_ANOMALIES.map((a) => (
-                <div key={a.id} className="p-4 rounded-xl border bg-card/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] font-bold text-rose-600 border-rose-300 bg-rose-50 dark:bg-rose-950/20">
-                        {a.severity}
-                      </Badge>
-                      <span className="font-semibold text-sm text-foreground">{a.district}</span>
-                      <span className="text-xs text-muted-foreground">• {a.timestamp}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{a.type}</p>
-                  </div>
-
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <div className="text-xs text-muted-foreground">Baseline / Detected</div>
-                      <div className="text-xs font-mono font-bold text-foreground">{a.baseline} → {a.detected}</div>
-                    </div>
-                    <div className="text-right min-w-[70px]">
-                      <div className="text-xs text-muted-foreground">Deviation</div>
-                      <div className="text-sm font-extrabold text-rose-600">{a.deviation}</div>
-                    </div>
-                  </div>
+            <CardContent className="p-4 space-y-3 font-mono text-xs flex-1">
+              <div className="p-3 rounded-lg border border-border/60 bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase text-muted-foreground font-semibold">Reproduction Ratio (R₀)</span>
+                  <span className={`text-base font-black ${selectedShell.r0 >= 1.0 ? "text-red-400" : "text-emerald-400"}`}>
+                    {selectedShell.r0.toFixed(2)}
+                  </span>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Tab 3: Comparative Profiling Radar */}
-      {activeTab === "comparative" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-bold">Orbital Shell Risk Profile Comparison</CardTitle>
-              <CardDescription className="text-xs">
-                Radar comparison across high-density orbital altitude regimes.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[360px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={MOCK_RADAR_DATA}>
-                  <PolarGrid stroke="var(--border)" />
-                  <PolarAngleAxis dataKey="metric" tick={{ fill: 'var(--foreground)', fontSize: 11 }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                  <Radar name="LEO 550km" dataKey="LEO550" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.25} />
-                  <Radar name="LEO 780km" dataKey="LEO780" stroke="#10b981" fill="#10b981" fillOpacity={0.25} />
-                  <Radar name="SSO 850km" dataKey="SSO850" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.25} />
-                  <Legend />
-                  <Tooltip />
-                </RadarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold">Flight Dynamics Observations</CardTitle>
-              <CardDescription className="text-xs">Synthesized comparative takeaways</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-xs leading-relaxed text-muted-foreground">
-              <div className="p-3 rounded-lg border bg-muted/20">
-                <span className="font-bold text-foreground block mb-1">LEO 550km Mega-Constellation Shell:</span>
-                Highest maneuver execution rate (94) with rapid 5-year natural orbital decay latency (82).
+                <p className="text-[11px] text-muted-foreground mt-1 font-sans">
+                  {selectedShell.r0 >= 1.0
+                    ? "R₀ ≥ 1.0: Each collision generates more debris than atmospheric drag clears. Runaway Kessler syndrome."
+                    : "R₀ < 1.0: Atmospheric drag removes fragments faster than secondary collisions occur. Self-healing shell."}
+                </p>
               </div>
-              <div className="p-3 rounded-lg border bg-muted/20">
-                <span className="font-bold text-foreground block mb-1">LEO 780km Polar Iridium Shell:</span>
-                Critical collision flux (88) and elevated cascade reproduction number R₀ approaching threshold.
+
+              <div className="space-y-2 p-3 rounded-lg border border-border/60 bg-muted/20">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Shell Trend:</span>
+                  <span className="font-bold flex items-center gap-1 uppercase">
+                    {getTrendIcon(selectedShell.trend)}
+                    {selectedShell.trend}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Population:</span>
+                  <span className="font-bold text-foreground">{selectedShell.totalObjectCount.toLocaleString()} objects</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Debris Density:</span>
+                  <span className="font-bold text-foreground">{selectedShell.debrisDensity.toExponential(2)} obj/km³</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current Active (S):</span>
+                  <span className="font-bold text-blue-400">{selectedShell.susceptibleCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current Fragments (I):</span>
+                  <span className="font-bold text-red-400">{selectedShell.infectedCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Historic Sinks (R):</span>
+                  <span className="font-bold text-emerald-400">{selectedShell.removedCount}</span>
+                </div>
               </div>
-              <div className="p-3 rounded-lg border bg-muted/20">
-                <span className="font-bold text-foreground block mb-1">SSO 850km Sun-Sync Corridor:</span>
-                Max fragment persistence (90) due to low atmospheric density, requiring active debris removal.
+
+              <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-950/15">
+                <span className="text-[10px] font-bold text-amber-400 uppercase block mb-1">
+                  Proactive Mitigation Recommendation
+                </span>
+                <p className="text-[11px] text-amber-200/90 font-sans leading-relaxed">
+                  {selectedShell.r0 >= 1.0
+                    ? "Recommend coordinated altitude de-confliction burns and mandatory 25-year deorbit pacing for all constellations in this altitude corridor."
+                    : "Maintain baseline radar screening. Natural atmospheric drag maintains safe equilibrium."}
+                </p>
               </div>
             </CardContent>
           </Card>

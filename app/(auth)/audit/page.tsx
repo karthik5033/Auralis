@@ -1,42 +1,127 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   ShieldCheck, 
   Search, 
-  Filter, 
   Download, 
-  FileText, 
   CheckCircle2, 
   Clock, 
-  Lock,
-  ChevronRight,
-  GitBranch,
-  Terminal,
-  Cpu
+  Lock, 
+  Cpu, 
+  Activity,
+  Layers,
+  Filter,
+  Flame,
+  Radio,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MOCK_AUDIT_LOGS, MockAuditLog } from "@/lib/mockData";
+import { getAuditLog } from "@/lib/api";
+import type { AuditLogEntry, AgentType } from "@/types/contract";
 import { downloadDataAsCsv } from "@/lib/utils";
+import Link from "next/link";
 
 export default function AuditPage() {
-  const [logs] = useState<MockAuditLog[]>(MOCK_AUDIT_LOGS);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [search, setSearch] = useState("");
-  const [selectedLog, setSelectedLog] = useState<MockAuditLog | null>(MOCK_AUDIT_LOGS[0]);
+  const [agentFilter, setAgentFilter] = useState<string>("ALL");
+  const [loading, setLoading] = useState(true);
 
-  const filteredLogs = logs.filter(l => {
-    const userStr = (l.user_id || l.user_name || "").toLowerCase();
-    const eventStr = (l.event_type || l.action || "").toLowerCase();
+  useEffect(() => {
+    let mounted = true;
+    async function loadLogs() {
+      try {
+        const queryParams: any = { limit: 100 };
+        if (agentFilter !== "ALL") {
+          queryParams.agentType = agentFilter.toLowerCase();
+        }
+        const res = await getAuditLog(queryParams);
+        if (!mounted) return;
+        setLogs(res.data);
+      } catch (err) {
+        console.error("Failed loading audit logs:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    loadLogs();
+    return () => {
+      mounted = false;
+    };
+  }, [agentFilter]);
+
+  const filteredLogs = logs.filter((l) => {
     const query = search.toLowerCase();
-    return userStr.includes(query) || eventStr.includes(query) || (l.details && JSON.stringify(l.details).toLowerCase().includes(query));
+    const target = [
+      l.id,
+      l.agentId,
+      l.agentType,
+      l.action,
+      l.description,
+      l.relatedEntityId || "",
+    ].join(" ").toLowerCase();
+
+    return target.includes(query);
   });
 
   const handleExport = () => {
-    downloadDataAsCsv(logs, "auralis-agent-audit-ledger");
+    const rows = filteredLogs.map((l) => ({
+      id: l.id,
+      timestampUtc: l.timestamp,
+      agentId: l.agentId,
+      agentType: l.agentType,
+      action: l.action,
+      description: l.description,
+      relatedEntityId: l.relatedEntityId || "N/A",
+      relatedEntityType: l.relatedEntityType || "N/A",
+      metadataJson: JSON.stringify(l.metadata),
+    }));
+    downloadDataAsCsv(rows, "auralis-immutable-audit-ledger");
+  };
+
+  const getAgentBadge = (type: AgentType) => {
+    switch (type) {
+      case "maneuver_negotiation":
+        return (
+          <Badge className="font-mono text-[10px] font-bold bg-amber-950/60 text-amber-400 border-amber-500/40">
+            NEGOTIATION
+          </Badge>
+        );
+      case "risk_assessor":
+        return (
+          <Badge className="font-mono text-[10px] font-bold bg-red-950/60 text-red-400 border-red-500/40">
+            RISK ASSESSOR
+          </Badge>
+        );
+      case "epidemic_forecaster":
+        return (
+          <Badge className="font-mono text-[10px] font-bold bg-blue-950/60 text-blue-400 border-blue-500/40">
+            FORECASTER
+          </Badge>
+        );
+      case "tracker":
+        return (
+          <Badge className="font-mono text-[10px] font-bold bg-emerald-950/60 text-emerald-400 border-emerald-500/40">
+            TRACKER
+          </Badge>
+        );
+      case "anomaly":
+        return (
+          <Badge className="font-mono text-[10px] font-bold bg-purple-950/60 text-purple-400 border-purple-500/40">
+            ANOMALY
+          </Badge>
+        );
+      default:
+        return (
+          <Badge className="font-mono text-[10px] font-bold bg-zinc-900 text-zinc-400 border-zinc-700">
+            ADVISORY
+          </Badge>
+        );
+    }
   };
 
   return (
@@ -44,178 +129,171 @@ export default function AuditPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-            <ShieldCheck className="w-7 h-7 text-foreground" />
-            Audit &amp; Agent Governance Ledger
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className="text-[10px] font-mono text-primary border-primary/30">
+              CONTRACT §1.7 • IMMUTABLE AUDIT TRAIL
+            </Badge>
+            <span className="text-xs font-mono text-muted-foreground">
+              {logs.length} RECORDED SYSTEM TRANSITIONS
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
+            <ShieldCheck className="w-7 h-7 text-primary" />
+            Audit Ledger & Autonomous Governance Trail
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Immutable cryptographic audit trail of multi-agent collision avoidance negotiations, maneuver agreements, and operator authorizations.
+            Cryptographically timestamped record of multi-agent state changes, SGP4 propagation cycles, and bilateral maneuver agreements.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5 text-xs font-semibold border-border bg-card hover:bg-muted">
+          <Button 
+            onClick={handleExport}
+            variant="outline" 
+            size="sm" 
+            className="gap-1.5 text-xs font-mono font-semibold border-border bg-card hover:bg-muted"
+          >
             <Download className="h-4 w-4" />
-            Export Audit Ledger
+            Export Audit Manifest
           </Button>
         </div>
       </div>
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-border bg-card">
+        <Card className="border-border/80 bg-card/80">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">Cryptographic Integrity</CardTitle>
+            <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">
+              Cryptographic Chaining
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold text-emerald-500 flex items-center gap-1.5 font-mono">
-              <ShieldCheck className="h-5 w-5" />
-              SHA-256 Validated
+            <div className="text-xl font-bold text-emerald-400 flex items-center gap-1.5 font-mono">
+              <Lock className="h-4 w-4" />
+              SHA-256 Immutable
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Negotiation blocks cryptographically chained.</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">Zero unilateral operator tampering possible.</p>
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card">
+        <Card className="border-border/80 bg-card/80">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">Governance Standard</CardTitle>
+            <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">
+              Compliance Standard
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold text-foreground flex items-center gap-1.5 font-mono">
-              <Lock className="h-5 w-5" />
+              <ShieldCheck className="h-4 w-4 text-primary" />
               CCSDS 508.0-B-1
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Complies with International Space Debris Mitigation standards.</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">International Space Debris Mitigation compliant.</p>
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card">
+        <Card className="border-border/80 bg-card/80">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">Negotiation Resolution</CardTitle>
+            <CardTitle className="text-xs font-mono font-semibold text-muted-foreground uppercase">
+              Autonomous Consensus
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold text-foreground flex items-center gap-1.5 font-mono">
-              <Cpu className="h-5 w-5 text-emerald-500" />
-              91.3% Autonomous
+              <Cpu className="h-4 w-4 text-emerald-400" />
+              100% Validated
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Conjunctions settled without manual escalation.</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">All maneuvers resolved via game theory.</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filter and Search */}
-      <div className="bg-card p-3 rounded-xl border border-border">
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card/80 p-3 rounded-xl border border-border/80 backdrop-blur-sm shadow-sm">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search by agent ID, event type, or conjunction ID..." 
+          <Input
+            placeholder="Search audit ledger by action, entity ID, or description..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs bg-muted/40 border-border"
+            className="pl-9 h-9 text-xs bg-muted/40 border-border font-mono"
           />
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          {["ALL", "TRACKER", "RISK_ASSESSOR", "EPIDEMIC_FORECASTER", "MANEUVER_NEGOTIATION", "ANOMALY", "ADVISORY"].map((agentKey) => (
+            <button
+              key={agentKey}
+              type="button"
+              onClick={() => setAgentFilter(agentKey)}
+              className={`px-3 py-1.5 text-xs font-mono font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                agentFilter === agentKey 
+                  ? "bg-primary text-primary-foreground shadow-xs" 
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {agentKey.replace("_", " ")}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Main Grid: Logs Table + Inspector */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Table */}
-        <div className="lg:col-span-2">
-          <Card className="border-border bg-card shadow-xs">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 border-b border-border">
-                    <TableHead className="text-xs font-mono font-semibold">AGENT / ENTITY</TableHead>
-                    <TableHead className="text-xs font-mono font-semibold">EVENT TYPE</TableHead>
-                    <TableHead className="text-xs font-mono font-semibold">TIMESTAMP</TableHead>
-                    <TableHead className="text-xs font-mono font-semibold text-right">HASH</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-border/60">
-                  {filteredLogs.map((log) => (
-                    <TableRow 
-                      key={log.id} 
-                      onClick={() => setSelectedLog(log)}
-                      className={`cursor-pointer transition-colors ${selectedLog?.id === log.id ? "bg-muted/60" : "hover:bg-muted/30"}`}
-                    >
-                      <TableCell>
-                        <div className="font-mono text-xs font-bold text-foreground">{log.user_id}</div>
-                        <div className="text-[10px] font-mono text-muted-foreground">{log.user_role}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono text-[10px] text-foreground border-border bg-muted">
-                          {log.event_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {log.timestamp}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-right text-muted-foreground">
-                        {log.integrity_hash ? `${log.integrity_hash.slice(0, 8)}...` : "VERIFIED"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+      {/* Audit Vertical Timeline / Ledger Feed */}
+      <div className="space-y-3">
+        {filteredLogs.map((log) => (
+          <Card key={log.id} className="border-border/80 bg-card/80 shadow-sm hover:border-primary/40 transition-colors">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 pb-2 border-b border-border/40 mb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {getAgentBadge(log.agentType)}
+                  <span className="font-mono text-xs font-bold text-foreground">
+                    Action: {log.action}
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    ID: {log.id}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>{new Date(log.timestamp).toLocaleString()} UTC</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-foreground/90 font-mono leading-relaxed bg-muted/30 p-3 rounded-lg border border-border/50">
+                {log.description}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-2 text-xs font-mono">
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  {log.relatedEntityType && (
+                    <span>
+                      Entity: <strong className="text-foreground">{log.relatedEntityType}</strong> ({log.relatedEntityId})
+                    </span>
+                  )}
+                  {log.metadata && Object.keys(log.metadata).length > 0 && (
+                    <span className="text-[11px] text-zinc-400">
+                      Metadata: {JSON.stringify(log.metadata)}
+                    </span>
+                  )}
+                </div>
+
+                {log.relatedEntityId && (
+                  <Link 
+                    href={
+                      log.relatedEntityType === "conjunction" 
+                        ? `/cases/${log.relatedEntityId}`
+                        : log.relatedEntityType === "object"
+                        ? `/profiles/${log.relatedEntityId}`
+                        : `/financial`
+                    }
+                  >
+                    <Button variant="link" size="sm" className="h-auto p-0 text-xs font-mono text-primary gap-1">
+                      Inspect Target <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Inspector */}
-        <div className="lg:col-span-1">
-          {selectedLog ? (
-            <Card className="border-border bg-card shadow-xs sticky top-24">
-              <CardHeader className="pb-3 border-b border-border/60">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-foreground">{selectedLog.id}</span>
-                  <Badge variant="outline" className="font-mono text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
-                    VERIFIED
-                  </Badge>
-                </div>
-                <CardTitle className="text-base font-bold text-foreground mt-2">
-                  Negotiation Audit Record
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground font-mono">
-                  {selectedLog.timestamp}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-4 text-xs font-mono">
-                <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground uppercase block">Agent Actor</span>
-                  <p className="font-bold text-foreground">{selectedLog.user_id}</p>
-                  <p className="text-[11px] text-muted-foreground">{selectedLog.user_role}</p>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground uppercase block">Network Origin</span>
-                  <p className="font-semibold text-foreground">{selectedLog.ip_address}</p>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[10px] text-muted-foreground uppercase block">Negotiated Parameters</span>
-                  <div className="p-3 rounded-lg bg-muted/40 border border-border text-[11px] text-foreground space-y-1">
-                    {Object.entries(selectedLog.details || {}).map(([key, val]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="text-muted-foreground">{key}:</span>
-                        <span className="font-bold">{String(val)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-1">
-                  <span className="text-[10px] text-muted-foreground uppercase block">Cryptographic Proof</span>
-                  <p className="p-2 rounded bg-muted/30 border border-border/60 text-[10px] text-muted-foreground break-all">
-                    {selectedLog.integrity_hash || "0x9f4a2b1c8e7d6a5f4c3b2a1e0f9d8c7b"}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-border bg-card p-6 text-center text-muted-foreground text-xs">
-              Select an audit entry to inspect cryptographic details.
-            </Card>
-          )}
-        </div>
+        ))}
       </div>
     </div>
   );
