@@ -65,18 +65,10 @@ interface ProcessedArc {
   endLng: number;
   endAlt: number;
   color: string[];
-  stroke: number;
+  stroke?: number;
   dashLength: number;
   dashGap: number;
   dashAnimateTime: number;
-}
-
-interface ProcessedPath {
-  id: string;
-  name: string;
-  points: { lat: number; lng: number; alt: number }[];
-  color: string;
-  stroke?: number;
 }
 
 // Convert ECI state vector (km) to Geodetic latitude, longitude, and normalized altitude
@@ -88,28 +80,54 @@ function eciToGeodetic(pos: { x: number; y: number; z: number }, altKm: number) 
   return { lat, lng, alt };
 }
 
-// Compute mathematically exact 360-degree orbital trajectory ring points from Keplerian elements
-function computeOrbitRingPoints(
+/**
+ * Compute mathematically exact 3D Keplerian orbital trajectory ring in space.
+ * 
+ * Physics & Astrodynamics Formulation:
+ * - Earth is centered at origin (0, 0, 0) with ThreeGlobe radius R_globe = 100 (representing R_earth = 6371 km).
+ * - For altitude h (km), the orbital radius is R_orbit = 100 * (1 + h / 6371) > 100.
+ * - In ECI coordinates, with orbital inclination i and RAAN Ω, for true anomaly / argument of latitude u ∈ [0, 2π]:
+ *     z_eci = R_orbit * sin(i) * sin(u)
+ *     x_eci = R_orbit * (cos(Ω) * cos(u) - sin(Ω) * cos(i) * sin(u))
+ *     y_eci = R_orbit * (sin(Ω) * cos(u) + cos(Ω) * cos(i) * sin(u))
+ * - In ThreeGlobe 3D scene coordinates: Y is Earth's polar spin axis (North Pole), Z is the Prime Meridian, and X is 90°E.
+ *   Therefore: X_3d = y_eci, Y_3d = z_eci, Z_3d = x_eci.
+ * - Every point is at constant distance R_orbit > 100 from (0,0,0), strictly outside the Earth's radius of 100.
+ * - Connected via THREE.LineLoop with THREE.LineBasicMaterial, forming a pure 1px hairline ring with ZERO thick SVG tubes
+ *   and ZERO antimeridian discontinuity chords cutting through Earth.
+ */
+function createKeplerianOrbitRing(
   inclinationDeg: number,
   raanDeg: number,
-  altitudeKm: number
-): { lat: number; lng: number; alt: number }[] {
-  const points: { lat: number; lng: number; alt: number }[] = [];
+  altitudeKm: number,
+  colorHex: number,
+  opacity: number = 0.35
+): THREE.LineLoop {
+  const points: THREE.Vector3[] = [];
+  const segments = 256;
+  const rOrbit = 100 * (1 + Math.max(0.035, altitudeKm / 6371));
   const incRad = (inclinationDeg * Math.PI) / 180;
   const raanRad = (raanDeg * Math.PI) / 180;
-  const altNorm = Math.max(0.04, Math.min(0.25, altitudeKm / 6371));
 
-  for (let u = 0; u <= 360; u += 3) {
-    const uRad = (u * Math.PI) / 180;
-    const zEci = Math.sin(uRad) * Math.sin(incRad);
-    const xEci = Math.cos(uRad) * Math.cos(raanRad) - Math.sin(uRad) * Math.sin(raanRad) * Math.cos(incRad);
-    const yEci = Math.cos(uRad) * Math.sin(raanRad) + Math.sin(uRad) * Math.cos(raanRad) * Math.cos(incRad);
+  for (let s = 0; s < segments; s++) {
+    const u = (s / segments) * Math.PI * 2;
+    const zEci = rOrbit * Math.sin(incRad) * Math.sin(u);
+    const xEci = rOrbit * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+    const yEci = rOrbit * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
 
-    const lat = Math.asin(Math.max(-1, Math.min(1, zEci))) * (180 / Math.PI);
-    const lng = Math.atan2(yEci, xEci) * (180 / Math.PI);
-    points.push({ lat, lng, alt: altNorm });
+    // Maps directly into ThreeGlobe coordinate frame (X = yEci, Y = zEci, Z = xEci)
+    points.push(new THREE.Vector3(yEci, zEci, xEci));
   }
-  return points;
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color: new THREE.Color(colorHex),
+    transparent: true,
+    opacity,
+    depthWrite: false,
+  });
+
+  return new THREE.LineLoop(geometry, material);
 }
 
 // Create custom 3D glowing orbital orb for each satellite (ZERO cylinders, bars, or surface spikes!)
@@ -174,6 +192,8 @@ export default function GlobeView({
 
   // Satellite 3D mesh registry for real-time 60fps orbital revolving animation
   const satelliteMeshesRef = useRef<Array<{ mesh: THREE.Object3D; data: ProcessedSatellite }>>([]);
+  // Dedicated Three.js group for mathematically exact 3D Keplerian hairline orbit trajectory rings
+  const orbitRingsGroupRef = useRef<THREE.Group | null>(null);
 
   const [objects, setObjects] = useState<TrackedObject[]>(initialObjects);
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>(initialConjunctions);
@@ -260,76 +280,18 @@ export default function GlobeView({
       });
   }, [objects, activeLayer, conjunctions]);
 
-  // 2. Process prominent orbital trajectory rings (Orbital Planes encircling Earth)
-  const pathsData = React.useMemo<ProcessedPath[]>(() => {
-    const paths: ProcessedPath[] = [];
-
-    // Prominent orbital shell rings
-    paths.push({
-      id: "orbit-iss",
-      name: "International Space Station (ISS) Plane (420 km, 51.6°)",
-      points: computeOrbitRingPoints(51.6, 140, 420),
-      color: "rgba(56, 189, 248, 0.85)", // Glowing Cyan
-      stroke: 1.8,
-    });
-
-    paths.push({
-      id: "orbit-starlink",
-      name: "Starlink Megaconstellation Shell 1 (550 km, 53.0°)",
-      points: computeOrbitRingPoints(53.0, 45, 550),
-      color: "rgba(16, 185, 129, 0.75)", // Glowing Emerald
-      stroke: 1.4,
-    });
-
-    paths.push({
-      id: "orbit-sso",
-      name: "Sun-Synchronous Polar Shell (800 km, 98.6°)",
-      points: computeOrbitRingPoints(98.6, 300, 800),
-      color: "rgba(129, 140, 248, 0.8)", // Glowing Violet/Indigo
-      stroke: 1.4,
-    });
-
-    paths.push({
-      id: "orbit-leo-low",
-      name: "Low Earth Observation Shell (350 km, 28.5°)",
-      points: computeOrbitRingPoints(28.5, 90, 350),
-      color: "rgba(14, 165, 233, 0.65)", // Sky Blue
-      stroke: 1.2,
-    });
-
-    paths.push({
-      id: "orbit-tiangong",
-      name: "Tiangong Space Station Plane (390 km, 41.5°)",
-      points: computeOrbitRingPoints(41.5, 315, 390),
-      color: "rgba(245, 158, 11, 0.75)", // Glowing Amber
-      stroke: 1.4,
-    });
-
-    // If an object is selected by user, trace its active orbital plane in radiant white/red
-    if (selectedObject && selectedObject.orbitalElements) {
-      paths.push({
-        id: `orbit-selected-${selectedObject.id}`,
-        name: `${selectedObject.name} Trajectory Track`,
-        points: computeOrbitRingPoints(
-          selectedObject.orbitalElements.inclination,
-          selectedObject.orbitalElements.raan,
-          selectedObject.altitude
-        ),
-        color: selectedObject.type === "debris" ? "rgba(239, 68, 68, 0.95)" : "rgba(255, 255, 255, 0.95)",
-        stroke: 2.2,
-      });
-    }
-
-    return paths;
-  }, [selectedObject]);
-
-  // 3. Process conjunction trajectory arcs
+  // 2. Process conjunction trajectory arcs: rendered as crisp 1px hairline laser pulses
   const arcsData = React.useMemo<ProcessedArc[]>(() => {
     const objMap = new Map<string, TrackedObject>();
     objects.forEach((o) => objMap.set(o.id, o));
 
-    return conjunctions
+    // Focus only on active critical/elevated conjunctions, limited to top 4 events to keep display clear and tactical
+    const targetConjunctions = conjunctions
       .filter((c) => c.status === "active" || c.status === "monitoring" || c.status === "mitigated")
+      .filter((c) => (activeLayer === "critical" ? c.riskLevel === "critical" : c.riskLevel === "critical" || c.riskLevel === "elevated"))
+      .slice(0, 4);
+
+    return targetConjunctions
       .map((c) => {
         const primary = objMap.get(c.primaryObjectId);
         const secondary = objMap.get(c.secondaryObjectId);
@@ -338,18 +300,12 @@ export default function GlobeView({
         const pCoord = eciToGeodetic(primary.position, primary.altitude);
         const sCoord = eciToGeodetic(secondary.position, secondary.altitude);
 
-        let color = ["rgba(16, 185, 129, 0.8)", "rgba(6, 182, 212, 0.8)"];
-        let stroke = 1.0;
-        let dashAnimateTime = 2500;
+        let color = ["rgba(245, 158, 11, 0.75)", "rgba(234, 179, 8, 0.75)"]; // Subtle amber
+        let dashAnimateTime = 2000;
 
         if (c.riskLevel === "critical") {
-          color = ["rgba(239, 68, 68, 0.95)", "rgba(249, 115, 22, 0.95)"];
-          stroke = 2.0;
-          dashAnimateTime = 1200;
-        } else if (c.riskLevel === "elevated") {
-          color = ["rgba(245, 158, 11, 0.9)", "rgba(234, 179, 8, 0.85)"];
-          stroke = 1.4;
-          dashAnimateTime = 1800;
+          color = ["rgba(239, 68, 68, 0.85)", "rgba(249, 115, 22, 0.85)"]; // Subtle red-orange warning
+          dashAnimateTime = 1400;
         }
 
         return {
@@ -357,19 +313,18 @@ export default function GlobeView({
           event: c,
           startLat: pCoord.lat,
           startLng: pCoord.lng,
-          startAlt: pCoord.alt,
+          startAlt: Math.max(0.06, pCoord.alt),
           endLat: sCoord.lat,
           endLng: sCoord.lng,
-          endAlt: sCoord.alt,
+          endAlt: Math.max(0.06, sCoord.alt),
           color,
-          stroke,
-          dashLength: 0.4,
-          dashGap: 0.2,
+          dashLength: 0.5,
+          dashGap: 0.3,
           dashAnimateTime,
         };
       })
       .filter(Boolean) as ProcessedArc[];
-  }, [objects, conjunctions]);
+  }, [objects, conjunctions, activeLayer]);
 
   // Update telemetry counters
   useEffect(() => {
@@ -378,6 +333,52 @@ export default function GlobeView({
     const crit = conjunctions.filter((c) => c.riskLevel === "critical").length;
     setTelemetryCount({ satellites: sats, debris: deb, critical: crit });
   }, [objects, conjunctions]);
+
+  // 3. Populate 3D Keplerian hairline orbit rings in Three.js scene
+  useEffect(() => {
+    const group = orbitRingsGroupRef.current;
+    if (!group) return;
+
+    // Clean up previous rings to prevent WebGL memory leaks
+    group.traverse((child) => {
+      if (child instanceof THREE.LineLoop || child instanceof THREE.Line) {
+        child.geometry.dispose();
+        if (Array.isArray(child.material)) {
+          child.material.forEach((m) => m.dispose());
+        } else {
+          child.material.dispose();
+        }
+      }
+    });
+    group.clear();
+
+    // 1. Prominent Orbital Shell Trajectory Rings (refined, sleek, dark-theme 1px hairlines)
+    // ISS Crewed Orbit (420 km, 51.6°)
+    group.add(createKeplerianOrbitRing(51.6, 140, 420, 0x38bdf8, 0.35));
+    // Starlink Megaconstellation Shell (550 km, 53.0°)
+    group.add(createKeplerianOrbitRing(53.0, 45, 550, 0x10b981, 0.28));
+    // Sun-Synchronous Polar Shell (800 km, 98.6°)
+    group.add(createKeplerianOrbitRing(98.6, 300, 800, 0x818cf8, 0.28));
+    // Low Earth Observation Shell (350 km, 28.5°)
+    group.add(createKeplerianOrbitRing(28.5, 90, 350, 0x94a3b8, 0.22));
+    // Tiangong CSS Orbit (390 km, 41.5°)
+    group.add(createKeplerianOrbitRing(41.5, 315, 390, 0xf59e0b, 0.28));
+
+    // 2. If an object is selected by user, trace its active orbital plane in radiant, razor-sharp hairline
+    if (selectedObject && selectedObject.orbitalElements) {
+      const isDebris = selectedObject.type === "debris";
+      const ringColor = isDebris ? 0xef4444 : 0xffffff;
+      group.add(
+        createKeplerianOrbitRing(
+          selectedObject.orbitalElements.inclination,
+          selectedObject.orbitalElements.raan,
+          selectedObject.altitude,
+          ringColor,
+          0.85
+        )
+      );
+    }
+  }, [selectedObject]);
 
   // 4. Initialize Globe.gl WebGL Canvas
   useEffect(() => {
@@ -396,9 +397,15 @@ export default function GlobeView({
       .customLayerData(satellitesData)
       .customThreeObject((d: any) => {
         const mesh = createSatelliteMesh(d);
-        // Position mesh initially at satellite orbital coordinate
-        const coords = globe.getCoords(d.lat, d.lng, d.alt);
-        mesh.position.set(coords.x, coords.y, coords.z);
+        // Position mesh initially at exact 3D Keplerian orbital coordinates
+        const rSat = 100 * (1 + Math.max(0.035, d.alt));
+        const u = d.currentTheta ?? d.phase ?? 0;
+        const incRad = (d.inclination * Math.PI) / 180;
+        const raanRad = (d.raan * Math.PI) / 180;
+        const zEci = rSat * Math.sin(incRad) * Math.sin(u);
+        const xEci = rSat * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+        const yEci = rSat * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+        mesh.position.set(yEci, zEci, xEci);
         satelliteMeshesRef.current.push({ mesh, data: d });
         return mesh;
       })
@@ -422,7 +429,7 @@ export default function GlobeView({
           onSelectObject(d.raw);
         }
       })
-      // Trajectory Arcs for close approaches
+      // Trajectory Arcs for close approaches: rendered as thin 1px hairline laser pulses
       .arcsData(arcsData)
       .arcStartLat("startLat")
       .arcStartLng("startLng")
@@ -431,7 +438,7 @@ export default function GlobeView({
       .arcEndLng("endLng")
       .arcEndAltitude("endAlt")
       .arcColor("color")
-      .arcStroke("stroke")
+      .arcAltitude(0.12) // Arches safely 760 km above Earth, never penetrating or clipping into the sphere
       .arcDashLength("dashLength")
       .arcDashGap("dashGap")
       .arcDashAnimateTime("dashAnimateTime")
@@ -449,18 +456,12 @@ export default function GlobeView({
         if (onSelectConjunction && arc.event) {
           onSelectConjunction(arc.event);
         }
-      })
-      // Prominent Orbital Trajectory Rings encircling Earth
-      .pathsData(pathsData)
-      .pathPoints("points")
-      .pathPointLat("lat")
-      .pathPointLng("lng")
-      .pathPointAlt("alt")
-      .pathColor("color")
-      .pathStroke("stroke")
-      .pathDashLength(0.06)
-      .pathDashGap(0.02)
-      .pathDashAnimateTime(4000);
+      });
+
+    // Attach Three.js group for 3D Keplerian hairline orbit rings directly into Scene
+    const orbitGroup = new THREE.Group();
+    globe.scene().add(orbitGroup);
+    orbitRingsGroupRef.current = orbitGroup;
 
     // Initial camera position
     globe.pointOfView({ lat: 25, lng: 45, altitude: 2.2 }, 1000);
@@ -512,21 +513,15 @@ export default function GlobeView({
           const u = data.currentTheta;
           const incRad = (data.inclination * Math.PI) / 180;
           const raanRad = (data.raan * Math.PI) / 180;
+          const rSat = 100 * (1 + Math.max(0.035, data.alt));
 
-          // 3D Cartesian coordinates in ECI
-          const zEci = Math.sin(u) * Math.sin(incRad);
-          const xEci = Math.cos(u) * Math.cos(raanRad) - Math.sin(u) * Math.sin(raanRad) * Math.cos(incRad);
-          const yEci = Math.cos(u) * Math.sin(raanRad) + Math.sin(u) * Math.cos(raanRad) * Math.cos(incRad);
+          // 3D Cartesian coordinates in ECI: mathematically identical to the 3D orbit ring
+          const zEci = rSat * Math.sin(incRad) * Math.sin(u);
+          const xEci = rSat * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+          const yEci = rSat * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
 
-          const lat = Math.asin(Math.max(-1, Math.min(1, zEci))) * (180 / Math.PI);
-          const lng = Math.atan2(yEci, xEci) * (180 / Math.PI);
-
-          data.lat = lat;
-          data.lng = lng;
-
-          // Project smoothly onto ThreeGlobe 3D coordinates
-          const coords = globeInstanceRef.current.getCoords(lat, lng, data.alt);
-          mesh.position.set(coords.x, coords.y, coords.z);
+          // Directly position mesh in ThreeGlobe 3D coordinate space (X = yEci, Y = zEci, Z = xEci)
+          mesh.position.set(yEci, zEci, xEci);
 
           // Tumble debris fragments
           if (data.type === "debris") {
@@ -542,6 +537,21 @@ export default function GlobeView({
     return () => {
       cancelAnimationFrame(animId);
       resizeObserver.disconnect();
+      if (orbitRingsGroupRef.current) {
+        orbitRingsGroupRef.current.traverse((child) => {
+          if (child instanceof THREE.LineLoop || child instanceof THREE.Line) {
+            child.geometry.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach((m) => m.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        });
+        orbitRingsGroupRef.current.clear();
+      }
+      orbitRingsGroupRef.current = null;
+
       try {
         const globe = globeInstanceRef.current as any;
         if (globe && typeof globe._destructor === "function") {
@@ -561,12 +571,11 @@ export default function GlobeView({
     globeInstanceRef.current.customLayerData(satellitesData);
   }, [satellitesData]);
 
-  // Update arcsData and pathsData
+  // Update arcsData
   useEffect(() => {
     if (!globeInstanceRef.current) return;
     globeInstanceRef.current.arcsData(arcsData);
-    globeInstanceRef.current.pathsData(pathsData);
-  }, [arcsData, pathsData]);
+  }, [arcsData]);
 
   // Handle auto-rotation toggle
   useEffect(() => {
