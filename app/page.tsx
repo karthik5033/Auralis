@@ -1771,8 +1771,12 @@ export default function Home() {
             <div className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl overflow-hidden flex flex-col md:flex-row" style={{height: '520px'}}>
               {/* App UI Left */}
               <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-900/50 min-w-0">
-                <div className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 gap-4 bg-white dark:bg-zinc-950">
+                <div className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 gap-3 bg-white dark:bg-zinc-950">
                   <div className="flex items-center gap-1.5 font-bold text-xs"><Orbit className="w-3.5 h-3.5 text-primary"/> Auralis Flight Ops</div>
+                  <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>SGP4 PROPAGATION</span>
+                  </div>
                   <div className="flex gap-2 sm:gap-3 ml-auto text-[10px] font-medium text-zinc-500 dark:text-zinc-400 items-center">
                     <button 
                       type="button"
@@ -1797,20 +1801,7 @@ export default function Home() {
                 
                 {mockupTab === "globe" ? (
                   <div className="flex-1 w-full h-full relative overflow-hidden bg-black flex flex-col">
-                    <GlobeView height="100%" className="rounded-none border-0" />
-                    
-                    {/* Floating HUD Badges on the 3D globe */}
-                    <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 pointer-events-none">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md border border-cyan-500/30 text-[10px] font-mono text-cyan-400 shadow-lg">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                        <span>SGP4 KEPLER PROPAGATION</span>
-                      </div>
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-zinc-800 text-[9px] font-mono text-zinc-400">
-                        <span>639 TRACKED BODIES</span>
-                        <span>•</span>
-                        <span className="text-rose-400">37 CLOSE PASSES</span>
-                      </div>
-                    </div>
+                    <GlobeView height="100%" compact={true} className="rounded-none border-0" />
                   </div>
                 ) : (
                   <div className="p-6 flex-1 overflow-hidden relative">
@@ -1858,14 +1849,17 @@ export default function Home() {
               <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col shrink-0">
                 <div className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4">
                   <span className="font-semibold text-xs">Maneuver Planner</span>
-                  <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">AUTONOMOUS</span>
+                  <span className="text-[9px] font-mono font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-800 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    AUTONOMOUS
+                  </span>
                 </div>
                 <div className="p-4 flex flex-col gap-3 text-xs">
                   <div className="p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 font-mono text-[10px] space-y-1">
-                    <div className="flex justify-between text-zinc-500"><span>Target Burn:</span><span className="text-foreground font-bold">0.18 m/s Prograde</span></div>
-                    <div className="flex justify-between text-zinc-500"><span>Propellant Cost:</span><span className="text-foreground font-bold">0.042 kg Kr</span></div>
-                    <div className="flex justify-between text-zinc-500"><span>Miss Separation:</span><span className="text-emerald-500 font-bold">&gt; 2.4 km</span></div>
-                    <div className="flex justify-between text-zinc-500"><span>Residual Pc:</span><span className="text-emerald-500 font-bold">&lt; 1.0e-7</span></div>
+                    <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>Target Burn:</span><span className="text-foreground font-bold">0.18 m/s Prograde</span></div>
+                    <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>Propellant Cost:</span><span className="text-foreground font-bold">0.042 kg Kr</span></div>
+                    <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>Miss Separation:</span><span className="text-foreground font-bold">&gt; 2.4 km</span></div>
+                    <div className="flex justify-between text-zinc-500 dark:text-zinc-400"><span>Residual Pc:</span><span className="text-foreground font-bold">&lt; 1.0e-7</span></div>
                   </div>
                   
                   <div className="text-[10px] font-semibold mt-1">Negotiating Proxy Agents</div>

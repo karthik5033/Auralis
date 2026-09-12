@@ -30,6 +30,7 @@ interface GlobeViewProps {
   onSelectObject?: (obj: TrackedObject) => void;
   onSelectConjunction?: (event: ConjunctionEvent) => void;
   className?: string;
+  compact?: boolean;
 }
 
 export interface ProcessedSatellite {
@@ -166,6 +167,7 @@ export default function GlobeView({
   onSelectObject,
   onSelectConjunction,
   className = "",
+  compact = false,
 }: GlobeViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeInstanceRef = useRef<GlobeInstance | null>(null);
@@ -689,14 +691,15 @@ export default function GlobeView({
       </div>
 
       {/* Top Right HUD: Layer Filters */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 bg-background/80 backdrop-blur-md p-1 rounded-lg border border-border/80">
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-background/85 backdrop-blur-md p-0.5 rounded-lg border border-border/80 shadow-md">
         <button
           type="button"
           onClick={() => setActiveLayer("all")}
-          className={`px-2 py-1 rounded text-[11px] font-mono font-semibold transition-all ${
+          title={`All cataloged bodies (${objects.length})`}
+          className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all ${
             activeLayer === "all"
               ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           All ({objects.length})
@@ -704,74 +707,82 @@ export default function GlobeView({
         <button
           type="button"
           onClick={() => setActiveLayer("satellites")}
-          className={`px-2 py-1 rounded text-[11px] font-mono font-semibold transition-all flex items-center gap-1 ${
+          title={`Active Satellites (${telemetryCount.satellites})`}
+          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold transition-all flex items-center gap-1 ${
             activeLayer === "satellites"
-              ? "bg-emerald-600 text-white shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              ? "bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          Satellites ({telemetryCount.satellites})
+          <span className={compact ? "hidden sm:inline" : ""}>Sats</span>
+          <span>({telemetryCount.satellites})</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveLayer("debris")}
-          className={`px-2 py-1 rounded text-[11px] font-mono font-semibold transition-all flex items-center gap-1 ${
+          title={`Debris Fragments (${telemetryCount.debris})`}
+          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold transition-all flex items-center gap-1 ${
             activeLayer === "debris"
-              ? "bg-red-600 text-white shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              ? "bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-          Debris ({telemetryCount.debris})
+          <span className={compact ? "hidden sm:inline" : ""}>Debris</span>
+          <span>({telemetryCount.debris})</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveLayer("critical")}
-          className={`px-2 py-1 rounded text-[11px] font-mono font-semibold transition-all flex items-center gap-1 ${
+          title={`Critical Conjunctions (${telemetryCount.critical})`}
+          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold transition-all flex items-center gap-1 ${
             activeLayer === "critical"
-              ? "bg-destructive text-destructive-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              ? "bg-red-950/80 text-red-300 border border-red-500/40 shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <AlertTriangle className="w-3 h-3 text-red-400" />
-          Critical ({telemetryCount.critical})
+          <span className={compact ? "hidden sm:inline" : ""}>Critical</span>
+          <span>({telemetryCount.critical})</span>
         </button>
       </div>
 
-      {/* Bottom Left: Legend */}
-      <div className="absolute bottom-4 left-4 z-10 hidden lg:flex items-center gap-4 bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 text-[11px] font-mono text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
-          <span className="text-foreground font-medium">Active Satellite</span>
+      {/* Bottom Left: Legend (Hidden in compact mode to prevent collision) */}
+      {!compact && (
+        <div className="absolute bottom-4 left-4 z-10 hidden xl:flex items-center gap-4 bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 text-[11px] font-mono text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
+            <span className="text-foreground font-medium">Active Satellite</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rotate-45 bg-red-500 shadow-[0_0_6px_#ef4444]" />
+            <span className="text-foreground font-medium">Debris Fragment</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_6px_#f97316]" />
+            <span className="text-foreground font-medium">Rocket Body</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-400 ring-2 ring-sky-500/50 shadow-[0_0_8px_#38bdf8]" />
+            <span className="text-foreground font-medium">ISS / Station</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-4 h-0.5 bg-gradient-to-r from-red-500 to-orange-500" />
+            <span className="text-foreground font-medium">Conjunction Arc</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rotate-45 bg-red-500 shadow-[0_0_6px_#ef4444]" />
-          <span className="text-foreground font-medium">Debris Fragment</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_6px_#f97316]" />
-          <span className="text-foreground font-medium">Rocket Body</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-sky-400 ring-2 ring-sky-500/50 shadow-[0_0_8px_#38bdf8]" />
-          <span className="text-foreground font-medium">ISS / Station</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-4 h-0.5 bg-gradient-to-r from-red-500 to-orange-500" />
-          <span className="text-foreground font-medium">Conjunction Arc</span>
-        </div>
-      </div>
+      )}
 
       {/* Bottom Right HUD: Camera & Orbit Controls */}
-      <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2">
+      <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 max-w-[calc(100%-1.5rem)] overflow-x-auto no-scrollbar">
         {/* Orbital Speed Selector */}
-        <div className="flex items-center bg-background/80 backdrop-blur-md rounded-lg border border-border/80 p-0.5">
+        <div className="flex items-center bg-background/85 backdrop-blur-md rounded-lg border border-border/80 p-0.5 shadow-md shrink-0">
           <button
             type="button"
             onClick={() => setOrbitSpeedMultiplier(1)}
             title="Real-Time Speed (1x)"
-            className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
               orbitSpeedMultiplier === 1 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -781,7 +792,7 @@ export default function GlobeView({
             type="button"
             onClick={() => setOrbitSpeedMultiplier(40)}
             title="Tactical Orbit Speed (40x)"
-            className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
               orbitSpeedMultiplier === 40 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -791,7 +802,7 @@ export default function GlobeView({
             type="button"
             onClick={() => setOrbitSpeedMultiplier(90)}
             title="Fast Warp Speed (90x)"
-            className={`px-2 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+            className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
               orbitSpeedMultiplier === 90 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -804,13 +815,13 @@ export default function GlobeView({
           variant="outline"
           size="sm"
           onClick={() => setIsRevolving(!isRevolving)}
-          className={`h-8 px-2.5 bg-background/80 backdrop-blur-md border-border/80 font-mono text-xs ${
+          className={`h-7 px-2 bg-background/85 backdrop-blur-md border-border/80 font-mono text-xs shadow-md shrink-0 ${
             isRevolving ? "text-emerald-400 hover:text-emerald-300" : "text-muted-foreground"
           }`}
           title={isRevolving ? "Pause Satellite Motion" : "Resume Satellite Motion"}
         >
-          {isRevolving ? <Pause className="w-3.5 h-3.5 mr-1" /> : <Play className="w-3.5 h-3.5 mr-1 text-emerald-400" />}
-          <span className="hidden sm:inline">{isRevolving ? "Orbiting" : "Paused"}</span>
+          {isRevolving ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
+          {!compact && <span className="hidden md:inline ml-1">{isRevolving ? "Orbiting" : "Paused"}</span>}
         </Button>
 
         {/* Track ISS Shortcut */}
@@ -818,11 +829,11 @@ export default function GlobeView({
           variant="outline"
           size="sm"
           onClick={handleFocusISS}
-          className="h-8 px-2.5 bg-background/80 backdrop-blur-md border-border/80 font-mono text-xs text-sky-400 hover:text-sky-300 hover:bg-sky-950/40"
+          className="h-7 px-2 bg-background/85 backdrop-blur-md border-border/80 font-mono text-xs text-sky-400 hover:text-sky-300 hover:bg-sky-950/40 shadow-md shrink-0"
           title="Track International Space Station"
         >
-          <Crosshair className="w-3.5 h-3.5 mr-1" />
-          <span className="hidden sm:inline">Track ISS</span>
+          <Crosshair className="w-3.5 h-3.5" />
+          {!compact && <span className="hidden md:inline ml-1">ISS</span>}
         </Button>
 
         {/* Track Critical Conjunction */}
@@ -830,11 +841,11 @@ export default function GlobeView({
           variant="outline"
           size="sm"
           onClick={handleFocusConjunction}
-          className="h-8 px-2.5 bg-background/80 backdrop-blur-md border-destructive/50 text-destructive font-mono text-xs hover:bg-destructive/10"
+          className="h-7 px-2 bg-background/85 backdrop-blur-md border-destructive/50 text-destructive font-mono text-xs hover:bg-destructive/10 shadow-md shrink-0"
           title="Track Active Conjunction Event"
         >
-          <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-          <span className="hidden sm:inline">Track Conjunction</span>
+          <AlertTriangle className="w-3.5 h-3.5" />
+          {!compact && <span className="hidden md:inline ml-1">Conjunction</span>}
         </Button>
 
         {/* Camera Auto-Rotate Earth Toggle */}
@@ -842,12 +853,12 @@ export default function GlobeView({
           variant="outline"
           size="icon"
           onClick={() => setAutoRotate(!autoRotate)}
-          className={`h-8 w-8 bg-background/80 backdrop-blur-md border-border/80 ${
+          className={`h-7 w-7 bg-background/85 backdrop-blur-md border-border/80 shadow-md shrink-0 ${
             autoRotate ? "text-primary" : "text-muted-foreground"
           }`}
           title={autoRotate ? "Pause Earth Rotation" : "Resume Earth Rotation"}
         >
-          <RotateCcw className={`w-3.5 h-3.5 ${autoRotate ? "animate-spin" : ""}`} />
+          <RotateCcw className={`w-3 h-3 ${autoRotate ? "animate-spin" : ""}`} />
         </Button>
 
         {/* Reset Camera Position */}
@@ -855,10 +866,10 @@ export default function GlobeView({
           variant="outline"
           size="icon"
           onClick={handleResetCamera}
-          className="h-8 w-8 bg-background/80 backdrop-blur-md border-border/80 text-muted-foreground hover:text-foreground"
+          className="h-7 w-7 bg-background/85 backdrop-blur-md border-border/80 text-muted-foreground hover:text-foreground shadow-md shrink-0"
           title="Reset View"
         >
-          <Maximize2 className="w-3.5 h-3.5" />
+          <Maximize2 className="w-3 h-3" />
         </Button>
       </div>
     </div>
