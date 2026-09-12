@@ -287,14 +287,15 @@ export default function Home() {
       {/* Dashboard Section */}
       <section className="max-w-[1400px] mx-auto px-4 py-16">
         {/* Top KPI Cards */}
+        {/* Top KPI Cards - Refined Monochrome with Semantic Accents */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4 font-sans">
           {/* Card 1: Active Conjunctions */}
           <div className="col-span-1 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <div className="p-2.5 bg-orange-500/10 text-orange-500 rounded-lg">
+              <div className="p-2.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded-lg">
                 <Crosshair className="w-5 h-5" />
               </div>
-              <div className="flex items-center text-xs font-mono font-semibold text-orange-500">
+              <div className="flex items-center text-xs font-mono font-semibold text-zinc-500 dark:text-zinc-400">
                 +18% <TrendingUp className="w-3.5 h-3.5 ml-1" />
               </div>
             </div>
@@ -303,7 +304,7 @@ export default function Home() {
                 {summary ? summary.activeConjunctions : 30}
               </div>
               <div className="text-xs text-muted-foreground font-semibold mb-3">Active Conjunctions</div>
-              <span className="text-[10px] font-mono bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 rounded-full">
                 TCA &lt; 72h Screening
               </span>
             </div>
@@ -312,11 +313,11 @@ export default function Home() {
           {/* Card 2: Tracked Objects */}
           <div className="col-span-1 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <div className="p-2.5 bg-cyan-500/10 text-cyan-400 rounded-lg">
+              <div className="p-2.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded-lg">
                 <Orbit className="w-5 h-5" />
               </div>
-              <div className="flex items-center text-xs font-mono font-semibold text-cyan-400">
-                100% <Check className="w-3.5 h-3.5 ml-1" />
+              <div className="flex items-center text-xs font-mono font-semibold text-zinc-500 dark:text-zinc-400">
+                100% <Check className="w-3.5 h-3.5 ml-1 text-emerald-500" />
               </div>
             </div>
             <div>
@@ -324,28 +325,28 @@ export default function Home() {
                 {summary ? summary.totalTrackedObjects.toLocaleString() : "639"}
               </div>
               <div className="text-xs text-muted-foreground font-semibold mb-3">Tracked Orbital Bodies</div>
-              <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 rounded-full">
                 CelesTrak SGP4 Feed
               </span>
             </div>
           </div>
           
-          {/* Card 3: High-Risk Alerts */}
+          {/* Card 3: High-Risk Alerts (Semantic Red for Critical) */}
           <div className="col-span-1 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <div className="p-2.5 bg-rose-500/10 text-rose-500 rounded-lg">
+              <div className="p-2.5 bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 rounded-lg">
                 <Flame className="w-5 h-5" />
               </div>
-              <div className="flex items-center text-xs font-mono font-semibold text-emerald-400">
-                -25% <TrendingDown className="w-3.5 h-3.5 ml-1" />
+              <div className="flex items-center text-xs font-mono font-semibold text-zinc-500 dark:text-zinc-400">
+                -25% <TrendingDown className="w-3.5 h-3.5 ml-1 text-emerald-500" />
               </div>
             </div>
             <div>
-              <div className="text-3xl font-black font-mono mb-1 text-rose-400">
+              <div className="text-3xl font-black font-mono mb-1 text-red-500 dark:text-red-400">
                 {summary ? summary.criticalConjunctions : 6}
               </div>
               <div className="text-xs text-muted-foreground font-semibold mb-3">Critical Alerts (Pc ≥ 10⁻³)</div>
-              <span className="text-[10px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full">
                 Emergency Burn Active
               </span>
             </div>
@@ -354,11 +355,11 @@ export default function Home() {
           {/* Card 4: Maneuvers Resolved */}
           <div className="col-span-1 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-lg">
+              <div className="p-2.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded-lg">
                 <Rocket className="w-5 h-5" />
               </div>
-              <div className="flex items-center text-xs font-mono font-semibold text-emerald-400">
-                0 collisions <Check className="w-3.5 h-3.5 ml-1" />
+              <div className="flex items-center text-xs font-mono font-semibold text-zinc-500 dark:text-zinc-400">
+                0 collisions <Check className="w-3.5 h-3.5 ml-1 text-emerald-500" />
               </div>
             </div>
             <div>
@@ -366,7 +367,7 @@ export default function Home() {
                 94.2%
               </div>
               <div className="text-xs text-muted-foreground font-semibold mb-3">Maneuvers Resolved</div>
-              <span className="text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 rounded-full">
                 Autonomous Yield
               </span>
             </div>
@@ -377,11 +378,11 @@ export default function Home() {
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-bold text-base text-foreground">Active Payloads in Orbit</h3>
-                <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-mono bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 rounded-full">
                   Operational Constellations
                 </span>
               </div>
-              <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg">
+              <div className="p-2.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 rounded-lg">
                 <Satellite className="w-5 h-5" />
               </div>
             </div>
@@ -390,27 +391,27 @@ export default function Home() {
               <span className="text-3xl font-black font-mono text-foreground">
                 {summary ? summary.activeSatellites.toLocaleString() : "412"}
               </span>
-              <span className="text-xs font-medium text-emerald-400 font-mono">
+              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 font-mono">
                 +12% cataloged payloads
               </span>
             </div>
 
-            {/* Micro Altitude Shell Population Bars */}
+            {/* Micro Altitude Shell Population Bars - Monochrome */}
             <div className="space-y-1.5 pt-3 border-t border-border/60 text-[10px] font-mono">
               <div className="flex justify-between text-muted-foreground">
                 <span>Low Earth Orbit (LEO 200–1000km)</span>
                 <span className="text-foreground font-bold">89%</span>
               </div>
-              <div className="w-full bg-muted/40 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-emerald-400 h-full rounded-full" style={{ width: "89%" }} />
+              <div className="w-full bg-zinc-200 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-zinc-900 dark:bg-zinc-100 h-full rounded-full" style={{ width: "89%" }} />
               </div>
 
               <div className="flex justify-between text-muted-foreground pt-0.5">
                 <span>High Altitude & MEO (1000km+)</span>
                 <span className="text-foreground font-bold">11%</span>
               </div>
-              <div className="w-full bg-muted/40 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-cyan-400 h-full rounded-full" style={{ width: "11%" }} />
+              <div className="w-full bg-zinc-200 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-zinc-500 dark:bg-zinc-500 h-full rounded-full" style={{ width: "11%" }} />
               </div>
             </div>
           </div>
@@ -418,13 +419,13 @@ export default function Home() {
 
         {/* Bottom Section: Real Charts & Live Screening Feeds */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 font-sans">
-          {/* Main Chart: Orbital Conjunction Risk Index */}
+          {/* Main Chart: Orbital Conjunction Risk Index - Clean Monochrome with Semantic Red */}
           <div className="col-span-1 md:col-span-6 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-bold text-lg text-foreground">Orbital Conjunction Risk Index</h3>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800">
                     SIR R₀ DYNAMICS
                   </span>
                 </div>
@@ -433,7 +434,7 @@ export default function Home() {
                 </p>
               </div>
               <Link href="/analytics">
-                <button className="text-xs font-mono text-primary hover:underline flex items-center gap-1 cursor-pointer">
+                <button className="text-xs font-mono text-zinc-500 hover:text-foreground hover:underline flex items-center gap-1 cursor-pointer">
                   Deep Simulator <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </Link>
@@ -446,32 +447,32 @@ export default function Home() {
                 <span>R₀ 30.0</span>
                 <span>R₀ 20.0</span>
                 <span>R₀ 10.0</span>
-                <span className="text-rose-500 font-bold">R₀ 1.0</span>
+                <span className="text-red-500 font-bold">R₀ 1.0</span>
                 <span>R₀ 0.0</span>
               </div>
               
               <div className="absolute left-14 right-2 top-2 bottom-6">
                 {/* Horizontal Grid lines */}
                 <div className="w-full h-full flex flex-col justify-between">
-                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800" />
-                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800" />
-                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800" />
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/80" />
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/80" />
+                  <div className="w-full h-px border-t border-dashed border-zinc-200 dark:border-zinc-800/80" />
                   {/* Critical R0 = 1.0 Boundary */}
-                  <div className="w-full h-px border-t border-rose-500/60 relative">
-                    <span className="absolute right-0 -top-3 text-[9px] font-mono text-rose-500 bg-card px-1 rounded">
+                  <div className="w-full h-px border-t border-red-500/50 relative">
+                    <span className="absolute right-0 -top-3 text-[9px] font-mono text-red-500 dark:text-red-400 bg-card px-1.5 py-0.5 rounded border border-red-500/30">
                       Critical Threshold (R₀ = 1.0)
                     </span>
                   </div>
-                  <div className="w-full h-px border-t border-zinc-200 dark:border-zinc-800" />
+                  <div className="w-full h-px border-t border-zinc-200 dark:border-zinc-800/80" />
                 </div>
                 
-                {/* Dynamic SVG Area Graph */}
+                {/* Dynamic SVG Area Graph - Refined Monochrome with Red Peak */}
                 <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
                   <defs>
                     <linearGradient id="gradientCascadeR0" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.45" />
-                      <stop offset="50%" stopColor="#2dd4bf" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
+                      <stop offset="60%" stopColor="#ffffff" stopOpacity="0.04" />
+                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
@@ -481,17 +482,19 @@ export default function Home() {
                     fill="url(#gradientCascadeR0)" 
                   />
                   
-                  {/* Line */}
+                  {/* Line - Sleek zinc/silver */}
                   <path 
                     d="M 0,88 L 15,87 L 30,85 L 45,80 L 58,40 L 72,25 L 85,45 L 100,60" 
                     fill="none" 
-                    stroke="#2dd4bf" 
-                    strokeWidth="2.5" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
                     strokeLinejoin="round" 
+                    className="text-zinc-700 dark:text-zinc-200"
                   />
 
                   {/* Supercritical Peak Warning Dot at 750-800km */}
-                  <circle cx="72" cy="25" r="3.5" fill="#f43f5e" className="animate-pulse" />
+                  <circle cx="72" cy="25" r="3" fill="#ef4444" />
+                  <circle cx="72" cy="25" r="6" fill="#ef4444" opacity="0.3" className="animate-ping" />
                 </svg>
               </div>
 
@@ -501,7 +504,7 @@ export default function Home() {
                 <span>400km</span>
                 <span>550km</span>
                 <span>700km</span>
-                <span className="text-rose-400 font-bold">750-800km</span>
+                <span className="text-red-500 dark:text-red-400 font-bold">750-800km</span>
                 <span>900km</span>
                 <span>1200km</span>
               </div>
@@ -509,25 +512,25 @@ export default function Home() {
 
             <div className="pt-3 border-t border-border/50 text-[11px] font-mono text-muted-foreground flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
-                Peak Supercritical Cascade: <strong className="text-rose-400">LEO_750_800 (R₀ = 25.25)</strong>
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
+                Peak Supercritical Cascade: <strong className="text-red-500 dark:text-red-400">LEO_750_800 (R₀ = 25.25)</strong>
               </span>
               <span className="text-muted-foreground">ODE Runge-Kutta 4th Order</span>
             </div>
           </div>
 
-          {/* Middle Card: Δv Fuel Ledger */}
+          {/* Middle Card: Δv Fuel Ledger - Clean Monochrome */}
           <div className="col-span-1 md:col-span-3 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
-                  <Rocket className="w-4 h-4 text-primary" />
+                  <Rocket className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                   Δv Fuel Ledger
                 </h3>
                 <p className="text-xs text-muted-foreground font-mono">Maneuver fuel expenditure</p>
               </div>
               <Link href="/financial">
-                <button className="text-xs font-mono text-primary hover:underline flex items-center gap-0.5 cursor-pointer">
+                <button className="text-xs font-mono text-zinc-500 hover:text-foreground hover:underline flex items-center gap-0.5 cursor-pointer">
                   All <ArrowRight className="w-3 h-3" />
                 </button>
               </Link>
@@ -535,15 +538,15 @@ export default function Home() {
             
             <div className="space-y-3">
               {[
-                { name: "Starlink Fleet", op: "SpaceX", dv: "0.40 m/s", color: "text-teal-400", bg: "bg-teal-500/10", icon: Rocket, status: "Autonomous Yield" },
-                { name: "ISS (ZARYA)", op: "NASA", dv: "0.28 m/s", color: "text-amber-400", bg: "bg-amber-500/10", icon: Flame, status: "COSMOS Avoidance" },
-                { name: "Tiangong (CSS)", op: "CNSA", dv: "0.35 m/s", color: "text-purple-400", bg: "bg-purple-500/10", icon: Zap, status: "SL-16 Separation" },
+                { name: "Starlink Fleet", op: "SpaceX", dv: "0.40 m/s", icon: Rocket, status: "Autonomous Yield" },
+                { name: "ISS (ZARYA)", op: "NASA", dv: "0.28 m/s", icon: Flame, status: "COSMOS Avoidance" },
+                { name: "Tiangong (CSS)", op: "CNSA", dv: "0.35 m/s", icon: Zap, status: "SL-16 Separation" },
               ].map((item, idx) => {
                 const Icon = item.icon;
                 return (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-border/50 font-mono">
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 font-mono">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${item.bg} ${item.color}`}>
+                      <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60">
                         <Icon className="w-4 h-4" />
                       </div>
                       <div>
@@ -562,7 +565,7 @@ export default function Home() {
 
             <div className="pt-3 border-t border-border/50 text-[11px] font-mono text-muted-foreground flex justify-between">
               <span>Remaining Fleet Reserve:</span>
-              <span className="font-bold text-emerald-400">96.8%</span>
+              <span className="font-bold text-zinc-700 dark:text-zinc-200">96.8%</span>
             </div>
           </div>
 
@@ -571,13 +574,13 @@ export default function Home() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-primary" />
+                  <ShieldAlert className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                   Active Conjunctions
                 </h3>
                 <p className="text-xs text-muted-foreground font-mono">Real-time close approaches</p>
               </div>
               <Link href="/cases">
-                <button className="text-xs font-mono text-primary hover:underline flex items-center gap-0.5 cursor-pointer">
+                <button className="text-xs font-mono text-zinc-500 hover:text-foreground hover:underline flex items-center gap-0.5 cursor-pointer">
                   All <ArrowRight className="w-3 h-3" />
                 </button>
               </Link>
@@ -596,6 +599,7 @@ export default function Home() {
                 const missKm = "missDistance" in c ? c.missDistance : (c as unknown as { miss: number }).miss;
                 const risk = "riskLevel" in c ? c.riskLevel : (c as unknown as { risk: string }).risk;
                 const isCritical = risk === "critical";
+                const isElevated = risk === "elevated";
 
                 return (
                   <Link 
@@ -605,16 +609,21 @@ export default function Home() {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <div className={`p-1.5 rounded-md shrink-0 ${
-                        isCritical ? "bg-rose-500/15 text-rose-400" : "bg-amber-500/15 text-amber-400"
+                        isCritical 
+                          ? "bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20" 
+                          : isElevated 
+                          ? "bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20"
+                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
                       }`}>
-                        {isCritical ? <Flame className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                        {isCritical ? <Flame className="w-3.5 h-3.5" /> : isElevated ? <AlertTriangle className="w-3.5 h-3.5" /> : <Orbit className="w-3.5 h-3.5" />}
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-xs text-foreground truncate max-w-[130px] font-sans">
                           {primary}
                         </div>
-                        <div className="text-[10px] text-muted-foreground truncate max-w-[130px]">
-                          ⚡ {secondary}
+                        <div className="text-[10px] text-muted-foreground truncate max-w-[130px] flex items-center gap-1">
+                          <span className="text-zinc-500">vs</span>
+                          <span>{secondary}</span>
                         </div>
                       </div>
                     </div>
@@ -623,8 +632,12 @@ export default function Home() {
                       <div className="font-bold text-xs text-foreground">
                         {formatDistance(missKm)}
                       </div>
-                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
-                        isCritical ? "bg-rose-950/60 text-rose-400 border border-rose-500/30" : "bg-amber-950/60 text-amber-400 border border-amber-500/30"
+                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                        isCritical 
+                          ? "bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/30" 
+                          : isElevated 
+                          ? "bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/30"
+                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
                       }`}>
                         {risk}
                       </span>
@@ -803,35 +816,35 @@ export default function Home() {
                 <div className="w-full h-[2px] bg-zinc-200 dark:bg-zinc-800 relative overflow-hidden rounded-full">
                   {/* Sliding laser pulse */}
                   <div 
-                    className="absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-cyan-400 to-transparent blur-[1px]"
+                    className="absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-zinc-400 dark:via-zinc-200 to-transparent blur-[1px]"
                     style={{ animation: 'beam-slide 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite' }}
                   />
                 </div>
                 {/* Gliding photon orb */}
                 <div 
-                  className="absolute w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee,0_0_4px_#38bdf8] top-1/2 -translate-y-1/2 pointer-events-none"
+                  className="absolute w-2 h-2 rounded-full bg-zinc-900 dark:bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)] top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ animation: 'photon-glider 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite' }}
                 />
                 {/* Conduit connection node points */}
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_6px_#06b6d4]"></div>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]"></div>
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500"></div>
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500"></div>
               </div>
 
               {/* Right Side: Shell Risk Profile Card with Live Scanner & Telemetry Meter */}
               <div className="w-48 h-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-3 shadow-sm flex flex-col justify-between flex-shrink-0 relative overflow-hidden">
                 {/* Subtle vertical scanline sweep */}
                 <div 
-                  className="absolute left-0 right-0 h-6 bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent pointer-events-none"
+                  className="absolute left-0 right-0 h-6 bg-gradient-to-b from-transparent via-zinc-500/10 to-transparent pointer-events-none"
                   style={{ animation: 'scan-line 3s linear infinite' }}
                 />
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1">
-                      <ShieldAlert className="w-3 h-3 text-cyan-500" />
+                      <ShieldAlert className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
                       Shell Risk Profile
                     </div>
-                    <span className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
                       LIVE
                     </span>
@@ -864,16 +877,16 @@ export default function Home() {
             <div className="w-full mt-auto bg-zinc-50/60 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden relative h-60 flex items-center justify-center">
               <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 400 240">
                 <defs>
-                  <linearGradient id="feed-grad-cyan" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.9" />
-                    <stop offset="100%" stopColor="#0284c7" stopOpacity="0.4" />
+                  <linearGradient id="feed-grad-mono-left" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a1a1aa" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#71717a" stopOpacity="0.3" />
                   </linearGradient>
-                  <linearGradient id="feed-grad-teal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.9" />
-                    <stop offset="100%" stopColor="#0d9488" stopOpacity="0.4" />
+                  <linearGradient id="feed-grad-mono-right" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a1a1aa" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="#71717a" stopOpacity="0.3" />
                   </linearGradient>
                   <filter id="glow-feed-pkt" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                    <feGaussianBlur stdDeviation="2" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
@@ -886,28 +899,18 @@ export default function Home() {
                 <path id="curve-feed-right" d="M 200 65 C 200 120, 290 120, 290 175" fill="none" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
 
                 {/* Animated flowing data streams */}
-                <path d="M 200 65 C 200 120, 110 120, 110 175" fill="none" stroke="url(#feed-grad-cyan)" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move" />
-                <path d="M 200 65 C 200 120, 290 120, 290 175" fill="none" stroke="url(#feed-grad-teal)" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move" />
+                <path d="M 200 65 C 200 120, 110 120, 110 175" fill="none" stroke="url(#feed-grad-mono-left)" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move" />
+                <path d="M 200 65 C 200 120, 290 120, 290 175" fill="none" stroke="url(#feed-grad-mono-right)" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move" />
 
                 {/* Flying Data Packet: Space-Track -> CelesTrak */}
-                <circle r="3.5" fill="#38bdf8" filter="url(#glow-feed-pkt)">
-                  <animateMotion dur="2.4s" repeatCount="indefinite">
-                    <mpath href="#curve-feed-left" />
-                  </animateMotion>
-                </circle>
-                <circle r="1.5" fill="#ffffff">
+                <circle r="3" fill="#ffffff" filter="url(#glow-feed-pkt)">
                   <animateMotion dur="2.4s" repeatCount="indefinite">
                     <mpath href="#curve-feed-left" />
                   </animateMotion>
                 </circle>
 
                 {/* Flying Data Packet: ESA DISCOS -> CelesTrak (1.2s offset) */}
-                <circle r="3.5" fill="#2dd4bf" filter="url(#glow-feed-pkt)">
-                  <animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite">
-                    <mpath href="#curve-feed-right" />
-                  </animateMotion>
-                </circle>
-                <circle r="1.5" fill="#ffffff">
+                <circle r="3" fill="#ffffff" filter="url(#glow-feed-pkt)">
                   <animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite">
                     <mpath href="#curve-feed-right" />
                   </animateMotion>
@@ -917,9 +920,9 @@ export default function Home() {
               {/* Top Node with Radar Ping Ring */}
               <div className="absolute left-1/2 top-10 -translate-x-1/2 z-10">
                 <div className="relative">
-                  <div className="absolute -inset-1.5 rounded-full border border-sky-400/40 animate-ping opacity-60 pointer-events-none" />
-                  <div className="px-4 py-2 bg-white dark:bg-zinc-950 border border-sky-500/30 rounded-full text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-[0_0_12px_rgba(56,189,248,0.15)] animate-float-slow whitespace-nowrap flex items-center gap-2">
-                    <Radio className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
+                  <div className="absolute -inset-1.5 rounded-full border border-zinc-400/30 dark:border-zinc-600/40 animate-ping opacity-50 pointer-events-none" />
+                  <div className="px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700/80 rounded-full text-xs font-semibold text-zinc-900 dark:text-zinc-100 shadow-sm animate-float-slow whitespace-nowrap flex items-center gap-2">
+                    <Radio className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />
                     <span>CelesTrak SGP4</span>
                   </div>
                 </div>
@@ -927,16 +930,16 @@ export default function Home() {
 
               {/* Bottom Left Node */}
               <div className="absolute left-[27.5%] bottom-10 -translate-x-1/2 z-10">
-                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/40 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slower whitespace-nowrap flex items-center gap-1.5 transition-colors">
-                  <Satellite className="w-3.5 h-3.5 text-cyan-500" />
+                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slower whitespace-nowrap flex items-center gap-1.5">
+                  <Satellite className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   <span>Space-Track Ephemeris</span>
                 </div>
               </div>
 
               {/* Bottom Right Node */}
               <div className="absolute left-[72.5%] bottom-10 -translate-x-1/2 z-10">
-                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-teal-500/40 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slow whitespace-nowrap flex items-center gap-1.5 transition-colors">
-                  <Database className="w-3.5 h-3.5 text-teal-500" />
+                <div className="px-3.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-sm animate-float-slow whitespace-nowrap flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   <span>ESA DISCOS</span>
                 </div>
               </div>
@@ -960,8 +963,8 @@ export default function Home() {
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
-                  <filter id="glow-cyan-pkt" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <filter id="glow-mono-pkt" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="2" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
@@ -972,43 +975,43 @@ export default function Home() {
                 {/* Base guide paths for motion and styling */}
                 <path id="line-cov" d="M 110 55 L 200 120" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
                 <path id="line-vec" d="M 290 55 L 200 120" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
-                <path id="line-foster" d="M 110 185 L 200 120" stroke="rgba(244, 63, 94, 0.25)" strokeWidth="2" strokeDasharray="4 4" />
+                <path id="line-foster" d="M 110 185 L 200 120" stroke="rgba(239, 68, 68, 0.3)" strokeWidth="2" strokeDasharray="4 4" />
                 <path id="line-cdm" d="M 290 185 L 200 120" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="2" strokeDasharray="4 4" />
 
-                {/* Animated glowing dashed telemetry lines */}
-                <line x1="110" y1="55" x2="200" y2="120" stroke="#38bdf8" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move opacity-80" />
-                <line x1="290" y1="55" x2="200" y2="120" stroke="#818cf8" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move opacity-80" />
-                <line x1="110" y1="185" x2="200" y2="120" stroke="#f43f5e" strokeWidth="2.5" strokeDasharray="5 5" className="animate-dash-move filter drop-shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
-                <line x1="290" y1="185" x2="200" y2="120" stroke="#10b981" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move opacity-80" />
+                {/* Animated flowing telemetry lines - Clean monochrome with Red alert line */}
+                <line x1="110" y1="55" x2="200" y2="120" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 5" className="text-zinc-400 dark:text-zinc-600 animate-dash-move opacity-70" />
+                <line x1="290" y1="55" x2="200" y2="120" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 5" className="text-zinc-400 dark:text-zinc-600 animate-dash-move opacity-70" />
+                <line x1="110" y1="185" x2="200" y2="120" stroke="#ef4444" strokeWidth="2" strokeDasharray="5 5" className="animate-dash-move filter drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]" />
+                <line x1="290" y1="185" x2="200" y2="120" stroke="currentColor" strokeWidth="1.5" strokeDasharray="5 5" className="text-zinc-400 dark:text-zinc-600 animate-dash-move opacity-70" />
 
                 {/* Flying Data Packet: Covariance Matrix -> Core */}
-                <circle r="3.5" fill="#38bdf8" filter="url(#glow-cyan-pkt)">
+                <circle r="3" fill="#ffffff" filter="url(#glow-mono-pkt)">
                   <animateMotion dur="2.2s" repeatCount="indefinite">
                     <mpath href="#line-cov" />
                   </animateMotion>
                 </circle>
 
                 {/* Flying Data Packet: State Vectors -> Core */}
-                <circle r="3.5" fill="#818cf8" filter="url(#glow-cyan-pkt)">
+                <circle r="3" fill="#ffffff" filter="url(#glow-mono-pkt)">
                   <animateMotion dur="2.5s" begin="0.7s" repeatCount="indefinite">
                     <mpath href="#line-vec" />
                   </animateMotion>
                 </circle>
 
-                {/* Critical Conjunction Alert Packet: Foster Pc -> Core (Glowing Rose/Red with White Core) */}
-                <circle r="4.5" fill="#f43f5e" filter="url(#glow-rose-pkt)">
+                {/* Critical Conjunction Alert Packet: Foster Pc -> Core (Glowing Red with White Core) */}
+                <circle r="4" fill="#ef4444" filter="url(#glow-rose-pkt)">
                   <animateMotion dur="1.7s" repeatCount="indefinite">
                     <mpath href="#line-foster" />
                   </animateMotion>
                 </circle>
-                <circle r="2" fill="#ffffff">
+                <circle r="1.5" fill="#ffffff">
                   <animateMotion dur="1.7s" repeatCount="indefinite">
                     <mpath href="#line-foster" />
                   </animateMotion>
                 </circle>
 
                 {/* Flying Data Packet: CCSDS CDM -> Core */}
-                <circle r="3.5" fill="#10b981" filter="url(#glow-cyan-pkt)">
+                <circle r="3" fill="#ffffff" filter="url(#glow-mono-pkt)">
                   <animateMotion dur="2.2s" begin="1.1s" repeatCount="indefinite">
                     <mpath href="#line-cdm" />
                   </animateMotion>
@@ -1017,16 +1020,16 @@ export default function Home() {
 
               {/* Top Left: Covariance Matrix */}
               <div className="absolute left-[27.5%] top-8 -translate-x-1/2 z-10">
-                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-cyan-500/30 rounded-full text-xs text-zinc-800 dark:text-zinc-200 font-medium shadow-sm animate-float-slow whitespace-nowrap flex items-center gap-1.5">
-                  <Boxes className="w-3.5 h-3.5 text-cyan-400" />
+                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs text-zinc-800 dark:text-zinc-200 font-medium shadow-sm animate-float-slow whitespace-nowrap flex items-center gap-1.5">
+                  <Boxes className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   <span>Covariance Σ</span>
                 </div>
               </div>
 
               {/* Top Right: State Vectors */}
               <div className="absolute left-[72.5%] top-8 -translate-x-1/2 z-10">
-                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-indigo-500/30 rounded-full text-xs text-zinc-800 dark:text-zinc-200 font-medium shadow-sm animate-float-slower whitespace-nowrap flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs text-zinc-800 dark:text-zinc-200 font-medium shadow-sm animate-float-slower whitespace-nowrap flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                   <span>State Vectors [r, v]</span>
                 </div>
               </div>
