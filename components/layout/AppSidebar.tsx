@@ -59,7 +59,7 @@ export function AppSidebar() {
       isCollapsed ? "w-[80px]" : "w-64"
     )}>
       {/* Brand Section */}
-      <Link href="/dashboard" prefetch={false} className="cursor-pointer">
+      <Link href="/dashboard" className="cursor-pointer">
         <div className={cn("flex h-16 items-center border-b border-border/50 transition-all overflow-hidden whitespace-nowrap", isCollapsed ? "justify-center px-0" : "px-5")}>
           <AuralisLogo size="md" showText={!isCollapsed} />
         </div>
@@ -91,7 +91,7 @@ export function AppSidebar() {
             <Link
               key={item.key}
               href={item.href}
-              prefetch={false}
+              prefetch={true}
               title={isCollapsed ? name : undefined}
               className={cn(
                 "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 overflow-hidden cursor-pointer select-none",

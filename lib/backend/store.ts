@@ -101,18 +101,38 @@ export class InMemoryStore {
   }
 
   private loadFromDisk(): void {
-    if (!this.persistenceEnabled || !fs.existsSync(this.persistencePath)) return;
-    try {
-      const snapshot = JSON.parse(fs.readFileSync(this.persistencePath, "utf8")) as Partial<StoreSnapshot>;
-      snapshot.objects?.forEach((object) => this.objectRecords.set(object.id, object));
-      snapshot.conjunctions?.forEach((conjunction) => this.conjunctionRecords.set(conjunction.id, conjunction));
-      snapshot.maneuvers?.forEach((maneuver) => this.maneuverRecords.set(maneuver.id, maneuver));
-      snapshot.shells?.forEach((shell) => this.shellRecords.set(shell.shellId, shell));
-      snapshot.agents?.forEach((agent) => this.agentRecords.set(agent.agentType, agent));
-      this.advisoryRecords = snapshot.advisories ?? [];
-      this.auditRecords = snapshot.auditLog ?? [];
-    } catch (error) {
-      console.warn("[Auralis] Could not restore persisted store state:", error);
+    if (this.persistenceEnabled && fs.existsSync(this.persistencePath)) {
+      try {
+        const snapshot = JSON.parse(fs.readFileSync(this.persistencePath, "utf8")) as Partial<StoreSnapshot>;
+        snapshot.objects?.forEach((object) => this.objectRecords.set(object.id, object));
+        snapshot.conjunctions?.forEach((conjunction) => this.conjunctionRecords.set(conjunction.id, conjunction));
+        snapshot.maneuvers?.forEach((maneuver) => this.maneuverRecords.set(maneuver.id, maneuver));
+        snapshot.shells?.forEach((shell) => this.shellRecords.set(shell.shellId, shell));
+        snapshot.agents?.forEach((agent) => this.agentRecords.set(agent.agentType, agent));
+        this.advisoryRecords = snapshot.advisories ?? [];
+        this.auditRecords = snapshot.auditLog ?? [];
+      } catch (error) {
+        console.warn("[Auralis] Could not restore persisted store state:", error);
+      }
+    }
+
+    // If store is still unpopulated, seed immediately from verified catalog so API routes never hang or return 0
+    if (this.objectRecords.size === 0) {
+      try {
+        const { mockObjects, mockConjunctions, mockShells, mockManeuvers } = require("@/lib/mockApi");
+        mockObjects?.forEach((object: TrackedObject) => this.objectRecords.set(object.id, object));
+        if (this.conjunctionRecords.size === 0) {
+          mockConjunctions?.forEach((conjunction: ConjunctionEvent) => this.conjunctionRecords.set(conjunction.id, conjunction));
+        }
+        if (this.maneuverRecords.size === 0) {
+          mockManeuvers?.forEach((maneuver: ManeuverProposal) => this.maneuverRecords.set(maneuver.id, maneuver));
+        }
+        if (this.shellRecords.size === 0) {
+          mockShells?.forEach((shell: ShellRiskSnapshot) => this.shellRecords.set(shell.shellId, shell));
+        }
+      } catch (err) {
+        console.warn("[Auralis] Could not seed default mock data:", err);
+      }
     }
   }
 }

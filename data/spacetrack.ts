@@ -35,12 +35,15 @@ interface SpaceTrackCDM {
 class SpaceTrackClient {
   private sessionCookie: string | null = null;
   private sessionExpiry = 0;
+  private lastFailureTime = 0;
   private cdmCache: ConjunctionEvent[] = [];
   private cdmCacheTime = 0;
   private gpCache: TrackedObject[] = [];
   private gpCacheTime = 0;
 
   private readonly CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
+  private readonly FAILURE_COOLDOWN_MS = 60 * 1000; // 60s cooldown on failure
+  private readonly TIMEOUT_MS = 3000; // 3-second max timeout
   private readonly BASE_URL = "https://www.space-track.org";
 
   private getCredentials(): { user: string; pass: string } | null {
@@ -86,6 +89,10 @@ class SpaceTrackClient {
       return this.sessionCookie;
     }
 
+    if (Date.now() - this.lastFailureTime < this.FAILURE_COOLDOWN_MS) {
+      return null;
+    }
+
     try {
       const loginUrl = `${this.BASE_URL}/ajaxauth/login`;
       const body = new URLSearchParams({
@@ -97,10 +104,12 @@ class SpaceTrackClient {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: body.toString(),
+        signal: AbortSignal.timeout(this.TIMEOUT_MS),
       });
 
       if (!response.ok) {
         console.warn(`[SpaceTrack] Authentication failed with status ${response.status}`);
+        this.lastFailureTime = Date.now();
         return null;
       }
 
@@ -112,7 +121,8 @@ class SpaceTrackClient {
         return cookie;
       }
     } catch (err) {
-      console.warn("[SpaceTrack] Error during login:", err);
+      console.warn("[SpaceTrack] Error or timeout during login:", err instanceof Error ? err.message : err);
+      this.lastFailureTime = Date.now();
     }
     return null;
   }
@@ -135,6 +145,7 @@ class SpaceTrackClient {
       const url = `${this.BASE_URL}/basicspacedata/query/class/cdm_public/orderby/TCA%20desc/limit/${limit}/format/json`;
       const response = await fetch(url, {
         headers: { Cookie: cookie },
+        signal: AbortSignal.timeout(this.TIMEOUT_MS),
       });
 
       if (!response.ok) {
@@ -205,6 +216,7 @@ class SpaceTrackClient {
       const url = `${this.BASE_URL}/basicspacedata/query/class/gp/orderby/NORAD_CAT_ID%20asc/limit/${limit}/format/json`;
       const response = await fetch(url, {
         headers: { Cookie: cookie },
+        signal: AbortSignal.timeout(this.TIMEOUT_MS),
       });
 
       if (!response.ok) {
