@@ -36,6 +36,7 @@ import type {
 } from '@/types/contract';
 
 import curatedCatalog from '@/data/fixtures/parsed-tracked-objects.json';
+import { buildAllShellRiskSnapshots } from '@/data/cascade';
 
 // ============================================================================
 // Seed Data: Tracked Objects
@@ -376,78 +377,10 @@ export const mockConjunctions: ConjunctionEvent[] = [
 
 // ============================================================================
 // Seed Data: Shell Risk Snapshots (SIR Model)
+// Dynamically computed across all LEO altitude bands using the SIR ODE solver
 // ============================================================================
 
-export const mockShells: ShellRiskSnapshot[] = [
-  {
-    shellId: "LEO_400_450",
-    altitudeMin: 400,
-    altitudeMax: 450,
-    timestamp: "2026-09-12T13:00:00Z",
-    susceptibleCount: 312,
-    infectedCount: 47,
-    removedCount: 89,
-    totalObjectCount: 448,
-    debrisDensity: 3.7e-9,
-    r0: 0.83,
-    trend: "stable",
-    projectionYears: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
-    projectedS: [312, 298, 280, 261, 245, 232, 221, 213, 207, 203, 200],
-    projectedI: [47, 52, 55, 53, 48, 42, 36, 31, 27, 24, 22],
-    projectedR: [89, 98, 113, 134, 155, 174, 191, 204, 214, 221, 226],
-  },
-  {
-    shellId: "LEO_750_800",
-    altitudeMin: 750,
-    altitudeMax: 800,
-    timestamp: "2026-09-12T13:00:00Z",
-    susceptibleCount: 587,
-    infectedCount: 213,
-    removedCount: 41,
-    totalObjectCount: 841,
-    debrisDensity: 8.1e-9,
-    r0: 1.24,
-    trend: "increasing",
-    projectionYears: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
-    projectedS: [587, 540, 471, 388, 302, 230, 178, 142, 117, 101, 91],
-    projectedI: [213, 267, 338, 410, 461, 478, 462, 421, 370, 319, 273],
-    projectedR: [41, 34, 32, 43, 78, 133, 201, 278, 354, 421, 477],
-  },
-  {
-    shellId: "LEO_500_550",
-    altitudeMin: 500,
-    altitudeMax: 550,
-    timestamp: "2026-09-12T13:00:00Z",
-    susceptibleCount: 1240,
-    infectedCount: 112,
-    removedCount: 65,
-    totalObjectCount: 1417,
-    debrisDensity: 5.2e-9,
-    r0: 0.95,
-    trend: "stable",
-    projectionYears: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
-    projectedS: [1240, 1205, 1160, 1110, 1065, 1025, 990, 960, 935, 915, 900],
-    projectedI: [112, 125, 134, 132, 124, 115, 105, 95, 85, 76, 68],
-    projectedR: [65, 87, 123, 175, 228, 277, 322, 362, 397, 426, 449],
-  },
-  {
-    shellId: "LEO_800_850",
-    altitudeMin: 800,
-    altitudeMax: 850,
-    timestamp: "2026-09-12T13:00:00Z",
-    susceptibleCount: 420,
-    infectedCount: 310,
-    removedCount: 52,
-    totalObjectCount: 782,
-    debrisDensity: 9.4e-9,
-    r0: 1.42,
-    trend: "increasing",
-    projectionYears: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
-    projectedS: [420, 375, 310, 240, 175, 125, 90, 68, 52, 42, 35],
-    projectedI: [310, 380, 450, 510, 545, 540, 505, 450, 390, 335, 285],
-    projectedR: [52, 27, 22, 32, 62, 117, 187, 264, 340, 405, 462],
-  },
-];
+export let mockShells: ShellRiskSnapshot[] = buildAllShellRiskSnapshots(mockObjects);
 
 // ============================================================================
 // Seed Data: Maneuver Proposals & Negotiation Transcripts
