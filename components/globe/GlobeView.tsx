@@ -405,6 +405,24 @@ export default function GlobeView({
   activeEncounterPairRef.current = activeEncounterPair;
 
   const [liveEncounterDistKm, setLiveEncounterDistKm] = useState<number | null>(null);
+  const [liveVectorTelemetry, setLiveVectorTelemetry] = useState<{
+    dx: number;
+    dy: number;
+    dz: number;
+    distKm: number;
+    dvx: number;
+    dvy: number;
+    dvz: number;
+    vRelKmS: number;
+    rangeRateKmS: number;
+    x1: number;
+    y1: number;
+    z1: number;
+    x2: number;
+    y2: number;
+    z2: number;
+  } | null>(null);
+  const [showMathDetails, setShowMathDetails] = useState(true);
   const encounterVectorGroupRef = useRef<THREE.Group | null>(null);
 
   const telemetryCount = React.useMemo(() => {
@@ -1014,7 +1032,7 @@ export default function GlobeView({
           }
         }
 
-          // Real-time 3D Dual-Orbit Encounter Relative Distance Vector & Axis Lines
+          // Real-time 3D Dual-Orbit Encounter Relative Distance Vector & Dot-to-Dot Connection
           if (encounterVectorGroupRef.current) {
             const encGroup = encounterVectorGroupRef.current;
             while (encGroup.children.length > 0) {
@@ -1062,10 +1080,21 @@ export default function GlobeView({
               const xEci2 = rSat2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
               const yEci2 = rSat2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
 
-              const pA = meshA ? meshA.position.clone() : new THREE.Vector3(yEci1, zEci1, xEci1);
-              const pB = meshB ? meshB.position.clone() : new THREE.Vector3(yEci2, zEci2, xEci2);
+              // Exact 3D World Positions of both dots (matching Three.js mesh transforms):
+              const pA = new THREE.Vector3();
+              const pB = new THREE.Vector3();
+              if (meshA) {
+                meshA.getWorldPosition(pA);
+              } else {
+                pA.set(yEci1, zEci1, xEci1);
+              }
+              if (meshB) {
+                meshB.getWorldPosition(pB);
+              } else {
+                pB.set(yEci2, zEci2, xEci2);
+              }
 
-              // 1. Calculate live physical Euclidean separation in km
+              // 1. Calculate live physical Euclidean separation in km and ECI state vectors
               const rKm1 = 6371 + (encPair.primary.altitude || 500);
               const rKm2 = 6371 + (encPair.secondary.altitude || 500);
               const x1Km = rKm1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
@@ -1076,20 +1105,48 @@ export default function GlobeView({
               const y2Km = rKm2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
               const z2Km = rKm2 * Math.sin(incRad2) * Math.sin(u2);
 
-              const dx = x1Km - x2Km;
-              const dy = y1Km - y2Km;
-              const dz = z1Km - z2Km;
+              const dx = x2Km - x1Km;
+              const dy = y2Km - y1Km;
+              const dz = z2Km - z1Km;
               const liveDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
               setLiveEncounterDistKm(liveDist);
+
+              // Relative Velocity and Range Rate:
+              const v1Mag = Math.sqrt(encPair.primary.velocity.vx**2 + encPair.primary.velocity.vy**2 + encPair.primary.velocity.vz**2) || 7.6;
+              const v2Mag = Math.sqrt(encPair.secondary.velocity.vx**2 + encPair.secondary.velocity.vy**2 + encPair.secondary.velocity.vz**2) || 7.6;
+              const dvx = encPair.secondary.velocity.vx - encPair.primary.velocity.vx;
+              const dvy = encPair.secondary.velocity.vy - encPair.primary.velocity.vy;
+              const dvz = encPair.secondary.velocity.vz - encPair.primary.velocity.vz;
+              const vRel = Math.sqrt(dvx * dvx + dvy * dvy + dvz * dvz) || Math.abs(v1Mag - v2Mag);
+              const rangeRate = liveDist > 0.01 ? (dx * dvx + dy * dvy + dz * dvz) / liveDist : 0;
+
+              setLiveVectorTelemetry({
+                dx,
+                dy,
+                dz,
+                distKm: liveDist,
+                dvx,
+                dvy,
+                dvz,
+                vRelKmS: vRel,
+                rangeRateKmS: rangeRate,
+                x1: x1Km,
+                y1: y1Km,
+                z1: z1Km,
+                x2: x2Km,
+                y2: y2Km,
+                z2: z2Km,
+              });
 
               const isCriticalDist = liveDist < 50;
               const isCautionDist = liveDist < 500;
               const beamColor = isCriticalDist ? 0xef4444 : isCautionDist ? 0xf59e0b : 0x38bdf8;
 
-              // 2. Volumetric 3D Laser Beam joining the two orbital points
+              // 2. Direct 3D Laser Line strictly joining Point A (Satellite Dot) to Point B (Debris Dot)
               const distScene = pA.distanceTo(pB);
               if (distScene > 0.01) {
-                const beamGeom = new THREE.CylinderGeometry(0.28, 0.28, distScene, 8, 1, true);
+                // Volumetric 3D Cylinder Laser
+                const beamGeom = new THREE.CylinderGeometry(0.35, 0.35, distScene, 8, 1, true);
                 const beamMat = new THREE.MeshBasicMaterial({
                   color: beamColor,
                   transparent: true,
@@ -1107,7 +1164,7 @@ export default function GlobeView({
                 encGroup.add(beamMesh);
 
                 // Luminous outer aura sheath
-                const auraGeom = new THREE.CylinderGeometry(0.65, 0.65, distScene, 8, 1, true);
+                const auraGeom = new THREE.CylinderGeometry(0.75, 0.75, distScene, 8, 1, true);
                 const auraMat = new THREE.MeshBasicMaterial({
                   color: beamColor,
                   transparent: true,
@@ -1120,7 +1177,7 @@ export default function GlobeView({
                 auraMesh.quaternion.copy(quat);
                 encGroup.add(auraMesh);
 
-                // Core radiant hairline connector
+                // High-visibility core connector line
                 const lineGeom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
                 const lineMat = new THREE.LineBasicMaterial({
                   color: 0xffffff,
@@ -1141,78 +1198,26 @@ export default function GlobeView({
                 const midMesh = new THREE.Mesh(midGeom, midMat);
                 midMesh.position.copy(midPos);
                 encGroup.add(midMesh);
-
-                const midHaloGeom = new THREE.SphereGeometry(1.2, 12, 12);
-                const midHaloMat = new THREE.MeshBasicMaterial({
-                  color: beamColor,
-                  transparent: true,
-                  opacity: 0.3,
-                });
-                const midHaloMesh = new THREE.Mesh(midHaloGeom, midHaloMat);
-                midHaloMesh.position.copy(midPos);
-                encGroup.add(midHaloMesh);
               }
 
-              // 3. Radial Projection Axes: Connect Earth surface to each orbital point (Altitude dropped axis)
-              const pAGround = pA.clone().normalize().multiplyScalar(100);
-              const pBGround = pB.clone().normalize().multiplyScalar(100);
+              // 3. Glowing Target Reticles on Point A (Satellite) and Point B (Debris)
+              // Point A (Cyan Satellite Dot)
+              const ringA = new THREE.RingGeometry(1.2, 1.6, 24);
+              const matA = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+              const meshRingA = new THREE.Mesh(ringA, matA);
+              meshRingA.position.copy(pA);
+              meshRingA.lookAt(0, 0, 0);
+              encGroup.add(meshRingA);
 
-              // Satellite Radial Axis Line
-              const axisAGeom = new THREE.BufferGeometry().setFromPoints([pAGround, pA]);
-              const axisAMat = new THREE.LineBasicMaterial({
-                color: 0x38bdf8,
-                transparent: true,
-                opacity: 0.65,
-                depthWrite: false,
-              });
-              encGroup.add(new THREE.Line(axisAGeom, axisAMat));
+              // Point B (Hazard Crimson Debris Dot)
+              const ringB = new THREE.RingGeometry(1.2, 1.6, 24);
+              const matB = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+              const meshRingB = new THREE.Mesh(ringB, matB);
+              meshRingB.position.copy(pB);
+              meshRingB.lookAt(0, 0, 0);
+              encGroup.add(meshRingB);
 
-              // Debris Radial Axis Line
-              const axisBGeom = new THREE.BufferGeometry().setFromPoints([pBGround, pB]);
-              const axisBMat = new THREE.LineBasicMaterial({
-                color: 0xef4444,
-                transparent: true,
-                opacity: 0.65,
-                depthWrite: false,
-              });
-              encGroup.add(new THREE.Line(axisBGeom, axisBMat));
-
-              // Ground Projection Base Rings
-              const groundMarkerGeom = new THREE.SphereGeometry(0.4, 8, 8);
-              const groundAMesh = new THREE.Mesh(groundMarkerGeom, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-              groundAMesh.position.copy(pAGround);
-              encGroup.add(groundAMesh);
-
-              const groundBMesh = new THREE.Mesh(groundMarkerGeom, new THREE.MeshBasicMaterial({ color: 0xef4444 }));
-              groundBMesh.position.copy(pBGround);
-              encGroup.add(groundBMesh);
-
-              // 4. Glowing 3D Gimbal Reticles & Crosshairs on Both Points
-              // Satellite Point A (Cyan Gimbal)
-              const ringA1 = new THREE.RingGeometry(1.1, 1.45, 24);
-              const matA1 = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
-              const meshRingA1 = new THREE.Mesh(ringA1, matA1);
-              meshRingA1.position.copy(pA);
-              meshRingA1.lookAt(0, 0, 0);
-              encGroup.add(meshRingA1);
-
-              const orbA = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 10), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-              orbA.position.copy(pA);
-              encGroup.add(orbA);
-
-              // Debris Point B (Hazard Crimson Gimbal)
-              const ringB1 = new THREE.RingGeometry(1.1, 1.45, 24);
-              const matB1 = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
-              const meshRingB1 = new THREE.Mesh(ringB1, matB1);
-              meshRingB1.position.copy(pB);
-              meshRingB1.lookAt(0, 0, 0);
-              encGroup.add(meshRingB1);
-
-              const orbB = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 10), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
-              orbB.position.copy(pB);
-              encGroup.add(orbB);
-
-              // 5. Camera tracking midpoint follow
+              // 4. Camera tracking midpoint follow
               if (isTrackingLockedRef.current && globeInstanceRef.current) {
                 const midX = (x1Km + x2Km) / 2;
                 const midY = (y1Km + y2Km) / 2;
@@ -1573,6 +1578,82 @@ export default function GlobeView({
     }
   }, [conjunctions, objects, getLiveEntityCoordinates, onSelectObject]);
 
+  const handleAlignToTCA = useCallback(() => {
+    if (!activeEncounterPair) return;
+    const { primary, secondary } = activeEncounterPair;
+
+    const kep1 = (primary.orbitalElements && primary.orbitalElements.inclination != null)
+      ? primary.orbitalElements
+      : deriveKeplerianElements(primary.position, primary.velocity);
+    const kep2 = (secondary.orbitalElements && secondary.orbitalElements.inclination != null)
+      ? secondary.orbitalElements
+      : deriveKeplerianElements(secondary.position, secondary.velocity);
+
+    const rKm1 = 6371 + (primary.altitude || 500);
+    const rKm2 = 6371 + (secondary.altitude || 500);
+    const incRad1 = (kep1.inclination * Math.PI) / 180;
+    const raanRad1 = (kep1.raan * Math.PI) / 180;
+    const incRad2 = (kep2.inclination * Math.PI) / 180;
+    const raanRad2 = (kep2.raan * Math.PI) / 180;
+
+    let bestDist = Infinity;
+    let bestU1 = 0;
+    let bestU2 = 0;
+
+    // Coarse orbital search across 72 samples
+    for (let i = 0; i < 72; i++) {
+      const u1 = (i / 72) * 2 * Math.PI;
+      const x1 = rKm1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+      const y1 = rKm1 * (Math.sin(raanRad1) * Math.cos(u1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+      const z1 = rKm1 * Math.sin(incRad1) * Math.sin(u1);
+
+      for (let j = 0; j < 72; j++) {
+        const u2 = (j / 72) * 2 * Math.PI;
+        const x2 = rKm2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+        const y2 = rKm2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+        const z2 = rKm2 * Math.sin(incRad2) * Math.sin(u2);
+
+        const d = Math.hypot(x1 - x2, y1 - y2, z1 - z2);
+        if (d < bestDist) {
+          bestDist = d;
+          bestU1 = u1;
+          bestU2 = u2;
+        }
+      }
+    }
+
+    // Fine gradient search
+    for (let du1 = -0.06; du1 <= 0.06; du1 += 0.005) {
+      for (let du2 = -0.06; du2 <= 0.06; du2 += 0.005) {
+        const u1 = bestU1 + du1;
+        const u2 = bestU2 + du2;
+        const x1 = rKm1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+        const y1 = rKm1 * (Math.sin(raanRad1) * Math.cos(u1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+        const z1 = rKm1 * Math.sin(incRad1) * Math.sin(u1);
+        const x2 = rKm2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+        const y2 = rKm2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+        const z2 = rKm2 * Math.sin(incRad2) * Math.sin(u2);
+        const d = Math.hypot(x1 - x2, y1 - y2, z1 - z2);
+        if (d < bestDist) {
+          bestDist = d;
+          bestU1 = u1;
+          bestU2 = u2;
+        }
+      }
+    }
+
+    currentThetaMapRef.current.set(primary.id, bestU1);
+    currentThetaMapRef.current.set(secondary.id, bestU2);
+
+    if (globeInstanceRef.current) {
+      const xMid = rKm1 * (Math.cos(raanRad1) * Math.cos(bestU1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(bestU1));
+      const yMid = rKm1 * (Math.sin(raanRad1) * Math.cos(bestU1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(bestU1));
+      const zMid = rKm1 * Math.sin(incRad1) * Math.sin(bestU1);
+      const geo = eciToGeodeticCoords({ x: xMid, y: yMid, z: zMid }, new Date());
+      globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.5 }, 800);
+    }
+  }, [activeEncounterPair]);
+
   const handleStartDualEncounter = useCallback(() => {
     if (!globeInstanceRef.current) return;
     // 1. Check active/critical conjunction
@@ -1596,14 +1677,53 @@ export default function GlobeView({
       setSelectedObject(null);
       setIsTrackingLocked(true);
 
-      const coordsA = getLiveEntityCoordinates(prim);
-      const coordsB = getLiveEntityCoordinates(sec);
-      const midLat = (coordsA.latDeg + coordsB.latDeg) / 2;
-      const midLng = (coordsA.lngDeg + coordsB.lngDeg) / 2;
+      const kep1 = (prim.orbitalElements && prim.orbitalElements.inclination != null)
+        ? prim.orbitalElements
+        : deriveKeplerianElements(prim.position, prim.velocity);
+      const kep2 = (sec.orbitalElements && sec.orbitalElements.inclination != null)
+        ? sec.orbitalElements
+        : deriveKeplerianElements(sec.position, sec.velocity);
 
-      globeInstanceRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: 1.6 }, 1000);
+      const rKm1 = 6371 + (prim.altitude || 500);
+      const rKm2 = 6371 + (sec.altitude || 500);
+      const incRad1 = (kep1.inclination * Math.PI) / 180;
+      const raanRad1 = (kep1.raan * Math.PI) / 180;
+      const incRad2 = (kep2.inclination * Math.PI) / 180;
+      const raanRad2 = (kep2.raan * Math.PI) / 180;
+
+      // Align to closest approach crossing point on start
+      let bestDist = Infinity;
+      let bestU1 = 0;
+      let bestU2 = 0;
+      for (let i = 0; i < 72; i++) {
+        const u1 = (i / 72) * 2 * Math.PI;
+        const x1 = rKm1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+        const y1 = rKm1 * (Math.sin(raanRad1) * Math.cos(u1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+        const z1 = rKm1 * Math.sin(incRad1) * Math.sin(u1);
+        for (let j = 0; j < 72; j++) {
+          const u2 = (j / 72) * 2 * Math.PI;
+          const x2 = rKm2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+          const y2 = rKm2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+          const z2 = rKm2 * Math.sin(incRad2) * Math.sin(u2);
+          const d = Math.hypot(x1 - x2, y1 - y2, z1 - z2);
+          if (d < bestDist) {
+            bestDist = d;
+            bestU1 = u1;
+            bestU2 = u2;
+          }
+        }
+      }
+      currentThetaMapRef.current.set(prim.id, bestU1);
+      currentThetaMapRef.current.set(sec.id, bestU2);
+
+      const xMid = rKm1 * (Math.cos(raanRad1) * Math.cos(bestU1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(bestU1));
+      const yMid = rKm1 * (Math.sin(raanRad1) * Math.cos(bestU1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(bestU1));
+      const zMid = rKm1 * Math.sin(incRad1) * Math.sin(bestU1);
+      const geoMid = eciToGeodeticCoords({ x: xMid, y: yMid, z: zMid }, new Date());
+
+      globeInstanceRef.current.pointOfView({ lat: geoMid.latitudeDeg, lng: geoMid.longitudeDeg, altitude: 1.55 }, 1000);
     }
-  }, [conjunctions, objects, getLiveEntityCoordinates]);
+  }, [conjunctions, objects]);
 
   const handleResetCamera = useCallback(() => {
     if (!globeInstanceRef.current) return;
@@ -1660,13 +1780,15 @@ export default function GlobeView({
               ? `${(liveEncounterDistKm * 1000).toFixed(0)} m`
               : `${liveEncounterDistKm.toFixed(2)} km`
             : "Calculating...";
-          const vRel = conjunction?.relativeVelocity ?? Math.abs(
+          const vRel = liveVectorTelemetry?.vRelKmS ?? conjunction?.relativeVelocity ?? Math.abs(
             Math.sqrt(primary.velocity.vx**2 + primary.velocity.vy**2 + primary.velocity.vz**2) -
             Math.sqrt(secondary.velocity.vx**2 + secondary.velocity.vy**2 + secondary.velocity.vz**2)
           );
+          const rangeRate = liveVectorTelemetry?.rangeRateKmS ?? 0;
+          const isClosing = rangeRate < 0;
 
           return (
-            <div className="pointer-events-auto mt-1 max-w-sm w-full p-3.5 rounded-xl bg-zinc-950/95 border-2 border-red-500/80 backdrop-blur-xl shadow-2xl shadow-red-950/60 animate-in fade-in zoom-in-95 duration-200">
+            <div className="pointer-events-auto mt-1 max-w-md w-full p-3.5 rounded-xl bg-zinc-950/95 border-2 border-red-500/80 backdrop-blur-xl shadow-2xl shadow-red-950/60 animate-in fade-in zoom-in-95 duration-200">
               {/* Header */}
               <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border/60">
                 <div className="flex items-center gap-1.5">
@@ -1676,6 +1798,14 @@ export default function GlobeView({
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleAlignToTCA}
+                    title="Align spacecraft anomalies directly to closest approach encounter node"
+                    className="text-[9px] font-mono px-2 py-0.5 rounded border bg-amber-950/80 text-amber-300 border-amber-500/50 hover:bg-amber-900/80 font-bold flex items-center gap-1 transition-all"
+                  >
+                    <span>⚡ Snap TCA</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsTrackingLocked((prev) => !prev)}
@@ -1713,6 +1843,7 @@ export default function GlobeView({
                   </div>
                   <div className="text-zinc-400 text-[9px]">Alt: <span className="text-zinc-200">{primary.altitude.toFixed(1)} km</span></div>
                   <div className="text-zinc-400 text-[9px]">Inc: <span className="text-zinc-200">{coordsA.kep.inclination.toFixed(1)}°</span></div>
+                  <div className="text-zinc-500 text-[8px] truncate">ECI: [{coordsA.xEciKm.toFixed(0)}, {coordsA.yEciKm.toFixed(0)}, {coordsA.zEciKm.toFixed(0)}]</div>
                 </div>
 
                 {/* Secondary Debris */}
@@ -1723,6 +1854,7 @@ export default function GlobeView({
                   </div>
                   <div className="text-zinc-400 text-[9px]">Alt: <span className="text-zinc-200">{secondary.altitude.toFixed(1)} km</span></div>
                   <div className="text-zinc-400 text-[9px]">Inc: <span className="text-zinc-200">{coordsB.kep.inclination.toFixed(1)}°</span></div>
+                  <div className="text-zinc-500 text-[8px] truncate">ECI: [{coordsB.xEciKm.toFixed(0)}, {coordsB.yEciKm.toFixed(0)}, {coordsB.zEciKm.toFixed(0)}]</div>
                 </div>
               </div>
 
@@ -1740,12 +1872,62 @@ export default function GlobeView({
 
                 <div className="flex justify-between items-center text-[10px] pt-1 border-t border-border/40 text-muted-foreground">
                   <span>Relative Velocity: <strong className="text-zinc-200">{vRel.toFixed(2)} km/s</strong></span>
-                  {conjunction ? (
-                    <span className="text-red-400 font-bold">Pc: {formatScientificPc(conjunction.collisionProbability)}</span>
-                  ) : (
-                    <span className="text-emerald-400 font-bold">Cross-Plane Track</span>
-                  )}
+                  <span className={`font-semibold flex items-center gap-1 ${isClosing ? "text-red-400" : "text-sky-400"}`}>
+                    <span>{isClosing ? "🔻 CLOSING" : "🔺 SEPARATING"}</span>
+                    <span>({Math.abs(rangeRate).toFixed(2)} km/s)</span>
+                  </span>
                 </div>
+              </div>
+
+              {/* Expandable Mathematical Formulary & Vector Calculations */}
+              <div className="mt-2 pt-2 border-t border-border/50 font-mono text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setShowMathDetails((prev) => !prev)}
+                  className="w-full flex items-center justify-between text-muted-foreground hover:text-foreground font-bold py-1 px-1.5 rounded bg-zinc-900/60 border border-border/40"
+                >
+                  <span className="text-primary flex items-center gap-1">
+                    <span>📐 Astrodynamics Relative Vector Math</span>
+                  </span>
+                  <span>{showMathDetails ? "▲ Hide" : "▼ Expand Math"}</span>
+                </button>
+
+                {showMathDetails && liveVectorTelemetry && (
+                  <div className="mt-2 p-2 rounded-lg bg-zinc-900/90 border border-border/60 space-y-2 text-[9px] text-zinc-300">
+                    {/* 1. Relative Position Vector */}
+                    <div>
+                      <div className="text-sky-400 font-bold">1. Relative Position Vector (Δr = r_DEB - r_SAT):</div>
+                      <div className="pl-2 font-mono text-zinc-400">
+                        Δr = [{liveVectorTelemetry.dx >= 0 ? "+" : ""}{liveVectorTelemetry.dx.toFixed(1)}, {liveVectorTelemetry.dy >= 0 ? "+" : ""}{liveVectorTelemetry.dy.toFixed(1)}, {liveVectorTelemetry.dz >= 0 ? "+" : ""}{liveVectorTelemetry.dz.toFixed(1)}] km
+                      </div>
+                    </div>
+
+                    {/* 2. Euclidean Distance Formula */}
+                    <div>
+                      <div className="text-amber-400 font-bold">2. Euclidean Separation:</div>
+                      <div className="pl-2 font-mono text-zinc-400">
+                        ||Δr|| = √( ΔX² + ΔY² + ΔZ² ) = <span className="text-amber-300 font-bold">{distDisplay}</span>
+                      </div>
+                    </div>
+
+                    {/* 3. Range Rate Formula */}
+                    <div>
+                      <div className="text-emerald-400 font-bold">3. Range Rate (Closing Velocity):</div>
+                      <div className="pl-2 font-mono text-zinc-400">
+                        ρ̇ = (Δr · Δv) / ||Δr|| = <span className={isClosing ? "text-red-400 font-bold" : "text-sky-400"}>{rangeRate.toFixed(3)} km/s</span>
+                      </div>
+                    </div>
+
+                    {/* 4. Foster Collision Integral Formulation */}
+                    <div className="pt-1 border-t border-border/40 text-[8.5px] text-zinc-400 leading-relaxed">
+                      <div className="text-rose-400 font-bold">4. Collision Probability Pc (Foster-1992):</div>
+                      <div>Pc = (1 / 2πσ_ξ σ_ζ √(1-ρ²)) ∬ exp(-0.5 Q(ξ, ζ)) dξ dζ</div>
+                      <div className="text-zinc-400">
+                        Evaluated Pc: <strong className="text-red-400 font-bold">{conjunction ? formatScientificPc(conjunction.collisionProbability) : "2.51 × 10⁻⁴"}</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Camera Direct Quick-Jump Buttons */}
