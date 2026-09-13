@@ -426,6 +426,8 @@ export default function GlobeView({
   const [isEncounterHudMinimized, setIsEncounterHudMinimized] = useState(false);
   const isUserInteractingRef = useRef(false);
   const encounterVectorGroupRef = useRef<THREE.Group | null>(null);
+  const distanceCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const distanceTextureRef = useRef<THREE.CanvasTexture | null>(null);
 
   const telemetryCount = React.useMemo(() => {
     let satellites = 0;
@@ -1138,52 +1140,130 @@ export default function GlobeView({
                 z2: z2Km,
               });
 
-              const isCriticalDist = liveDist < 50;
-              const isCautionDist = liveDist < 500;
-              const beamColor = isCriticalDist ? 0xef4444 : isCautionDist ? 0xf59e0b : 0x38bdf8;
+              // Tactical Yellow/Gold color for the relative distance arc
+              const beamColor = 0xfacc15;
 
-              // 2. Direct High-Precision 3D Laser Vector Line between Dot A and Dot B
+              // 2. High-Precision 3D Elevated Great-Circle Orbital Arc connecting Dot A and Dot B in Space
               const distScene = pA.distanceTo(pB);
               if (distScene > 0.01) {
-                // High-visibility core laser line connecting exact dot centers
-                const lineGeom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
-                const lineMat = new THREE.LineBasicMaterial({
+                const rA = pA.length();
+                const rB = pB.length();
+                const uA = pA.clone().normalize();
+                const uB = pB.clone().normalize();
+                const dot = Math.max(-1.0, Math.min(1.0, uA.dot(uB)));
+                const theta = Math.acos(dot);
+                const sinTheta = Math.sin(theta);
+
+                // Sample points along the spherical great-circle elevated arc in orbital vacuum
+                const segments = 48;
+                const arcPoints: THREE.Vector3[] = [];
+                // Elevation ensures arc smoothly rises above Earth limb (R=104.5) and arches gracefully in space
+                const hElevate = 6 + 18 * (theta / Math.PI);
+
+                for (let s = 0; s <= segments; s++) {
+                  const t = s / segments;
+                  let uInterp: THREE.Vector3;
+                  if (sinTheta > 0.001) {
+                    const wA = Math.sin((1 - t) * theta) / sinTheta;
+                    const wB = Math.sin(t * theta) / sinTheta;
+                    uInterp = new THREE.Vector3().copy(uA).multiplyScalar(wA).addScaledVector(uB, wB).normalize();
+                  } else {
+                    uInterp = new THREE.Vector3().copy(uA).lerp(uB, t).normalize();
+                  }
+
+                  const rInterp = (1 - t) * rA + t * rB + hElevate * Math.sin(Math.PI * t);
+                  arcPoints.push(uInterp.multiplyScalar(rInterp));
+                }
+
+                // 2A. High-visibility Yellow Curved Laser Arc
+                const curveGeom = new THREE.BufferGeometry().setFromPoints(arcPoints);
+                const curveMat = new THREE.LineBasicMaterial({
                   color: beamColor,
                   transparent: true,
                   opacity: 0.95,
                   depthWrite: false,
                 });
-                encGroup.add(new THREE.Line(lineGeom, lineMat));
+                encGroup.add(new THREE.Line(curveGeom, curveMat));
 
-                // Volumetric tactical laser glow beam
-                const beamGeom = new THREE.CylinderGeometry(0.18, 0.18, distScene, 8, 1, true);
-                const beamMat = new THREE.MeshBasicMaterial({
+                // 2B. Glowing Volumetric Laser Arc Tube
+                const catCurve = new THREE.CatmullRomCurve3(arcPoints);
+                const tubeGeom = new THREE.TubeGeometry(catCurve, 36, 0.22, 6, false);
+                const tubeMat = new THREE.MeshBasicMaterial({
                   color: beamColor,
                   transparent: true,
-                  opacity: 0.35,
+                  opacity: 0.38,
                   depthWrite: false,
                   side: THREE.DoubleSide,
                 });
-                const beamMesh = new THREE.Mesh(beamGeom, beamMat);
-                beamMesh.position.copy(pA).add(pB).multiplyScalar(0.5);
+                encGroup.add(new THREE.Mesh(tubeGeom, tubeMat));
 
-                const dir = new THREE.Vector3().subVectors(pB, pA).normalize();
-                const up = new THREE.Vector3(0, 1, 0);
-                beamMesh.quaternion.setFromUnitVectors(up, dir);
-                encGroup.add(beamMesh);
+                // 2C. Midpoint / Apex Beacon
+                const midIdx = Math.floor(segments / 2);
+                const apexPos = arcPoints[midIdx].clone();
 
-                // Midpoint Beacon
-                const midPos = new THREE.Vector3().copy(pA).add(pB).multiplyScalar(0.5);
-                const midGeom = new THREE.SphereGeometry(0.55, 8, 8);
+                const midGeom = new THREE.SphereGeometry(0.65, 8, 8);
                 const midMat = new THREE.MeshBasicMaterial({
                   color: beamColor,
                   transparent: true,
-                  opacity: 0.90,
+                  opacity: 0.95,
                   depthWrite: false,
                 });
                 const midMesh = new THREE.Mesh(midGeom, midMat);
-                midMesh.position.copy(midPos);
+                midMesh.position.copy(apexPos);
                 encGroup.add(midMesh);
+
+                // 2D. 3D Floating Distance Text Badge on Top of the Arc
+                if (!distanceCanvasRef.current) {
+                  const cvs = document.createElement("canvas");
+                  cvs.width = 384;
+                  cvs.height = 96;
+                  distanceCanvasRef.current = cvs;
+                  const tex = new THREE.CanvasTexture(cvs);
+                  tex.minFilter = THREE.LinearFilter;
+                  distanceTextureRef.current = tex;
+                }
+
+                const cvs = distanceCanvasRef.current;
+                const tex = distanceTextureRef.current;
+                if (cvs && tex) {
+                  const ctx = cvs.getContext("2d");
+                  if (ctx) {
+                    ctx.clearRect(0, 0, 384, 96);
+
+                    // Pill Badge Container
+                    ctx.fillStyle = "rgba(10, 15, 26, 0.92)";
+                    ctx.strokeStyle = "#facc15";
+                    ctx.lineWidth = 3.5;
+                    ctx.beginPath();
+                    ctx.roundRect(8, 8, 368, 80, 40);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Gold / Yellow Distance Text
+                    ctx.font = "bold 34px monospace";
+                    ctx.fillStyle = "#facc15";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.shadowColor = "rgba(250, 204, 21, 0.85)";
+                    ctx.shadowBlur = 10;
+                    ctx.fillText(`${liveDist.toLocaleString(undefined, { maximumFractionDigits: 1 })} km`, 192, 48);
+
+                    tex.needsUpdate = true;
+
+                    const spriteMat = new THREE.SpriteMaterial({
+                      map: tex,
+                      transparent: true,
+                      depthTest: false,
+                      depthWrite: false,
+                    });
+                    const sprite = new THREE.Sprite(spriteMat);
+                    // Position label slightly above the apex of the arc
+                    const labelOffset = apexPos.clone().normalize().multiplyScalar(4.5);
+                    sprite.position.copy(apexPos).add(labelOffset);
+                    sprite.scale.set(15, 3.75, 1);
+                    encGroup.add(sprite);
+                  }
+                }
               }
 
               // 3. Glowing Target Reticles on Point A (Satellite Dot) and Point B (Debris Dot)
