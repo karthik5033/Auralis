@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 // @ts-ignore
 import * as satellite from "satellite.js";
 import { store } from "@/lib/backend/store";
+import { ensureRuntime } from "@/lib/backend/runtime";
+import { messageBus } from "@/lib/messageBus";
 import { parseGPToTrackedObject } from "@/data/parser";
 import { deriveKeplerianElements, propagateSatrec } from "@/data/propagator";
 import { getShellId } from "@/data/shells";
@@ -61,6 +63,9 @@ function validateTleChecksum(line: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  if (process.env.NODE_ENV !== "test") {
+    ensureRuntime();
+  }
   const startTime = performance.now();
   const batchId = `ING-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)}`;
   const validationLogs: string[] = [];
@@ -406,6 +411,19 @@ export async function POST(req: NextRequest) {
     // Persist all parsed objects into in-memory store
     for (const obj of parsedTrackedObjects) {
       store.setObject(obj);
+    }
+
+    // Broadcast update across Auralis WebSocket & MessageBus
+    if (parsedTrackedObjects.length > 0) {
+      void messageBus.publish(
+        messageBus.createMessage({
+          source: "tracker",
+          target: "broadcast",
+          type: "objects:updated",
+          correlationId: null,
+          payload: { objects: parsedTrackedObjects }
+        })
+      );
     }
 
     // Register Audit Log Entry

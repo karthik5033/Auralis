@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, after } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs";
 import path from "node:path";
@@ -102,5 +102,9 @@ describe("Data Ingestion Pipeline API & 5 Sample Test Files", () => {
     assert.strictEqual(data.formatDetected, "CELESTRAK_GP_JSON");
     assert.strictEqual(data.validParsed, 5);
     assert.ok(data.objects.some((o: any) => o.name.includes("ISS")));
+  });
+
+  after(() => {
+    setTimeout(() => process.exit(0), 50);
   });
 });

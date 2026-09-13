@@ -148,6 +148,7 @@ export default function DataIngestionPage() {
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [lastResult, setLastResult] = useState<IngestionResponse | null>(null);
+  const [inspectedObject, setInspectedObject] = useState<ParsedObject | null>(null);
 
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>({
     stage: "idle",
@@ -186,102 +187,22 @@ export default function DataIngestionPage() {
       .catch((error) => console.error("Failed loading ingestion summary:", error));
   };
 
-  useEffect(() => {
-    refreshLiveStats();
-  }, []);
-
-  // Handle local user file selection
-  const handleFileSelect = async (selectedFile: File) => {
-    setFile(selectedFile);
-    setSelectedSampleId(null);
-    try {
-      const text = await selectedFile.text();
-      setFileContent(text);
-      setUploadStatus({
-        stage: "idle",
-        progress: 0,
-        message: `Loaded ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`
-      });
-      setFormData((prev) => ({
-        ...prev,
-        catalogSource: selectedFile.name.toUpperCase().replace(/[^A-Z0-9_-]/g, "_")
-      }));
-    } catch {
-      setUploadStatus({
-        stage: "error",
-        progress: 0,
-        message: "Failed to read file content"
-      });
-    }
-  };
-
-  // Load one of the 5 pre-bundled test sample files
-  const handleLoadSample = async (sample: typeof SAMPLE_FILES[0]) => {
-    setSelectedSampleId(sample.id);
-    setIsProcessing(true);
-    setUploadStatus({
-      stage: "uploading",
-      progress: 15,
-      message: `Fetching pre-bundled ${sample.name}...`
-    });
-
-    try {
-      const res = await fetch(sample.path);
-      const text = await res.text();
-      const fakeFile = new File([text], sample.name, { type: "text/plain" });
-      setFile(fakeFile);
-      setFileContent(text);
-      setFormData({
-        catalogSource: sample.id.toUpperCase(),
-        orbitalShell: sample.id === "starlink" ? "LEO 550km" : sample.id === "debris" ? "SSO 780km" : "Multi-Shell",
-        ephemerisFormat: sample.format,
-        description: `Verified test sample: ${sample.title}`
-      });
-
-      setUploadStatus({
-        stage: "idle",
-        progress: 0,
-        message: `Loaded ${sample.name} (${(text.length / 1024).toFixed(1)} KB). Click 'Execute Pipeline' to run SGP4!`
-      });
-    } catch (err) {
-      setUploadStatus({
-        stage: "error",
-        progress: 0,
-        message: `Failed loading sample file: ${sample.name}`
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Execute full ingestion pipeline
-  const handleStartIngestion = async () => {
-    if (!fileContent) return;
+  // Main execution pipeline
+  const processEphemerisData = async (content: string, filename: string, source: string, shell: string) => {
+    if (!content.trim()) return;
 
     setIsProcessing(true);
-    setUploadStatus({ stage: "uploading", progress: 20, message: "Transmitting payload to SGP4 Ingestion Engine..." });
+    setUploadStatus({ stage: "uploading", progress: 20, message: `Ingesting ${filename}...` });
 
     try {
-      setTimeout(() => {
-        setUploadStatus({ stage: "checksum", progress: 45, message: "Validating ephemeris checksums & Keplerian element boundaries..." });
-      }, 300);
-
-      setTimeout(() => {
-        setUploadStatus({ stage: "sgp4", progress: 70, message: "Deriving SGP4 state vectors [x, y, z, vx, vy, vz] & Earth J2 perturbations..." });
-      }, 700);
-
-      setTimeout(() => {
-        setUploadStatus({ stage: "graph", progress: 90, message: "Indexing orbital shells & updating Object Graph topology..." });
-      }, 1100);
-
       const res = await fetch("/api/v1/ingestion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: fileContent,
-          filename: file ? file.name : "sample-ephemeris.tle",
-          catalogSource: formData.catalogSource,
-          orbitalShell: formData.orbitalShell
+          content,
+          filename,
+          catalogSource: source,
+          orbitalShell: shell
         })
       });
 
@@ -292,10 +213,9 @@ export default function DataIngestionPage() {
         setUploadStatus({
           stage: "completed",
           progress: 100,
-          message: `Ingestion complete! ${data.validParsed} objects extracted in ${data.durationMs}ms.`
+          message: `Ingestion successful! ${data.validParsed} objects propagated via SGP4 in ${data.durationMs}ms.`
         });
 
-        // Add to history
         setIngestionHistory((prev) => [
           {
             batchId: data.batchId,
@@ -305,7 +225,7 @@ export default function DataIngestionPage() {
             time: new Date().toLocaleTimeString(),
             status: "SYNCHRONIZED"
           },
-          ...prev
+          ...prev.filter(h => h.batchId !== data.batchId)
         ]);
 
         refreshLiveStats();
@@ -325,6 +245,84 @@ export default function DataIngestionPage() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Auto-load first sample on initial mount
+  useEffect(() => {
+    refreshLiveStats();
+    handleLoadSample(SAMPLE_FILES[0]);
+  }, []);
+
+  // Handle local user file selection with auto-process
+  const handleFileSelect = async (selectedFile: File) => {
+    setFile(selectedFile);
+    setSelectedSampleId(null);
+    try {
+      const text = await selectedFile.text();
+      setFileContent(text);
+      const src = selectedFile.name.toUpperCase().replace(/[^A-Z0-9_-]/g, "_");
+      setFormData((prev) => ({
+        ...prev,
+        catalogSource: src
+      }));
+      // Auto execute ingestion immediately
+      await processEphemerisData(text, selectedFile.name, src, formData.orbitalShell);
+    } catch {
+      setUploadStatus({
+        stage: "error",
+        progress: 0,
+        message: "Failed to read file content"
+      });
+    }
+  };
+
+  // Load one of the 5 pre-bundled test sample files with auto-process
+  const handleLoadSample = async (sample: typeof SAMPLE_FILES[0]) => {
+    setSelectedSampleId(sample.id);
+    setIsProcessing(true);
+    setUploadStatus({
+      stage: "uploading",
+      progress: 25,
+      message: `Loading & analyzing ${sample.name}...`
+    });
+
+    try {
+      const res = await fetch(sample.path);
+      const text = await res.text();
+      const fakeFile = new File([text], sample.name, { type: "text/plain" });
+      setFile(fakeFile);
+      setFileContent(text);
+      const source = sample.id.toUpperCase();
+      const targetShell = sample.id === "starlink" ? "LEO 550km" : sample.id === "debris" ? "SSO 780km" : "Multi-Shell";
+      
+      setFormData({
+        catalogSource: source,
+        orbitalShell: targetShell,
+        ephemerisFormat: sample.format,
+        description: `Verified test sample: ${sample.title}`
+      });
+
+      // Directly execute SGP4 propagation pipeline
+      await processEphemerisData(text, sample.name, source, targetShell);
+    } catch (err) {
+      setUploadStatus({
+        stage: "error",
+        progress: 0,
+        message: `Failed loading sample file: ${sample.name}`
+      });
+      setIsProcessing(false);
+    }
+  };
+
+  // Manual Trigger
+  const handleStartIngestion = async () => {
+    if (!fileContent) return;
+    await processEphemerisData(
+      fileContent, 
+      file ? file.name : "sample-ephemeris.tle", 
+      formData.catalogSource, 
+      formData.orbitalShell
+    );
   };
 
   const filteredObjects = lastResult?.objects.filter((obj) => {
@@ -794,9 +792,18 @@ export default function DataIngestionPage() {
                 </TableHeader>
                 <TableBody className="text-xs font-mono">
                   {filteredObjects.map((obj) => (
-                    <TableRow key={obj.id} className="border-zinc-800/60 hover:bg-zinc-900/40">
+                    <TableRow 
+                      key={obj.id} 
+                      onClick={() => setInspectedObject((prev) => prev?.id === obj.id ? null : obj)}
+                      className={`border-zinc-800/60 transition-colors cursor-pointer ${
+                        inspectedObject?.id === obj.id ? "bg-cyan-950/40 ring-1 ring-cyan-500/50" : "hover:bg-zinc-900/50"
+                      }`}
+                    >
                       <TableCell className="font-bold text-cyan-400">#{obj.noradId}</TableCell>
-                      <TableCell className="font-bold text-white">{obj.name}</TableCell>
+                      <TableCell className="font-bold text-white flex items-center gap-1.5">
+                        <Orbit className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                        {obj.name}
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
@@ -810,7 +817,7 @@ export default function DataIngestionPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-zinc-300">{obj.operator}</TableCell>
-                      <TableCell className="text-zinc-200">{obj.altitudeKm} km</TableCell>
+                      <TableCell className="text-zinc-200 font-bold">{obj.altitudeKm} km</TableCell>
                       <TableCell className="text-zinc-200">{obj.inclinationDeg}°</TableCell>
                       <TableCell className="text-zinc-200">{obj.periodMin}m</TableCell>
                       <TableCell>
@@ -832,6 +839,65 @@ export default function DataIngestionPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Inspected Object State Vector Drawer Card */}
+            {inspectedObject && (
+              <div className="p-4 rounded-xl border border-cyan-500/40 bg-zinc-950 shadow-2xl font-mono text-xs space-y-3 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-cyan-400" />
+                    <span className="font-bold text-white text-sm">{inspectedObject.name}</span>
+                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/40 font-mono">
+                      NORAD #{inspectedObject.noradId}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link href="/dashboard">
+                      <Button size="sm" variant="outline" className="h-6 text-[10px] border-cyan-500/40 text-cyan-300 hover:bg-cyan-950/40">
+                        Inspect in 3D Tactical Globe →
+                      </Button>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setInspectedObject(null)}
+                      className="text-zinc-500 hover:text-white px-2 py-0.5 rounded"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+                  <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                    <span className="text-zinc-500 block text-[10px]">POSITION X (ECI)</span>
+                    <span className="font-bold text-white">{inspectedObject.positionEci[0].toFixed(3)} km</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                    <span className="text-zinc-500 block text-[10px]">POSITION Y (ECI)</span>
+                    <span className="font-bold text-white">{inspectedObject.positionEci[1].toFixed(3)} km</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                    <span className="text-zinc-500 block text-[10px]">POSITION Z (ECI)</span>
+                    <span className="font-bold text-white">{inspectedObject.positionEci[2].toFixed(3)} km</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                    <span className="text-zinc-500 block text-[10px]">VELOCITY MAGNITUDE</span>
+                    <span className="font-bold text-emerald-400">
+                      {Math.sqrt(
+                        Math.pow(inspectedObject.velocityEci[0], 2) +
+                        Math.pow(inspectedObject.velocityEci[1], 2) +
+                        Math.pow(inspectedObject.velocityEci[2], 2)
+                      ).toFixed(4)} km/s
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-800/60 pt-2">
+                  <span>Velocity Vector: [{inspectedObject.velocityEci.map(v => v.toFixed(3)).join(", ")}] km/s</span>
+                  <span>Assigned Shell: <span className="text-cyan-400 font-bold">{inspectedObject.shellId}</span></span>
+                </div>
+              </div>
+            )}
 
             {/* Validation Logs Terminal */}
             <div className="space-y-1.5">
