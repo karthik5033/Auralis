@@ -59,7 +59,7 @@ export function AppSidebar() {
       isCollapsed ? "w-[80px]" : "w-64"
     )}>
       {/* Brand Section */}
-      <Link href="/" className="cursor-pointer" aria-label="Go to Auralis landing page">
+      <Link href="/dashboard" className="cursor-pointer" aria-label="Auralis Command Center">
         <div className={cn("flex h-16 items-center border-b border-border/50 transition-all overflow-hidden whitespace-nowrap", isCollapsed ? "justify-center px-0" : "px-5")}>
           <AuralisLogo size="md" showText={!isCollapsed} />
         </div>
