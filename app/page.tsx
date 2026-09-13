@@ -150,9 +150,9 @@ export default function Home() {
         const [sumRes, shellsRes, conjRes, manRes, objRes] = await Promise.all([
           getDashboardSummary(),
           getShells(),
-          getConjunctions({ limit: 5 }),
-          getManeuvers({ limit: 3 }),
-          getObjects({ limit: 100 }),
+          getConjunctions({ limit: 10 }),
+          getManeuvers({ limit: 10 }),
+          getObjects({ limit: 1000 }),
         ]);
         setSummary(sumRes);
         setShells(shellsRes.data || []);
@@ -162,6 +162,10 @@ export default function Home() {
         const map: Record<string, TrackedObject> = {};
         (objRes.data || []).forEach((o) => {
           map[o.id] = o;
+          if (o.noradId) {
+            map[`norad-${o.noradId}`] = o;
+            map[String(o.noradId)] = o;
+          }
         });
         setObjectsMap(map);
       } catch (err) {
@@ -475,65 +479,102 @@ export default function Home() {
                   <div className="w-full h-px border-t border-zinc-200 dark:border-zinc-800/60" />
                 </div>
 
-                {/* Vertical Reference Marker for Peak Shell (780km) */}
-                <div 
-                  className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500/25 pointer-events-none"
-                  style={{ left: "68.33%" }}
-                />
-                
-                {/* Smooth Continuous SVG Area & Hairline Path */}
-                <svg 
-                  className="absolute inset-0 w-full h-full overflow-visible" 
-                  preserveAspectRatio="none" 
-                  viewBox="0 0 600 200"
-                >
-                  <defs>
-                    <linearGradient id="gradientCascadeR0" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ef4444" stopOpacity="0.2" />
-                      <stop offset="35%" stopColor="#ffffff" stopOpacity="0.06" />
-                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
+                {/* Dynamic SVG Area & Hairline Path calculated from live 51-shell SIR epidemic data */}
+                {(() => {
+                  const sortedShells = [...shells].sort((a, b) => a.altitudeMin - b.altitudeMin);
+                  const maxR0Val = Math.max(30, ...sortedShells.map((s) => s.r0));
+                  const minAltVal = sortedShells.length > 0 ? sortedShells[0].altitudeMin : 200;
+                  const maxAltVal = sortedShells.length > 0 ? sortedShells[sortedShells.length - 1].altitudeMax : 1200;
 
-                  {/* Silky Smooth Area Fill */}
-                  <path 
-                    d="M 0,188 C 60,188 120,185 180,180 C 240,175 290,165 330,125 C 370,85 390,42 410,42 C 430,42 450,85 480,120 C 515,155 550,170 600,174 L 600,200 L 0,200 Z" 
-                    fill="url(#gradientCascadeR0)" 
-                  />
-                  
-                  {/* Crisp Hairline Curve (Exact 1.5px screen width everywhere via non-scaling-stroke) */}
-                  <path 
-                    d="M 0,188 C 60,188 120,185 180,180 C 240,175 290,165 330,125 C 370,85 390,42 410,42 C 430,42 450,85 480,120 C 515,155 550,170 600,174" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="1.5" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    vectorEffect="non-scaling-stroke"
-                    className="text-zinc-700 dark:text-zinc-200"
-                  />
-                </svg>
+                  const points = sortedShells.map((s) => {
+                    const midAlt = (s.altitudeMin + s.altitudeMax) / 2;
+                    const x = Math.max(10, Math.min(590, ((midAlt - minAltVal) / Math.max(1, maxAltVal - minAltVal)) * 580 + 10));
+                    const y = Math.max(20, Math.min(185, 185 - (s.r0 / maxR0Val) * 155));
+                    return { x, y, shell: s };
+                  });
 
-                {/* Exact Proportional Circular Peak Focal Marker (No distortion/oval) */}
-                <div 
-                  className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center"
-                  style={{ left: "68.33%", top: "21%" }}
-                >
-                  <span className="absolute w-5 h-5 rounded-full bg-red-500/20 animate-ping" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-950 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                </div>
+                  const currentPeakShell = shells.length > 0
+                    ? shells.reduce((max, s) => (s.r0 > max.r0 ? s : max), shells[0])
+                    : { shellId: "LEO_750_800", r0: 25.25, altitudeMin: 750, altitudeMax: 800 };
 
-                {/* Floating Precision Telemetry Badge on Peak */}
-                <div 
-                  className="absolute -translate-x-1/2 -translate-y-full -mt-2 pointer-events-none"
-                  style={{ left: "68.33%", top: "21%" }}
-                >
-                  <div className="px-2 py-0.5 rounded bg-zinc-900/90 dark:bg-black/90 border border-red-500/40 text-[10px] font-mono text-red-400 font-bold shadow-lg flex items-center gap-1.5 whitespace-nowrap">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                    <span>R₀ 25.25</span>
-                    <span className="text-zinc-500 font-normal">| 780km</span>
-                  </div>
-                </div>
+                  const peakPt = points.reduce((max, p) => (p.shell.r0 > max.shell.r0 ? p : max), points[0] || { x: 410, y: 42, shell: currentPeakShell });
+                  const peakLeftPercent = `${((peakPt.x / 600) * 100).toFixed(2)}%`;
+                  const peakTopPercent = `${((peakPt.y / 200) * 100).toFixed(2)}%`;
+
+                  const dPath = points.length > 1
+                    ? points.reduce((acc, p, i, arr) => {
+                        if (i === 0) return `M ${p.x},${p.y}`;
+                        const prev = arr[i - 1];
+                        const cx = (prev.x + p.x) / 2;
+                        return `${acc} C ${cx},${prev.y} ${cx},${p.y} ${p.x},${p.y}`;
+                      }, "")
+                    : "M 0,188 C 60,188 120,185 180,180 C 240,175 290,165 330,125 C 370,85 390,42 410,42 C 430,42 450,85 480,120 C 515,155 550,170 600,174";
+
+                  const dArea = `${dPath} L 600,200 L 0,200 Z`;
+
+                  return (
+                    <>
+                      {/* Vertical Reference Marker for Peak Shell */}
+                      <div 
+                        className="absolute top-0 bottom-0 w-px border-l border-dashed border-red-500/30 pointer-events-none"
+                        style={{ left: peakLeftPercent }}
+                      />
+                      
+                      <svg 
+                        className="absolute inset-0 w-full h-full overflow-visible" 
+                        preserveAspectRatio="none" 
+                        viewBox="0 0 600 200"
+                      >
+                        <defs>
+                          <linearGradient id="gradientCascadeR0" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.25" />
+                            <stop offset="35%" stopColor="#ffffff" stopOpacity="0.06" />
+                            <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Live Area Fill */}
+                        <path 
+                          d={dArea} 
+                          fill="url(#gradientCascadeR0)" 
+                        />
+                        
+                        {/* Live Hairline Curve */}
+                        <path 
+                          d={dPath} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="1.5" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          vectorEffect="non-scaling-stroke"
+                          className="text-zinc-700 dark:text-zinc-200"
+                        />
+                      </svg>
+
+                      {/* Peak Circular Focal Marker */}
+                      <div 
+                        className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center"
+                        style={{ left: peakLeftPercent, top: peakTopPercent }}
+                      >
+                        <span className="absolute w-5 h-5 rounded-full bg-red-500/20 animate-ping" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-zinc-950 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                      </div>
+
+                      {/* Floating Telemetry Badge on Peak */}
+                      <div 
+                        className="absolute -translate-x-1/2 -translate-y-full -mt-2 pointer-events-none"
+                        style={{ left: peakLeftPercent, top: peakTopPercent }}
+                      >
+                        <div className="px-2 py-0.5 rounded bg-zinc-900/90 dark:bg-black/90 border border-red-500/40 text-[10px] font-mono text-red-400 font-bold shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                          <span>R₀ {currentPeakShell.r0.toFixed(2)}</span>
+                          <span className="text-zinc-500 font-normal">| {currentPeakShell.altitudeMin}-{currentPeakShell.altitudeMax}km</span>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* X Axis Labels */}
@@ -549,15 +590,24 @@ export default function Home() {
             </div>
 
             <div className="pt-3 border-t border-border/50 text-[11px] font-mono text-muted-foreground flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
-                Peak Supercritical Cascade: <strong className="text-red-500 dark:text-red-400">LEO_750_800 (R₀ = 25.25)</strong>
-              </span>
-              <span className="text-muted-foreground">ODE Runge-Kutta 4th Order</span>
+              {(() => {
+                const peak = shells.length > 0
+                  ? shells.reduce((max, s) => (s.r0 > max.r0 ? s : max), shells[0])
+                  : { shellId: "LEO_750_800", r0: 25.25 };
+                return (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
+                      Peak Supercritical Cascade: <strong className="text-red-500 dark:text-red-400">{peak.shellId} (R₀ = {peak.r0.toFixed(2)})</strong>
+                    </span>
+                    <span className="text-muted-foreground">ODE Runge-Kutta 4th Order</span>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
-          {/* Middle Card: Δv Fuel Ledger - Clean Monochrome */}
+          {/* Middle Card: Δv Fuel Ledger - Live Real Maneuvers */}
           <div className="col-span-1 md:col-span-3 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-4">
               <div>
@@ -575,26 +625,53 @@ export default function Home() {
             </div>
             
             <div className="space-y-3">
-              {[
-                { name: "Starlink Fleet", op: "SpaceX", dv: "0.40 m/s", icon: Rocket, status: "Autonomous Yield" },
-                { name: "ISS (ZARYA)", op: "NASA", dv: "0.28 m/s", icon: Flame, status: "COSMOS Avoidance" },
-                { name: "Tiangong (CSS)", op: "CNSA", dv: "0.35 m/s", icon: Zap, status: "SL-16 Separation" },
-              ].map((item, idx) => {
-                const Icon = item.icon;
+              {(maneuvers.length > 0 ? maneuvers.slice(0, 3) : [
+                {
+                  id: "m1",
+                  maneuveringObjectId: "norad-44713",
+                  operatorAgentId: "SpaceX Starlink",
+                  deltaV: { magnitude: 0.40, direction: { x: 0, y: 1, z: 0 } },
+                  rationale: "Autonomous Avoidance Yield",
+                  negotiationStatus: "agreed"
+                },
+                {
+                  id: "m2",
+                  maneuveringObjectId: "norad-25544",
+                  operatorAgentId: "NASA / ISS",
+                  deltaV: { magnitude: 0.28, direction: { x: 0, y: 1, z: 0 } },
+                  rationale: "COSMOS 2251 Separation",
+                  negotiationStatus: "agreed"
+                },
+                {
+                  id: "m3",
+                  maneuveringObjectId: "norad-48274",
+                  operatorAgentId: "CNSA",
+                  deltaV: { magnitude: 0.35, direction: { x: 0, y: 1, z: 0 } },
+                  rationale: "SL-16 Debris Clear",
+                  negotiationStatus: "proposed"
+                }
+              ]).map((m, idx) => {
+                const moverId = "maneuveringObjectId" in m ? m.maneuveringObjectId : "";
+                const targetName = objectsMap[moverId]?.name || (moverId ? moverId.replace("norad-", "NORAD ").toUpperCase() : `Satellite Target #${idx + 1}`);
+                const operatorName = ("operatorAgentId" in m ? m.operatorAgentId : null) || objectsMap[moverId]?.operatorId || "Fleet Operator";
+                const dvMag = "deltaV" in m && m.deltaV ? m.deltaV.magnitude : (idx + 1) * 0.15 + 0.2;
+                const dvText = `${dvMag.toFixed(2)} m/s`;
+                const statusText = m.rationale || ("negotiationStatus" in m ? (m.negotiationStatus === "agreed" ? "Burn Agreement Reached" : "Autonomous Proposed") : "Active Maneuver");
+
                 return (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 font-mono">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60">
-                        <Icon className="w-4 h-4" />
+                  <div key={m.id || idx} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800/80 font-mono">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60 shrink-0">
+                        {idx === 0 ? <Rocket className="w-4 h-4" /> : idx === 1 ? <Flame className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                       </div>
-                      <div>
-                        <div className="text-xs font-bold text-foreground font-sans">{item.name}</div>
-                        <div className="text-[10px] text-muted-foreground">{item.status}</div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-foreground font-sans truncate">{targetName}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{statusText}</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-black text-sm text-foreground">{item.dv}</div>
-                      <div className="text-[9px] text-muted-foreground">{item.op}</div>
+                    <div className="text-right shrink-0 pl-2">
+                      <div className="font-black text-sm text-foreground">{dvText}</div>
+                      <div className="text-[9px] text-muted-foreground">{operatorName}</div>
                     </div>
                   </div>
                 );
@@ -603,11 +680,13 @@ export default function Home() {
 
             <div className="pt-3 border-t border-border/50 text-[11px] font-mono text-muted-foreground flex justify-between">
               <span>Remaining Fleet Reserve:</span>
-              <span className="font-bold text-zinc-700 dark:text-zinc-200">96.8%</span>
+              <span className="font-bold text-zinc-700 dark:text-zinc-200">
+                {summary ? `${(100 - (summary.maneuveredLast24h * 0.3)).toFixed(1)}%` : "96.8%"}
+              </span>
             </div>
           </div>
 
-          {/* Right Card: Active Conjunction Screening */}
+          {/* Right Card: Active Conjunction Screening - Live Conjunction Events */}
           <div className="col-span-1 md:col-span-3 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-4">
               <div>
@@ -626,16 +705,19 @@ export default function Home() {
             
             <div className="space-y-3 font-mono text-xs">
               {(conjunctions.length > 0 ? conjunctions.slice(0, 5) : [
-                { id: "1", p: "ISS (ZARYA)", s: "COSMOS 2251 DEB", miss: 0.347, risk: "critical" },
-                { id: "2", p: "TIANGONG (CSS)", s: "SL-16 R/B DEB", miss: 0.28, risk: "critical" },
-                { id: "3", p: "NOAA 19", s: "FENGYUN 1C DEB", miss: 1.12, risk: "elevated" },
-                { id: "4", p: "ENVISAT", s: "COSMOS 2251 DEB", miss: 0.89, risk: "elevated" },
-                { id: "5", p: "STARLINK-31042", s: "CZ-4B R/B", miss: 8.4, risk: "nominal" },
+                { id: "c1", primaryObjectId: "norad-25544", secondaryObjectId: "norad-33053", missDistance: 0.347, riskLevel: "critical" },
+                { id: "c2", primaryObjectId: "norad-48274", secondaryObjectId: "norad-49008", missDistance: 0.280, riskLevel: "critical" },
+                { id: "c3", primaryObjectId: "norad-33591", secondaryObjectId: "norad-29712", missDistance: 1.120, riskLevel: "elevated" },
+                { id: "c4", primaryObjectId: "norad-27386", secondaryObjectId: "norad-33054", missDistance: 0.890, riskLevel: "elevated" },
+                { id: "c5", primaryObjectId: "norad-44713", secondaryObjectId: "norad-41240", missDistance: 8.400, riskLevel: "nominal" },
               ]).map((c, idx) => {
-                const primary = "primaryObjectId" in c ? objectsMap[c.primaryObjectId]?.name || "Primary Sat" : (c as unknown as { p: string }).p;
-                const secondary = "secondaryObjectId" in c ? objectsMap[c.secondaryObjectId]?.name || "Debris Target" : (c as unknown as { s: string }).s;
-                const missKm = "missDistance" in c ? c.missDistance : (c as unknown as { miss: number }).miss;
-                const risk = "riskLevel" in c ? c.riskLevel : (c as unknown as { risk: string }).risk;
+                const primaryId = "primaryObjectId" in c ? c.primaryObjectId : "";
+                const secondaryId = "secondaryObjectId" in c ? c.secondaryObjectId : "";
+                
+                const primary = objectsMap[primaryId]?.name || (primaryId ? primaryId.replace("norad-", "NORAD ").toUpperCase() : `Primary Satellite #${idx + 1}`);
+                const secondary = objectsMap[secondaryId]?.name || (secondaryId ? secondaryId.replace("norad-", "NORAD ").toUpperCase() : `Debris Fragment #${idx + 1}`);
+                const missKm = "missDistance" in c ? c.missDistance : 1.5;
+                const risk = "riskLevel" in c ? c.riskLevel : "nominal";
                 const isCritical = risk === "critical";
                 const isElevated = risk === "elevated";
 
@@ -687,7 +769,7 @@ export default function Home() {
 
             <div className="pt-3 border-t border-border/50 text-[11px] font-mono text-muted-foreground flex justify-between">
               <span>B-Plane Hard-Body Radius:</span>
-              <span className="font-bold text-foreground">20.0 m</span>
+              <span className="font-bold text-zinc-700 dark:text-zinc-200">20.0 m</span>
             </div>
           </div>
         </div>
@@ -1396,41 +1478,94 @@ export default function Home() {
           
           {/* Row 1: Bottom 3 cols */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border-t border-zinc-200 dark:border-zinc-800 border-dashed">
-            <div className="p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed md:border-b-0 md:border-r flex flex-col justify-center">
-              <h3 className="text-xl font-bold mb-3">Real-time Covariance Screening</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Screen conjunction pairs instantly as SGP4 propagates new ephemeris states.</p>
-              <div className="flex gap-2 flex-wrap">
-                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 shadow-sm whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-sky-400"></span>Foster-1992</div>
-                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs flex items-center gap-1.5 shadow-sm whitespace-nowrap text-zinc-600 dark:text-zinc-300"><span className="w-2 h-2 rounded-full bg-teal-400"></span>Akella-Alfriend</div>
-                <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs flex items-center gap-1.5 shadow-sm whitespace-nowrap text-zinc-600 dark:text-zinc-300"><span className="w-2 h-2 rounded-full bg-purple-400"></span>Monte Carlo 50k</div>
+            <div className="p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed md:border-b-0 md:border-r flex flex-col justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Real-time Covariance Screening</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Screen conjunction pairs instantly as SGP4 propagates new ephemeris states.</p>
+                <div className="flex gap-2 flex-wrap mb-4">
+                  <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 shadow-sm whitespace-nowrap"><span className="w-2 h-2 rounded-full bg-sky-400"></span>Foster-1992</div>
+                  <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs flex items-center gap-1.5 shadow-sm whitespace-nowrap text-zinc-600 dark:text-zinc-300"><span className="w-2 h-2 rounded-full bg-teal-400"></span>Akella-Alfriend</div>
+                  <div className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 text-xs flex items-center gap-1.5 shadow-sm whitespace-nowrap text-zinc-600 dark:text-zinc-300"><span className="w-2 h-2 rounded-full bg-purple-400"></span>Monte Carlo 50k</div>
+                </div>
               </div>
-            </div>
-            <div className="p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed md:border-b-0 md:border-r flex flex-col justify-center">
-              <h3 className="text-xl font-bold mb-3">Collision Probability (Pc) Grading</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Automatic risk categorization: Critical (Pc &gt; 10⁻⁴), Elevated (Pc &gt; 10⁻⁵), and Nominal.</p>
-              <div className="inline-flex items-center gap-3 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 shadow-sm text-sm self-start">
-                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Risk Tiers</span>
-                <div className="flex gap-2 items-center text-xs">
-                  <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e]"></span> <span className="text-[11px] text-zinc-500">Critical</span></span>
-                  <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> <span className="text-[11px] text-zinc-500">Elevated</span></span>
-                  <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> <span className="text-[11px] text-zinc-500">Nominal</span></span>
+
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-cyan-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-cyan-400 font-bold flex items-center justify-between">
+                  <span>FOSTER-1992 2D GAUSSIAN INTEGRAL</span>
+                  <span className="text-zinc-500">B-Plane</span>
+                </div>
+                <div className="text-cyan-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"P_c = \\frac{1}{2\\pi \\sqrt{\\det(C_B)}} \\iint_{\\mathcal{A}} \\exp\\left(-\\frac{1}{2} \\mathbf{r}^T C_B^{-1} \\mathbf{r}\\right) dx\\, dy"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"C_B = P (C_1 + C_2) P^T"}</span>
+                  <span>{"R_{hard} = R_1 + R_2"}</span>
                 </div>
               </div>
             </div>
-            <div className="p-8 flex flex-col justify-center">
-              <h3 className="text-xl font-bold mb-3">Astrodynamics State Vector Tuning</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-6">Refine radial, along-track, and cross-track covariance uncertainties with ground radar.</p>
-              <div className="flex gap-3 items-center">
-                <div className="w-12 h-12 flex items-center justify-center border border-sky-500/30 dark:border-sky-500/30 rounded-lg bg-sky-50/50 dark:bg-sky-950/30 shadow-sm text-sky-500">
-                  <Orbit className="w-6 h-6 animate-spin" style={{ animationDuration: '12s' }} />
+
+            <div className="p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed md:border-b-0 md:border-r flex flex-col justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Collision Probability (Pc) Grading</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Automatic risk categorization: Critical (Pc &gt; 10⁻⁴), Elevated (Pc &gt; 10⁻⁵), and Nominal.</p>
+                <div className="inline-flex items-center gap-3 px-3 py-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full bg-white dark:bg-zinc-950 shadow-sm text-sm self-start mb-4">
+                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Risk Tiers</span>
+                  <div className="flex gap-2 items-center text-xs">
+                    <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e]"></span> <span className="text-[11px] text-zinc-500">Critical</span></span>
+                    <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> <span className="text-[11px] text-zinc-500">Elevated</span></span>
+                    <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> <span className="text-[11px] text-zinc-500">Nominal</span></span>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <div className="inline-flex items-center px-2.5 py-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-950 shadow-sm text-[11px] text-zinc-700 dark:text-zinc-300 font-mono">
-                    RIC Frame <span className="text-zinc-300 dark:text-zinc-700 mx-1.5">|</span> Radial +0.02km
+              </div>
+
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-rose-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-rose-400 font-bold flex items-center justify-between">
+                  <span>NASA / ESA ACTION CRITERIA</span>
+                  <span className="text-zinc-500">Tier Matrix</span>
+                </div>
+                <div className="text-rose-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"\\text{RiskTier} = \\begin{cases} \\text{CRITICAL} & P_c \\ge 10^{-4} \\\\ \\text{ELEVATED} & 10^{-5} \\le P_c < 10^{-4} \\\\ \\text{NOMINAL} & P_c < 10^{-5} \\end{cases}"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"TCA \\le 72.0\\,\\text{h}"}</span>
+                  <span>{"\\Delta v_{\\text{req}} \\ge 0.28\\,\\text{m/s}"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 flex flex-col justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Astrodynamics State Vector Tuning</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 text-sm mb-4">Refine radial, along-track, and cross-track covariance uncertainties with ground radar.</p>
+                <div className="flex gap-3 items-center mb-4">
+                  <div className="w-12 h-12 flex items-center justify-center border border-sky-500/30 dark:border-sky-500/30 rounded-lg bg-sky-50/50 dark:bg-sky-950/30 shadow-sm text-sky-500">
+                    <Orbit className="w-6 h-6 animate-spin" style={{ animationDuration: '12s' }} />
                   </div>
-                  <div className="inline-flex items-center gap-1 px-2.5 py-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-zinc-50 dark:bg-zinc-900 shadow-sm text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                    Along-Track Δv: 1.4 m/s
+                  <div className="flex flex-col gap-1.5">
+                    <div className="inline-flex items-center px-2.5 py-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-950 shadow-sm text-[11px] text-zinc-700 dark:text-zinc-300 font-mono">
+                      RIC Frame <span className="text-zinc-300 dark:text-zinc-700 mx-1.5">|</span> Radial +0.02km
+                    </div>
+                    <div className="inline-flex items-center gap-1 px-2.5 py-1 border border-zinc-200 dark:border-zinc-800 rounded-md bg-zinc-50 dark:bg-zinc-900 shadow-sm text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      Along-Track Δv: 1.4 m/s
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between">
+                  <span>RIC COORDINATE ROTATION</span>
+                  <span className="text-zinc-500">{"\\sigma_{pos}"}</span>
+                </div>
+                <div className="text-sky-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"\\mathbf{r}_{\\text{RIC}} = \\begin{bmatrix} \\hat{\\mathbf{r}} \\\\ \\hat{\\mathbf{i}} \\\\ \\hat{\\mathbf{c}} \\end{bmatrix} \\mathbf{r}_{\\text{ECI}}, \\quad \\sigma_{\\text{pos}} = \\sqrt{\\sigma_R^2 + \\sigma_I^2 + \\sigma_C^2}"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"\\hat{\\mathbf{r}} = \\mathbf{r}/\\|\\mathbf{r}\\|"}</span>
+                  <span>{"\\hat{\\mathbf{c}} = (\\mathbf{r}\\times\\mathbf{v})/\\|\\mathbf{r}\\times\\mathbf{v}\\|"}</span>
                 </div>
               </div>
             </div>
@@ -1442,13 +1577,15 @@ export default function Home() {
           {/* Column 1 */}
           <div className="border-r border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col">
             {/* Multi-Operator Agent Coordination */}
-            <div className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col h-full overflow-hidden">
-              <h3 className="text-xl font-bold mb-3">Multi-Operator Agent Coordination</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed text-sm">
-                Autonomous proxy agents negotiate avoidance maneuvers between operators to eliminate defensive burns and game-theoretic deadlocks.
-              </p>
+            <div className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col h-full overflow-hidden justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Multi-Operator Agent Coordination</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 mb-4 leading-relaxed text-sm">
+                  Autonomous proxy agents negotiate avoidance maneuvers between operators to eliminate defensive burns and game-theoretic deadlocks.
+                </p>
+              </div>
               
-              <div className="w-full mt-auto bg-zinc-50/60 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden h-60 p-4 relative flex items-center justify-between">
+              <div className="w-full bg-zinc-50/60 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden h-52 p-4 relative flex items-center justify-between mb-4">
                 <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 360 200" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="p2p-grad" x1="0" y1="0" x2="1" y2="0">
@@ -1504,52 +1641,84 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between">
+                  <span>BILATERAL GAME-THEORETIC OPTIMIZATION</span>
+                  <span className="text-zinc-500">{"\\min J(\\Delta v)"}</span>
+                </div>
+                <div className="text-sky-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"\\min_{\\Delta \\mathbf{v}_1, \\Delta \\mathbf{v}_2} J = w_1 \\|\\Delta \\mathbf{v}_1\\|_2 + w_2 \\|\\Delta \\mathbf{v}_2\\|_2 \\quad \\text{s.t.} \\quad d_{\\text{miss}}(t_{\\text{TCA}}) \\ge 25.0\\,\\text{km}"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"w_i = 1 / (\\text{Fuel}_i + \\epsilon)"}</span>
+                  <span>{"P_c(t_{\\text{post}}) \\le 10^{-7}"}</span>
+                </div>
+              </div>
             </div>
             
             {/* Maneuver Simulation & Rollback */}
-            <div className="p-6 md:p-8 flex flex-col h-full overflow-hidden">
-              <h3 className="text-xl font-bold mb-3">Maneuver Simulation & Rollback</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed text-sm">
-                Simulate prograde and retrograde burn options, preview secondary conjunction risks, and verify zero collision paths.
-              </p>
-              
-              <div className="flex gap-2 justify-center mb-4 flex-wrap">
-                <span className="px-3 py-1.5 bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-400 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5">
-                  <Rocket className="w-3.5 h-3.5" /> Δv +1.4 m/s Prograde
-                </span>
-                <span className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-lg text-xs font-mono font-medium">
-                  Rollback Available
-                </span>
+            <div className="p-6 md:p-8 flex flex-col h-full overflow-hidden justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Maneuver Simulation & Rollback</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 mb-4 leading-relaxed text-sm">
+                  Simulate prograde and retrograde burn options, preview secondary conjunction risks, and verify zero collision paths.
+                </p>
+                
+                <div className="flex gap-2 justify-center mb-4 flex-wrap">
+                  <span className="px-3 py-1.5 bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-400 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5">
+                    <Rocket className="w-3.5 h-3.5" /> Δv +1.4 m/s Prograde
+                  </span>
+                  <span className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-lg text-xs font-mono font-medium">
+                    Rollback Available
+                  </span>
+                </div>
+
+                <div className="relative w-full h-44 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col mb-4">
+                  <div className="h-6 bg-zinc-100 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-3 gap-1.5 justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-rose-400"></div>
+                      <div className="w-2 h-2 rounded-full bg-amber-400"></div>
+                      <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                    </div>
+                    <span className="text-[10px] font-mono text-zinc-400">TRAJECTORY PREVIEW // RK4</span>
+                  </div>
+                  <div className="flex-1 p-3 flex flex-col justify-between bg-zinc-50/50 dark:bg-zinc-950">
+                    <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                      <div className="p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                        <div className="text-zinc-400 text-[9px]">PRE-MANEUVER</div>
+                        <div className="text-rose-500 font-bold mt-0.5">Miss: 142 m</div>
+                        <div className="text-[9px] text-zinc-400">Pc: 3.4 × 10⁻³</div>
+                      </div>
+                      <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                        <div className="text-emerald-500 text-[9px] font-semibold">POST-MANEUVER</div>
+                        <div className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Miss: 4,920 m</div>
+                        <div className="text-[9px] text-emerald-500">Pc: 1.2 × 10⁻⁸</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-mono pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80">
+                      <span className="text-zinc-500 dark:text-zinc-400">Secondary Conjunctions:</span>
+                      <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> 0 Generated
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-auto relative w-full h-48 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col">
-                <div className="h-6 bg-zinc-100 dark:bg-zinc-900/80 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-3 gap-1.5 justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-rose-400"></div>
-                    <div className="w-2 h-2 rounded-full bg-amber-400"></div>
-                    <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-                  </div>
-                  <span className="text-[10px] font-mono text-zinc-400">TRAJECTORY PREVIEW // RK4</span>
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-emerald-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-emerald-400 font-bold flex items-center justify-between">
+                  <span>CLOHESSY-WILTSHIRE RELATIVE MOTION & RK4</span>
+                  <span className="text-zinc-500">4th Order</span>
                 </div>
-                <div className="flex-1 p-3 flex flex-col justify-between bg-zinc-50/50 dark:bg-zinc-950">
-                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                    <div className="p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                      <div className="text-zinc-400 text-[9px]">PRE-MANEUVER</div>
-                      <div className="text-rose-500 font-bold mt-0.5">Miss: 142 m</div>
-                      <div className="text-[9px] text-zinc-400">Pc: 3.4 × 10⁻³</div>
-                    </div>
-                    <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-                      <div className="text-emerald-500 text-[9px] font-semibold">POST-MANEUVER</div>
-                      <div className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Miss: 4,920 m</div>
-                      <div className="text-[9px] text-emerald-500">Pc: 1.2 × 10⁻⁸</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono pt-2 border-t border-zinc-200 dark:border-zinc-800/80">
-                    <span className="text-zinc-500 dark:text-zinc-400">Secondary Conjunctions:</span>
-                    <span className="text-emerald-500 font-semibold flex items-center gap-1">
-                      <Check className="w-3 h-3" /> 0 Generated
-                    </span>
-                  </div>
+                <div className="text-emerald-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"\\ddot{x} - 2n\\dot{y} - 3n^2x = f_x, \\quad \\ddot{y} + 2n\\dot{x} = f_y, \\quad \\ddot{z} + n^2z = f_z"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"\\mathbf{y}_{n+1} = \\mathbf{y}_n + \\frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)"}</span>
+                  <span>{"n = \\sqrt{\\mu / a^3}"}</span>
                 </div>
               </div>
             </div>
@@ -1558,84 +1727,118 @@ export default function Home() {
           {/* Column 2 */}
           <div className="border-r border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col">
             {/* Autonomous Agent Negotiation Engine */}
-            <div className="p-6 md:p-8 flex flex-col h-full pb-0">
-              <h3 className="text-xl font-bold mb-3 text-center">Autonomous Agent Negotiation Engine</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-center text-sm leading-relaxed">
-                Deploy autonomous agent proxies to compute Nash equilibrium maneuver agreements based on remaining fuel reserves.
-              </p>
-              
-              <div className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden h-72 relative mt-2 mb-auto flex flex-col">
-                <div className="p-2.5 font-semibold text-center border-b border-zinc-200 dark:border-zinc-800 text-[11px] flex items-center justify-between px-3 bg-zinc-50/50 dark:bg-zinc-900/50">
-                  <span className="font-mono text-sky-500 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Nash Equilibrium Solver</span>
-                  <span className="text-[10px] font-mono text-zinc-400">Game-Theory v2.4</span>
-                </div>
+            <div className="p-6 md:p-8 flex flex-col h-full pb-0 justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3 text-center">Autonomous Agent Negotiation Engine</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 mb-4 text-center text-sm leading-relaxed">
+                  Deploy autonomous agent proxies to compute Nash equilibrium maneuver agreements based on remaining fuel reserves.
+                </p>
                 
-                {/* 2x2 Decision Payoff Matrix */}
-                <div className="p-3 bg-white dark:bg-zinc-950 flex-1 flex flex-col justify-between">
-                  <div className="text-[10px] font-mono text-zinc-400 mb-1.5 flex justify-between">
-                    <span>Payoff Matrix [Agent A, Agent B]</span>
-                    <span className="text-emerald-500">● Solved in 320ms</span>
+                <div className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden h-64 relative mt-2 mb-4 flex flex-col">
+                  <div className="p-2.5 font-semibold text-center border-b border-zinc-200 dark:border-zinc-800 text-[11px] flex items-center justify-between px-3 bg-zinc-50/50 dark:bg-zinc-900/50">
+                    <span className="font-mono text-sky-500 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Nash Equilibrium Solver</span>
+                    <span className="text-[10px] font-mono text-zinc-400">Game-Theory v2.4</span>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
-                    <div className="p-2 bg-zinc-100 dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-800">
-                      <div className="text-zinc-400 text-[9px]">BOTH BURN</div>
-                      <div className="text-zinc-600 dark:text-zinc-300">[-0.4kg, -0.4kg]</div>
-                      <div className="text-[8px] text-zinc-400">Suboptimal Fuel Loss</div>
+                  {/* 2x2 Decision Payoff Matrix */}
+                  <div className="p-3 bg-white dark:bg-zinc-950 flex-1 flex flex-col justify-between">
+                    <div className="text-[10px] font-mono text-zinc-400 mb-1.5 flex justify-between">
+                      <span>Payoff Matrix [Agent A, Agent B]</span>
+                      <span className="text-emerald-500">● Solved in 320ms</span>
                     </div>
-                    <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded">
-                      <div className="text-rose-500 text-[9px]">BOTH COAST</div>
-                      <div className="text-rose-500 font-bold">[COLLISION]</div>
-                      <div className="text-[8px] text-rose-400">Deadlock Failure</div>
+                    
+                    <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                      <div className="p-2 bg-zinc-100 dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-800">
+                        <div className="text-zinc-400 text-[9px]">BOTH BURN</div>
+                        <div className="text-zinc-600 dark:text-zinc-300">[-0.4kg, -0.4kg]</div>
+                        <div className="text-[8px] text-zinc-400">Suboptimal Fuel Loss</div>
+                      </div>
+                      <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded">
+                        <div className="text-rose-500 text-[9px]">BOTH COAST</div>
+                        <div className="text-rose-500 font-bold">[COLLISION]</div>
+                        <div className="text-[8px] text-rose-400">Deadlock Failure</div>
+                      </div>
+                      <div className="p-2.5 bg-emerald-500/10 border-2 border-emerald-500/60 rounded-lg col-span-2 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+                        <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">
+                          <span>★ NASH EQUILIBRIUM REACHED</span>
+                          <span>PROPELLANT OPTIMAL</span>
+                        </div>
+                        <div className="text-zinc-800 dark:text-zinc-200 mt-1 text-[10px]">
+                          Agent A (Starlink) Burns +0.4 m/s • Agent B (OneWeb) Coasts
+                        </div>
+                        <div className="text-[9px] text-zinc-400 mt-0.5">
+                          Pareto-optimal efficiency: 94.2% fuel preservation
+                        </div>
+                      </div>
                     </div>
-                    <div className="p-2.5 bg-emerald-500/10 border-2 border-emerald-500/60 rounded-lg col-span-2 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-                      <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">
-                        <span>★ NASH EQUILIBRIUM REACHED</span>
-                        <span>PROPELLANT OPTIMAL</span>
-                      </div>
-                      <div className="text-zinc-800 dark:text-zinc-200 mt-1 text-[10px]">
-                        Agent A (Starlink) Burns +0.4 m/s • Agent B (OneWeb) Coasts
-                      </div>
-                      <div className="text-[9px] text-zinc-400 mt-0.5">
-                        Pareto-optimal efficiency: 94.2% fuel preservation
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center justify-between text-[10px] font-mono pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                    <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Consensus Verified
-                    </span>
-                    <span className="text-zinc-400">SHA-256 Signed</span>
+                    <div className="flex items-center justify-between text-[10px] font-mono pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Consensus Verified
+                      </span>
+                      <span className="text-zinc-400">SHA-256 Signed</span>
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1 mb-6">
+                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between">
+                  <span>NASH BARGAINING & TSIOLKOVSKY EQUATION</span>
+                  <span className="text-zinc-500">{"\\Delta m_{\\text{fuel}}"}</span>
+                </div>
+                <div className="text-sky-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"\\max_{(\\Delta \\mathbf{v}_A, \\Delta \\mathbf{v}_B)} (U_A - d_A)^{\\alpha}(U_B - d_B)^{1-\\alpha}, \\quad \\Delta m = m_0\\left(1 - e^{-\\frac{\\Delta v}{I_{\\text{sp}} g_0}}\\right)"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"I_{\\text{sp}} = 300\\,\\text{s} \\text{ (Krypton/Ion)}"}</span>
+                  <span>{"g_0 = 9.80665\\,\\text{m/s}^2"}</span>
                 </div>
               </div>
             </div>
             
             {/* Chat Box */}
-            <div className="p-6 md:p-8 flex flex-col h-full border-t border-zinc-200 dark:border-zinc-800 border-dashed">
-              <h3 className="text-xl font-bold mb-3">Orbital Advisory Copilot</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed text-sm">
-                Ask natural language queries like 'Which shells are trending toward cascade?' or 'Summarize conjunction CJ-142'.
-              </p>
-              <div className="relative mt-auto w-full">
-                <div className="bg-zinc-900 text-zinc-100 p-3 rounded-xl rounded-br-sm text-xs mb-2 shadow-sm inline-block max-w-[90%] font-medium">
-                  Which shells are trending toward supercritical cascade?
-                </div>
-                <div className="bg-sky-50 dark:bg-sky-950/30 border border-sky-500/30 p-3 rounded-xl rounded-bl-sm text-xs mb-3 shadow-sm inline-block max-w-[90%] font-mono text-sky-800 dark:text-sky-300">
-                  <span className="text-emerald-500 font-bold">● Auralis Copilot:</span> SSO-780 is trending at R₀ = 1.42 with 34 active debris pairs. Priority avoidance recommended for Starlink-3142.
-                </div>
-                <div className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col">
-                  <input type="text" placeholder="Ask Auralis Copilot..." className="w-full p-3 outline-none text-xs bg-transparent" />
-                  <div className="flex items-center justify-between p-2 px-3 border-t border-zinc-200 dark:border-zinc-800 flex-wrap gap-2 text-[11px]">
-                    <div className="flex items-center gap-3 font-medium text-zinc-500 dark:text-zinc-400">
-                      <span className="cursor-pointer hover:text-sky-500">+ New query</span>
-                      <span className="cursor-pointer hover:text-sky-500">Audit Proof</span>
-                    </div>
-                    <button className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-[11px] font-medium flex items-center gap-1">
-                      Query
-                    </button>
+            <div className="p-6 md:p-8 flex flex-col h-full border-t border-zinc-200 dark:border-zinc-800 border-dashed justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Orbital Advisory Copilot</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 mb-4 leading-relaxed text-sm">
+                  Ask natural language queries like 'Which shells are trending toward cascade?' or 'Summarize conjunction CJ-142'.
+                </p>
+                <div className="relative mt-auto w-full mb-4">
+                  <div className="bg-zinc-900 text-zinc-100 p-3 rounded-xl rounded-br-sm text-xs mb-2 shadow-sm inline-block max-w-[90%] font-medium">
+                    Which shells are trending toward supercritical cascade?
                   </div>
+                  <div className="bg-sky-50 dark:bg-sky-950/30 border border-sky-500/30 p-3 rounded-xl rounded-bl-sm text-xs mb-3 shadow-sm inline-block max-w-[90%] font-mono text-sky-800 dark:text-sky-300">
+                    <span className="text-emerald-500 font-bold">● Auralis Copilot:</span> SSO-780 is trending at R₀ = 1.42 with 34 active debris pairs. Priority avoidance recommended for Starlink-3142.
+                  </div>
+                  <div className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col">
+                    <input type="text" placeholder="Ask Auralis Copilot..." className="w-full p-3 outline-none text-xs bg-transparent" />
+                    <div className="flex items-center justify-between p-2 px-3 border-t border-zinc-200 dark:border-zinc-800 flex-wrap gap-2 text-[11px]">
+                      <div className="flex items-center gap-3 font-medium text-zinc-500 dark:text-zinc-400">
+                        <span className="cursor-pointer hover:text-sky-500">+ New query</span>
+                        <span className="cursor-pointer hover:text-sky-500">Audit Proof</span>
+                      </div>
+                      <button className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-[11px] font-medium flex items-center gap-1">
+                        Query
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-purple-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-purple-400 font-bold flex items-center justify-between">
+                  <span>KESSLER SYNDROME SIR EPIDEMIOLOGY</span>
+                  <span className="text-zinc-500">{"R_0 > 1.0"}</span>
+                </div>
+                <div className="text-purple-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"\\frac{dS}{dt} = -\\beta S I + \\alpha, \\quad \\frac{dI}{dt} = \\beta S I - \\gamma I, \\quad R_0 = \\frac{\\beta S_0}{\\gamma}"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"\\beta = \\sigma v_{\\text{rel}} / V_{\\text{shell}}"}</span>
+                  <span>{"\\gamma = 1 / \\tau_{\\text{decay}}"}</span>
                 </div>
               </div>
             </div>
@@ -1644,84 +1847,118 @@ export default function Home() {
           {/* Column 3 */}
           <div className="flex flex-col">
             {/* Collision Risk Threshold Validation */}
-            <div className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col h-full min-h-[450px]">
-              <h3 className="text-xl font-bold mb-3">Collision Risk Threshold Validation</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm leading-relaxed">
-                Instantly validate conjunction miss distances against NASA & ESA collision probability action limits.
-              </p>
-              
-              {/* Stacked Authentic Conjunction Action Limit Cards */}
-              <div className="relative w-full flex-1 flex justify-center items-end bg-white dark:bg-zinc-950 min-h-[220px]">
-                {/* NASA Red Threshold (Action Required) */}
-                <div className="absolute bottom-12 w-64 bg-white dark:bg-zinc-950 border border-rose-500/60 rounded-xl shadow-xl overflow-hidden z-20">
-                  <div className="p-2.5 flex justify-between items-center border-b border-rose-500/20 bg-rose-500/10">
-                    <span className="font-bold text-xs text-rose-500 flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
-                      NASA Red Threshold
-                    </span>
-                    <span className="text-rose-500 text-xs font-mono font-bold">Pc ≥ 10⁻⁴</span>
+            <div className="p-6 md:p-8 border-b border-zinc-200 dark:border-zinc-800 border-dashed flex flex-col h-full min-h-[450px] justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Collision Risk Threshold Validation</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 mb-4 text-sm leading-relaxed">
+                  Instantly validate conjunction miss distances against NASA & ESA collision probability action limits.
+                </p>
+                
+                {/* Stacked Authentic Conjunction Action Limit Cards */}
+                <div className="relative w-full flex justify-center items-end bg-white dark:bg-zinc-950 min-h-[190px] mb-4">
+                  {/* NASA Red Threshold (Action Required) */}
+                  <div className="absolute bottom-4 w-64 bg-white dark:bg-zinc-950 border border-rose-500/60 rounded-xl shadow-xl overflow-hidden z-20">
+                    <div className="p-2.5 flex justify-between items-center border-b border-rose-500/20 bg-rose-500/10">
+                      <span className="font-bold text-xs text-rose-500 flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
+                        NASA Red Threshold
+                      </span>
+                      <span className="text-rose-500 text-xs font-mono font-bold">Pc ≥ 10⁻⁴</span>
+                    </div>
+                    <div className="p-3 flex flex-col gap-1 text-left">
+                      <div className="flex justify-between text-xs font-mono">
+                        <span className="text-zinc-400">Current Conjunction:</span>
+                        <span className="text-rose-500 font-bold">4.82 × 10⁻⁴</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-mono">
+                        <span className="text-zinc-400">Miss Distance:</span>
+                        <span className="text-rose-500 font-bold">84.2 m</span>
+                      </div>
+                      <div className="mt-1 pt-1 border-t border-zinc-100 dark:border-zinc-800 text-[10px] text-rose-500 font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                        MANDATORY MANEUVER TASKED
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-3 flex flex-col gap-1.5 text-left">
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className="text-zinc-400">Current Conjunction:</span>
-                      <span className="text-rose-500 font-bold">4.82 × 10⁻⁴</span>
-                    </div>
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className="text-zinc-400">Miss Distance:</span>
-                      <span className="text-rose-500 font-bold">84.2 m</span>
-                    </div>
-                    <div className="mt-1 pt-1.5 border-t border-zinc-100 dark:border-zinc-800 text-[10px] text-rose-500 font-semibold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
-                      MANDATORY MANEUVER TASKED
-                    </div>
+
+                  {/* NASA Yellow Threshold (Elevated Monitoring) */}
+                  <div className="absolute bottom-12 w-60 bg-white dark:bg-zinc-950/90 border border-amber-500/40 rounded-xl shadow-sm h-14 z-10 scale-95 flex justify-between px-3 pt-2 text-xs font-mono">
+                    <span className="text-amber-500">NASA Yellow</span>
+                    <span className="text-amber-500 font-semibold">Pc ≥ 10⁻⁵ [TASKED]</span>
+                  </div>
+
+                  {/* ESA Hard Body Threshold */}
+                  <div className="absolute bottom-20 w-56 bg-white dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm h-14 z-0 scale-90 flex justify-between px-3 pt-2 text-xs font-mono">
+                    <span className="text-zinc-400">ESA Limit</span>
+                    <span className="text-emerald-500 font-semibold">200m Buffer</span>
                   </div>
                 </div>
+              </div>
 
-                {/* NASA Yellow Threshold (Elevated Monitoring) */}
-                <div className="absolute bottom-20 w-60 bg-white dark:bg-zinc-950/90 border border-amber-500/40 rounded-xl shadow-sm h-14 z-10 scale-95 flex justify-between px-3 pt-2 text-xs font-mono">
-                  <span className="text-amber-500">NASA Yellow</span>
-                  <span className="text-amber-500 font-semibold">Pc ≥ 10⁻⁵ [TASKED]</span>
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-rose-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-rose-400 font-bold flex items-center justify-between">
+                  <span>MAHALANOBIS COVARIANCE ELLIPSOID DISTANCE</span>
+                  <span className="text-zinc-500">{"d_M \\le k_\\sigma"}</span>
                 </div>
-
-                {/* ESA Hard Body Threshold */}
-                <div className="absolute bottom-28 w-56 bg-white dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm h-14 z-0 scale-90 flex justify-between px-3 pt-2 text-xs font-mono">
-                  <span className="text-zinc-400">ESA Limit</span>
-                  <span className="text-emerald-500 font-semibold">200m Buffer</span>
+                <div className="text-rose-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"d_M^2 = (\\mathbf{r}_1 - \\mathbf{r}_2)^T (C_1 + C_2)^{-1} (\\mathbf{r}_1 - \\mathbf{r}_2) \\le k_\\sigma^2"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"k_\\sigma = 3.0 \\text{ (99.73% Envelope)}"}</span>
+                  <span>{"\\det(C_1 + C_2) \\ne 0"}</span>
                 </div>
               </div>
             </div>
 
             {/* Orbital Catalog Registry */}
-            <div className="p-6 md:p-8 flex flex-col h-full">
-              <h3 className="text-xl font-bold mb-3">Orbital Catalog Registry</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm leading-relaxed">
-                Query, sync, and export verified orbital ephemerides, SGP4 state vectors, and historic breakup debris clouds.
-              </p>
-              
-              <div className="flex flex-col items-center mt-auto w-full max-w-[280px] mx-auto">
-                <div className="px-3.5 py-2 border border-sky-500/30 rounded-full text-xs font-mono mb-3 shadow-sm w-full text-center whitespace-nowrap overflow-hidden text-ellipsis bg-white dark:bg-zinc-950 text-sky-600 dark:text-sky-400">
-                  $ auralis sync @catalog/ssn-tle
-                </div>
-                <div className="w-px h-6 bg-zinc-200 dark:border-zinc-800"></div>
-                <div className="px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm relative -mt-3 z-10 whitespace-nowrap">
-                  <FileCode className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Sync Catalog CLI</span>
-                </div>
-                <div className="w-px h-6 bg-zinc-200 dark:border-zinc-800 -mt-3"></div>
+            <div className="p-6 md:p-8 flex flex-col h-full justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-3">Orbital Catalog Registry</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 mb-4 text-sm leading-relaxed">
+                  Query, sync, and export verified orbital ephemerides, SGP4 state vectors, and historic breakup debris clouds.
+                </p>
                 
-                {/* Terminal Window with authentic streaming CLI output */}
-                <div className="w-full bg-zinc-950 text-zinc-100 rounded-xl p-3 text-left font-mono text-[10px] relative mt-0 overflow-hidden h-28 border border-zinc-800 shadow-md flex flex-col justify-between">
-                  <div className="flex items-center gap-1.5 pb-1 border-b border-zinc-800">
-                    <div className="w-2 h-2 rounded-full bg-rose-500"></div>
-                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                    <span className="text-zinc-500 text-[9px] ml-2">auralis-cli v2.4</span>
+                <div className="flex flex-col items-center w-full max-w-[280px] mx-auto mb-4">
+                  <div className="px-3.5 py-2 border border-sky-500/30 rounded-full text-xs font-mono mb-3 shadow-sm w-full text-center whitespace-nowrap overflow-hidden text-ellipsis bg-white dark:bg-zinc-950 text-sky-600 dark:text-sky-400">
+                    $ auralis sync @catalog/ssn-tle
                   </div>
-                  <div className="flex flex-col gap-1 text-zinc-300">
-                    <div className="text-emerald-400">[OK] 639 TLEs ingested</div>
-                    <div className="text-sky-400">[OK] 18 orbital shells synced</div>
-                    <div className="text-zinc-400">[ACTIVE] Foster-1992 screening...</div>
+                  <div className="w-px h-5 bg-zinc-200 dark:border-zinc-800"></div>
+                  <div className="px-3 py-1 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm relative -mt-2.5 z-10 whitespace-nowrap">
+                    <FileCode className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Sync Catalog CLI</span>
                   </div>
+                  <div className="w-px h-5 bg-zinc-200 dark:border-zinc-800 -mt-2.5"></div>
+                  
+                  {/* Terminal Window with authentic streaming CLI output */}
+                  <div className="w-full bg-zinc-950 text-zinc-100 rounded-xl p-3 text-left font-mono text-[10px] relative mt-0 overflow-hidden h-24 border border-zinc-800 shadow-md flex flex-col justify-between">
+                    <div className="flex items-center gap-1.5 pb-1 border-b border-zinc-800">
+                      <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                      <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                      <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                      <span className="text-zinc-500 text-[9px] ml-2">auralis-cli v2.4</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 text-zinc-300">
+                      <div className="text-emerald-400">[OK] 639 TLEs ingested</div>
+                      <div className="text-sky-400">[OK] 18 orbital shells synced</div>
+                      <div className="text-zinc-400">[ACTIVE] Foster-1992 screening...</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mathematical Physics Equation Callout */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-cyan-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-cyan-400 font-bold flex items-center justify-between">
+                  <span>SGP4 KOZAI-BROUWER MEAN MOTION HARMONICS</span>
+                  <span className="text-zinc-500">{"J_2 \\text{ Earth}"}</span>
+                </div>
+                <div className="text-cyan-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
+                  {"\\dot{M} = n_0 \\left[1 + \\frac{3}{2} J_2 \\frac{R_E^2}{p^2} \\sqrt{1 - e^2} \\left(1 - \\frac{3}{2} \\sin^2 i\\right)\\right]"}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
+                  <span>{"J_2 = 1.08263 \\times 10^{-3}"}</span>
+                  <span>{"p = a(1 - e^2)"}</span>
                 </div>
               </div>
             </div>

@@ -292,3 +292,29 @@ export async function injectCrisis(
     body: JSON.stringify(req),
   });
 }
+
+export interface ChatResponse {
+  response: string;
+  sources?: Array<{
+    type: "conjunction" | "object" | "shell" | "advisory";
+    id: string;
+    name: string;
+    url: string;
+  }>;
+  timestamp: string;
+}
+
+/**
+ * POST /api/v1/chat
+ * Query the Advisory Agent Natural Language Copilot
+ */
+export async function sendChatMessage(
+  message: string,
+  history?: Array<{ role: "user" | "assistant"; content: string }>
+): Promise<ChatResponse> {
+  return fetchJson<ChatResponse>('/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, history }),
+  });
+}
+

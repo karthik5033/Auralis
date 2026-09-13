@@ -352,7 +352,7 @@ export default function AlertsPage() {
                   </Badge>
                 </div>
                 <h2 className="text-base font-bold text-foreground">
-                  {objectsMap[highestUrgencyEvent.primaryObjectId]?.name || "Primary Satellite"} & {objectsMap[highestUrgencyEvent.secondaryObjectId]?.name || "Debris Target"} in Terminal Conjunction Corridor
+                  {objectsMap[highestUrgencyEvent.primaryObjectId]?.name || highestUrgencyEvent.primaryObjectId.replace("norad-", "NORAD ").toUpperCase()} & {objectsMap[highestUrgencyEvent.secondaryObjectId]?.name || highestUrgencyEvent.secondaryObjectId.replace("norad-", "NORAD ").toUpperCase()} in Terminal Conjunction Corridor
                 </h2>
                 <p className="text-xs text-muted-foreground font-mono">
                   Miss distance: {formatDistance(highestUrgencyEvent.missDistance)} • Collision Pc: {formatScientificPc(highestUrgencyEvent.collisionProbability)} • TCA in {formatCountdown(highestUrgencyEvent.tca, nowMs)}

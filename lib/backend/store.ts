@@ -102,9 +102,11 @@ export class InMemoryStore {
       advisories: this.listAdvisories(),
       auditLog: this.listAuditEntries(),
     };
-    const temporaryPath = `${this.persistencePath}.tmp`;
-    fs.writeFileSync(temporaryPath, JSON.stringify(snapshot), "utf8");
-    fs.renameSync(temporaryPath, this.persistencePath);
+    try {
+      fs.writeFileSync(this.persistencePath, JSON.stringify(snapshot), "utf8");
+    } catch (error) {
+      console.warn("[Auralis] Could not write persistence snapshot:", error);
+    }
   }
 
   private schedulePersist(): void {

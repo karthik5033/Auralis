@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useTheme } from "@/lib/ThemeContext";
 import { AuralisLogo } from "@/components/ui/AuralisLogo";
+import { FlowchartCanvas } from "@/components/architecture/FlowchartCanvas";
 import {
   Layers,
   BookOpen,
@@ -284,8 +285,13 @@ export default function ArchitecturePage() {
         </div>
       </section>
 
+      {/* Interactive NotebookLM-Style Architecture Flowchart & Protocol Graph Canvas */}
+      <section className="py-12 px-6 max-w-6xl mx-auto">
+        <FlowchartCanvas />
+      </section>
+
       {/* Architecture Interactive Layer Explorer */}
-      <section className="py-16 px-6 max-w-6xl mx-auto">
+      <section className="py-16 px-6 max-w-6xl mx-auto border-t border-border/60">
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-10 gap-4">
           <div>
             <div className="text-xs font-mono text-cyan-400 tracking-wider">MODULAR ARCHITECTURE</div>
