@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { 
   Sheet, 
@@ -93,21 +93,44 @@ export function NotificationCenter() {
   const [activeToasts, setActiveToasts] = useState<ToastItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
+  const seenToastsRef = useRef<Map<string, number>>(new Map());
+  const isInitialGracePeriodRef = useRef(true);
 
   useEffect(() => {
     setMounted(true);
+    // Suppress intrusive floating popups for the first 3 seconds after connection/mount
+    const timer = setTimeout(() => {
+      isInitialGracePeriodRef.current = false;
+    }, 3000);
+    return () => clearTimeout(timer);
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Helper to trigger a floating toast and auto-dismiss after 6 seconds
+  // Helper to trigger a floating toast with strict deduplication
   const addToast = useCallback((toast: Omit<ToastItem, "timestamp">) => {
-    const newToast: ToastItem = { ...toast, timestamp: Date.now() };
-    setActiveToasts((prev) => [newToast, ...prev.slice(0, 3)]); // show max 4 toasts simultaneously
+    // If during initial page mount/SSE connect, do not spawn floating popups over viewport
+    if (isInitialGracePeriodRef.current) {
+      return;
+    }
+
+    const now = Date.now();
+    const dedupeKey = `${toast.type}:${toast.link || toast.title}`;
+    const lastShown = seenToastsRef.current.get(dedupeKey) || 0;
+
+    // Suppress duplicate alert popups within 60 seconds
+    if (now - lastShown < 60_000) {
+      return;
+    }
+    seenToastsRef.current.set(dedupeKey, now);
+
+    const newToast: ToastItem = { ...toast, timestamp: now };
+    // Maximum 1 toast at a time to avoid covering user controls
+    setActiveToasts([newToast]);
 
     setTimeout(() => {
       setActiveToasts((prev) => prev.filter((t) => t.id !== newToast.id));
-    }, 6000);
+    }, 5000);
   }, []);
 
   const dismissToast = (id: string, e?: React.MouseEvent) => {
@@ -118,23 +141,26 @@ export function NotificationCenter() {
   // 1. WebSocket listener: conjunction:created (Critical only -> red toast)
   useWebSocket("conjunction:created", (event: ConjunctionEvent) => {
     if (event.riskLevel === "critical") {
-      const id = `notif-conj-${event.id}-${Date.now()}`;
+      const id = `notif-conj-${event.id}`;
       const title = "Critical Conjunction Alert";
       const message = `Conjunction ${event.id}: ${event.primaryObjectId} vs ${event.secondaryObjectId} (Pc: ${formatScientificPc(event.collisionProbability)}, Miss: ${(event.missDistance * 1000).toFixed(0)}m).`;
       const link = `/cases/${event.id}`;
 
-      setNotifications((prev) => [
-        {
-          id,
-          type: "CRITICAL",
-          title,
-          message,
-          time: "Just now",
-          read: false,
-          link,
-        },
-        ...prev,
-      ]);
+      setNotifications((prev) => {
+        if (prev.some((n) => n.link === link)) return prev;
+        return [
+          {
+            id: `${id}-${Date.now()}`,
+            type: "CRITICAL",
+            title,
+            message,
+            time: "Just now",
+            read: false,
+            link,
+          },
+          ...prev,
+        ];
+      });
 
       addToast({
         id,

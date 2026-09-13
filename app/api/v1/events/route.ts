@@ -45,7 +45,6 @@ export function GET(): Response {
         }
       };
       send({ event: "objects:updated", timestamp: new Date().toISOString(), payload: { objects: store.listObjects() } });
-      store.listConjunctions().filter((conjunction) => conjunction.status === "active").forEach((conjunction) => send({ event: "conjunction:created", timestamp: new Date().toISOString(), payload: conjunction }));
       store.listShells().forEach((shell) => send({ event: "shell:updated", timestamp: new Date().toISOString(), payload: shell }));
       store.listAgentStatuses().forEach((status) => send({ event: "agent:status", timestamp: new Date().toISOString(), payload: status }));
       for (const type of eventTypes) {
