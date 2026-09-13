@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { generateBreakupFragments } from "@/data/crisis";
 import type { CrisisInjectionRequest, CrisisInjectionResponse, TrackedObject } from "@/types/contract";
 import { recordAuditEntry } from "@/lib/backend/audit";

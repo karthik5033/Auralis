@@ -23,11 +23,17 @@ export class BackendRuntime {
 
   start(): void {
     if (this.started) return;
+    if (process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build") {
+      return;
+    }
     this.started = true;
     this.tracker.start();
     this.recoveryTimer = setInterval(() => {
       if (this.hasAgentError()) this.recoverAgents();
     }, 10_000);
+    if (typeof (this.recoveryTimer as any)?.unref === "function") {
+      (this.recoveryTimer as any).unref();
+    }
   }
 
   stop(): void {

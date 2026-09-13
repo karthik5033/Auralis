@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { ensureRuntime } from "@/lib/backend/runtime";
 import { store } from "@/lib/backend/store";
 

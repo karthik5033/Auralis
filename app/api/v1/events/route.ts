@@ -24,6 +24,9 @@ function mapEvent(type: string, payload: unknown): WsMessage | null {
   return null;
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export function GET(): Response {
   ensureRuntime();
   const encoder = new TextEncoder();
@@ -64,6 +67,9 @@ export function GET(): Response {
           closed = true;
         }
       }, 15_000);
+      if (typeof (heartbeat as any)?.unref === "function") {
+        (heartbeat as any).unref();
+      }
     },
     cancel() {
       closed = true;

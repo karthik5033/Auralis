@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false,
+  productionBrowserSourceMaps: false,
   typescript: {
     ignoreBuildErrors: false,
   },
+  serverExternalPackages: ["three", "satellite.js"],
   async headers() {
     return [
       {

@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export function GET(): Response {
   return Response.json({
     status: "ok",

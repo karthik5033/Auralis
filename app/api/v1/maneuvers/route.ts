@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import type { NegotiationStatus } from "@/types/contract";
 import { ensureRuntime } from "@/lib/backend/runtime";
 import { paginated } from "@/lib/backend/routeUtils";
