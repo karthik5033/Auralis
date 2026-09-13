@@ -41,20 +41,21 @@ export function generateBreakupFragments(options: BreakupOptions): TrackedObject
   const defaultIncRad = (51.6 * Math.PI) / 180;
   const defaultRaanRad = (45.0 * Math.PI) / 180;
 
+  const u0 = Math.PI / 4;
   const basePos = sourceObject
     ? { ...sourceObject.position }
     : {
-        x: rBase * Math.cos(defaultRaanRad) * Math.cos(Math.PI / 4),
-        y: rBase * Math.sin(defaultRaanRad) * Math.cos(Math.PI / 4),
-        z: rBase * Math.sin(defaultIncRad) * Math.sin(Math.PI / 4),
+        x: rBase * (Math.cos(defaultRaanRad) * Math.cos(u0) - Math.sin(defaultRaanRad) * Math.cos(defaultIncRad) * Math.sin(u0)),
+        y: rBase * (Math.sin(defaultRaanRad) * Math.cos(u0) + Math.cos(defaultRaanRad) * Math.cos(defaultIncRad) * Math.sin(u0)),
+        z: rBase * Math.sin(defaultIncRad) * Math.sin(u0),
       };
 
   const baseVel = sourceObject
     ? { ...sourceObject.velocity }
     : {
-        vx: -vCirc * Math.sin(defaultRaanRad),
-        vy: vCirc * Math.cos(defaultRaanRad) * Math.cos(defaultIncRad),
-        vz: vCirc * Math.sin(defaultIncRad) * 0.7,
+        vx: -vCirc * (Math.cos(defaultRaanRad) * Math.sin(u0) + Math.sin(defaultRaanRad) * Math.cos(defaultIncRad) * Math.cos(u0)),
+        vy: -vCirc * (Math.sin(defaultRaanRad) * Math.sin(u0) - Math.cos(defaultRaanRad) * Math.cos(defaultIncRad) * Math.cos(u0)),
+        vz: vCirc * Math.sin(defaultIncRad) * Math.cos(u0),
       };
 
   const baseNoradId = 90000 + Math.floor(Math.random() * 5000);

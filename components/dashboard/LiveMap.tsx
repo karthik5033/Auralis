@@ -18,7 +18,8 @@ import curatedCatalog from "@/data/fixtures/parsed-tracked-objects.json";
 import { getObjects, getConjunctions } from "@/lib/api";
 import type { TrackedObject, ConjunctionEvent } from "@/types/contract";
 
-const GlobeView = dynamic(() => import("@/components/globe/GlobeView"), {
+const loadGlobe = () => import("@/components/globe/GlobeView");
+const GlobeView = dynamic(loadGlobe, {
   ssr: false,
   loading: () => (
     <div className="w-full h-[480px] bg-slate-950/80 flex flex-col items-center justify-center gap-3 text-muted-foreground font-mono">
@@ -29,6 +30,11 @@ const GlobeView = dynamic(() => import("@/components/globe/GlobeView"), {
     </div>
   ),
 });
+
+// Immediately pre-fetch GlobeView chunk so it renders instantaneously
+if (typeof window !== "undefined") {
+  loadGlobe();
+}
 
 import { PolarRadarView } from "@/components/dashboard/PolarRadarView";
 

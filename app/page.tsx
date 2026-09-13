@@ -62,8 +62,8 @@ import { getDashboardSummary, getShells, getConjunctions, getManeuvers, getObjec
 import type { DashboardSummary, ShellRiskSnapshot, ConjunctionEvent, ManeuverProposal, TrackedObject } from "@/types/contract";
 import { formatDistance, formatOperator } from "@/lib/formatters";
 
-// Dynamically load GlobeView to avoid SSR issues with Three.js / WebGL on landing page
-const GlobeView = dynamic(() => import("@/components/globe/GlobeView"), {
+const loadGlobe = () => import("@/components/globe/GlobeView");
+const GlobeView = dynamic(loadGlobe, {
   ssr: false,
   loading: () => (
     <div className="w-full h-full min-h-[440px] bg-black flex flex-col items-center justify-center gap-3 text-muted-foreground font-mono">
@@ -74,6 +74,10 @@ const GlobeView = dynamic(() => import("@/components/globe/GlobeView"), {
     </div>
   ),
 });
+
+if (typeof window !== "undefined") {
+  loadGlobe();
+}
 
 const GithubIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
