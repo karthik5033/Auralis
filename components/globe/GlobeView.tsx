@@ -422,7 +422,9 @@ export default function GlobeView({
     y2: number;
     z2: number;
   } | null>(null);
-  const [showMathDetails, setShowMathDetails] = useState(true);
+  const [showMathDetails, setShowMathDetails] = useState(false);
+  const [isEncounterHudMinimized, setIsEncounterHudMinimized] = useState(false);
+  const isUserInteractingRef = useRef(false);
   const encounterVectorGroupRef = useRef<THREE.Group | null>(null);
 
   const telemetryCount = React.useMemo(() => {
@@ -857,10 +859,12 @@ export default function GlobeView({
     let downPos = { x: 0, y: 0 };
 
     const handleCanvasPointerDown = (e: MouseEvent) => {
+      isUserInteractingRef.current = true;
       downPos = { x: e.clientX, y: e.clientY };
     };
 
     const handleCanvasPointerUp = (e: MouseEvent) => {
+      isUserInteractingRef.current = false;
       if (e.button !== 0) return;
       const dx = Math.abs(e.clientX - downPos.x);
       const dy = Math.abs(e.clientY - downPos.y);
@@ -910,9 +914,15 @@ export default function GlobeView({
       }
     };
 
+    const handlePointerCancel = () => {
+      isUserInteractingRef.current = false;
+    };
+
     if (domEl) {
       domEl.addEventListener("pointerdown", handleCanvasPointerDown);
       domEl.addEventListener("pointerup", handleCanvasPointerUp);
+      domEl.addEventListener("pointerleave", handlePointerCancel);
+      domEl.addEventListener("pointercancel", handlePointerCancel);
     }
 
     // Handle container resize with minimum dimension guard to prevent 0x0 WebGL canvas (black screen)
@@ -1080,19 +1090,9 @@ export default function GlobeView({
               const xEci2 = rSat2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
               const yEci2 = rSat2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
 
-              // Exact 3D World Positions of both dots (matching Three.js mesh transforms):
-              const pA = new THREE.Vector3();
-              const pB = new THREE.Vector3();
-              if (meshA) {
-                meshA.getWorldPosition(pA);
-              } else {
-                pA.set(yEci1, zEci1, xEci1);
-              }
-              if (meshB) {
-                meshB.getWorldPosition(pB);
-              } else {
-                pB.set(yEci2, zEci2, xEci2);
-              }
+              // Exact 3D Coordinate positions of both orbital dots (matches Three.js scene space):
+              const pA = new THREE.Vector3(yEci1, zEci1, xEci1);
+              const pB = new THREE.Vector3(yEci2, zEci2, xEci2);
 
               // 1. Calculate live physical Euclidean separation in km and ECI state vectors
               const rKm1 = 6371 + (encPair.primary.altitude || 500);
@@ -1142,83 +1142,86 @@ export default function GlobeView({
               const isCautionDist = liveDist < 500;
               const beamColor = isCriticalDist ? 0xef4444 : isCautionDist ? 0xf59e0b : 0x38bdf8;
 
-              // 2. Direct 3D Laser Line strictly joining Point A (Satellite Dot) to Point B (Debris Dot)
+              // 2. Direct High-Precision 3D Laser Connector Line between Dot A and Dot B
               const distScene = pA.distanceTo(pB);
               if (distScene > 0.01) {
-                // Volumetric 3D Cylinder Laser
-                const beamGeom = new THREE.CylinderGeometry(0.35, 0.35, distScene, 8, 1, true);
-                const beamMat = new THREE.MeshBasicMaterial({
-                  color: beamColor,
-                  transparent: true,
-                  opacity: 0.85,
-                  depthWrite: false,
-                  side: THREE.DoubleSide,
-                });
-                const beamMesh = new THREE.Mesh(beamGeom, beamMat);
-                beamMesh.position.copy(pA).add(pB).multiplyScalar(0.5);
-
-                const dir = new THREE.Vector3().subVectors(pB, pA).normalize();
-                const up = new THREE.Vector3(0, 1, 0);
-                const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
-                beamMesh.quaternion.copy(quat);
-                encGroup.add(beamMesh);
-
-                // Luminous outer aura sheath
-                const auraGeom = new THREE.CylinderGeometry(0.75, 0.75, distScene, 8, 1, true);
-                const auraMat = new THREE.MeshBasicMaterial({
-                  color: beamColor,
-                  transparent: true,
-                  opacity: 0.25,
-                  depthWrite: false,
-                  side: THREE.DoubleSide,
-                });
-                const auraMesh = new THREE.Mesh(auraGeom, auraMat);
-                auraMesh.position.copy(beamMesh.position);
-                auraMesh.quaternion.copy(quat);
-                encGroup.add(auraMesh);
-
-                // High-visibility core connector line
+                // High-visibility core line connecting exact dot centers
                 const lineGeom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
                 const lineMat = new THREE.LineBasicMaterial({
-                  color: 0xffffff,
+                  color: beamColor,
                   transparent: true,
                   opacity: 0.95,
                   depthWrite: false,
                 });
                 encGroup.add(new THREE.Line(lineGeom, lineMat));
 
-                // Midpoint Pulsing 3D Sphere Beacon
+                // If objects are on opposite sides of Earth, render an elevated orbital space arc
+                if (distScene > 25) {
+                  const midPoint = new THREE.Vector3().copy(pA).add(pB).multiplyScalar(0.5);
+                  if (midPoint.length() < 105) {
+                    midPoint.normalize().multiplyScalar(Math.max(rSat1, rSat2) + 8);
+                  }
+                  const curve = new THREE.QuadraticBezierCurve3(pA, midPoint, pB);
+                  const arcGeom = new THREE.BufferGeometry().setFromPoints(curve.getPoints(36));
+                  const arcMat = new THREE.LineBasicMaterial({
+                    color: beamColor,
+                    transparent: true,
+                    opacity: 0.75,
+                    depthWrite: false,
+                  });
+                  encGroup.add(new THREE.Line(arcGeom, arcMat));
+                } else {
+                  // Volumetric tactical laser beam for close encounter proximity
+                  const beamGeom = new THREE.CylinderGeometry(0.2, 0.2, distScene, 8, 1, true);
+                  const beamMat = new THREE.MeshBasicMaterial({
+                    color: beamColor,
+                    transparent: true,
+                    opacity: 0.85,
+                    depthWrite: false,
+                    side: THREE.DoubleSide,
+                  });
+                  const beamMesh = new THREE.Mesh(beamGeom, beamMat);
+                  beamMesh.position.copy(pA).add(pB).multiplyScalar(0.5);
+
+                  const dir = new THREE.Vector3().subVectors(pB, pA).normalize();
+                  const up = new THREE.Vector3(0, 1, 0);
+                  beamMesh.quaternion.setFromUnitVectors(up, dir);
+                  encGroup.add(beamMesh);
+                }
+
+                // Midpoint Beacon
                 const midPos = new THREE.Vector3().copy(pA).add(pB).multiplyScalar(0.5);
-                const midGeom = new THREE.SphereGeometry(0.65, 12, 12);
+                const midGeom = new THREE.SphereGeometry(0.55, 8, 8);
                 const midMat = new THREE.MeshBasicMaterial({
                   color: beamColor,
                   transparent: true,
-                  opacity: 0.9,
+                  opacity: 0.85,
+                  depthWrite: false,
                 });
                 const midMesh = new THREE.Mesh(midGeom, midMat);
                 midMesh.position.copy(midPos);
                 encGroup.add(midMesh);
               }
 
-              // 3. Glowing Target Reticles on Point A (Satellite) and Point B (Debris)
+              // 3. Glowing Target Reticles on Point A (Satellite Dot) and Point B (Debris Dot)
               // Point A (Cyan Satellite Dot)
               const ringA = new THREE.RingGeometry(1.2, 1.6, 24);
-              const matA = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+              const matA = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false });
               const meshRingA = new THREE.Mesh(ringA, matA);
               meshRingA.position.copy(pA);
-              meshRingA.lookAt(0, 0, 0);
+              meshRingA.lookAt(pA.x * 2, pA.y * 2, pA.z * 2);
               encGroup.add(meshRingA);
 
               // Point B (Hazard Crimson Debris Dot)
               const ringB = new THREE.RingGeometry(1.2, 1.6, 24);
-              const matB = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+              const matB = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false });
               const meshRingB = new THREE.Mesh(ringB, matB);
               meshRingB.position.copy(pB);
-              meshRingB.lookAt(0, 0, 0);
+              meshRingB.lookAt(pB.x * 2, pB.y * 2, pB.z * 2);
               encGroup.add(meshRingB);
 
-              // 4. Camera tracking midpoint follow
-              if (isTrackingLockedRef.current && globeInstanceRef.current) {
+              // 4. Camera tracking midpoint follow (never blocks mouse/touch dragging)
+              if (isTrackingLockedRef.current && globeInstanceRef.current && !isUserInteractingRef.current) {
                 const midX = (x1Km + x2Km) / 2;
                 const midY = (y1Km + y2Km) / 2;
                 const midZ = (z1Km + z2Km) / 2;
@@ -1675,7 +1678,7 @@ export default function GlobeView({
     if (prim && sec) {
       setActiveEncounterPair({ primary: prim, secondary: sec, conjunction: conj });
       setSelectedObject(null);
-      setIsTrackingLocked(true);
+      setIsTrackingLocked(false);
 
       const kep1 = (prim.orbitalElements && prim.orbitalElements.inclination != null)
         ? prim.orbitalElements
@@ -1787,37 +1790,98 @@ export default function GlobeView({
           const rangeRate = liveVectorTelemetry?.rangeRateKmS ?? 0;
           const isClosing = rangeRate < 0;
 
+          const handleCenterMidpoint = () => {
+            const xMid = (coordsA.xEciKm + coordsB.xEciKm) / 2;
+            const yMid = (coordsA.yEciKm + coordsB.yEciKm) / 2;
+            const zMid = (coordsA.zEciKm + coordsB.zEciKm) / 2;
+            const geoMid = eciToGeodeticCoords({ x: xMid, y: yMid, z: zMid }, new Date());
+            globeInstanceRef.current?.pointOfView({ lat: geoMid.latitudeDeg, lng: geoMid.longitudeDeg, altitude: 1.6 }, 800);
+          };
+
+          if (isEncounterHudMinimized) {
+            return (
+              <div className="pointer-events-auto mt-1 flex items-center gap-2 p-1.5 px-3 rounded-xl bg-zinc-950/90 border border-red-500/60 backdrop-blur-xl shadow-xl text-[11px] font-mono animate-in fade-in">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-sky-400">{primary.name}</span>
+                  <span className="text-zinc-500">↔</span>
+                  <span className="text-red-400">{secondary.name}</span>
+                </div>
+                <span className="text-amber-300 font-extrabold px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-500/30">
+                  {distDisplay}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAlignToTCA}
+                  title="Snap spacecraft to closest approach node"
+                  className="text-[9px] font-mono px-2 py-0.5 rounded border bg-amber-950/80 text-amber-300 border-amber-500/50 hover:bg-amber-900/80 font-bold"
+                >
+                  ⚡ Snap TCA
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCenterMidpoint}
+                  title="Center view on encounter"
+                  className="text-[9px] font-mono px-2 py-0.5 rounded border bg-zinc-900 text-zinc-300 border-border hover:bg-zinc-800"
+                >
+                  🎯 Center
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEncounterHudMinimized(false)}
+                  className="text-[9px] font-mono px-2 py-0.5 rounded border bg-primary/20 text-primary border-primary/40 hover:bg-primary/30"
+                >
+                  📐 Expand
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveEncounterPair(null);
+                    setIsTrackingLocked(false);
+                  }}
+                  className="text-muted-foreground hover:text-foreground p-0.5"
+                  title="Close Encounter"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          }
+
           return (
-            <div className="pointer-events-auto mt-1 max-w-md w-full p-3.5 rounded-xl bg-zinc-950/95 border-2 border-red-500/80 backdrop-blur-xl shadow-2xl shadow-red-950/60 animate-in fade-in zoom-in-95 duration-200">
+            <div className="pointer-events-auto mt-1 max-w-sm w-full p-3 rounded-xl bg-zinc-950/95 border border-red-500/70 backdrop-blur-xl shadow-2xl shadow-red-950/50 animate-in fade-in zoom-in-95 duration-200">
               {/* Header */}
-              <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border/60">
+              <div className="flex items-center justify-between gap-1.5 mb-2 pb-1.5 border-b border-border/50">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                  <span className="text-xs font-mono font-extrabold text-red-400 uppercase tracking-wider">
-                    Orbital Encounter Vector
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                  <span className="text-[11px] font-mono font-extrabold text-red-400 uppercase tracking-wider">
+                    Orbital Encounter
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={handleAlignToTCA}
-                    title="Align spacecraft anomalies directly to closest approach encounter node"
-                    className="text-[9px] font-mono px-2 py-0.5 rounded border bg-amber-950/80 text-amber-300 border-amber-500/50 hover:bg-amber-900/80 font-bold flex items-center gap-1 transition-all"
+                    title="Align spacecraft directly to closest approach encounter node"
+                    className="text-[9px] font-mono px-1.5 py-0.5 rounded border bg-amber-950/80 text-amber-300 border-amber-500/50 hover:bg-amber-900/80 font-bold flex items-center gap-1 transition-all"
                   >
                     <span>⚡ Snap TCA</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIsTrackingLocked((prev) => !prev)}
-                    title={isTrackingLocked ? "Unlock camera" : "Lock camera to encounter midpoint"}
-                    className={`text-[9px] font-mono px-2 py-0.5 rounded border font-semibold flex items-center gap-1 transition-all ${
-                      isTrackingLocked
-                        ? "bg-red-600 text-white border-red-400 animate-pulse shadow-md shadow-red-950"
-                        : "bg-red-950/60 text-red-300 border-red-500/40 hover:bg-red-900/60"
-                    }`}
+                    onClick={handleCenterMidpoint}
+                    title="Center camera on encounter midpoint"
+                    className="text-[9px] font-mono px-1.5 py-0.5 rounded border bg-zinc-900 text-zinc-300 border-border hover:bg-zinc-800 transition-all"
                   >
-                    <Target className="w-2.5 h-2.5" />
-                    <span>{isTrackingLocked ? "Midpoint Locked" : "Lock Midpoint"}</span>
+                    <span>🎯 Center</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEncounterHudMinimized(true)}
+                    className="text-muted-foreground hover:text-foreground px-1 py-0.5 rounded text-[9px] border border-border/40 transition-colors"
+                    title="Minimize HUD"
+                  >
+                    —
                   </button>
                   <button
                     type="button"
@@ -1834,70 +1898,67 @@ export default function GlobeView({
               </div>
 
               {/* Both Bodies Side-by-Side */}
-              <div className="grid grid-cols-2 gap-2 mb-2">
+              <div className="grid grid-cols-2 gap-1.5 mb-2">
                 {/* Primary Satellite */}
-                <div className="p-2 rounded-lg bg-sky-950/40 border border-sky-500/30 text-[10px] font-mono space-y-0.5">
+                <div className="p-1.5 rounded-lg bg-sky-950/40 border border-sky-500/30 text-[10px] font-mono space-y-0.5">
                   <div className="flex items-center justify-between text-sky-400 font-bold">
                     <span className="truncate">{primary.name}</span>
                     <span className="text-[8px] px-1 rounded bg-sky-900/60">SAT</span>
                   </div>
-                  <div className="text-zinc-400 text-[9px]">Alt: <span className="text-zinc-200">{primary.altitude.toFixed(1)} km</span></div>
+                  <div className="text-zinc-400 text-[9px]">Alt: <span className="text-zinc-200">{primary.altitude.toFixed(0)} km</span></div>
                   <div className="text-zinc-400 text-[9px]">Inc: <span className="text-zinc-200">{coordsA.kep.inclination.toFixed(1)}°</span></div>
-                  <div className="text-zinc-500 text-[8px] truncate">ECI: [{coordsA.xEciKm.toFixed(0)}, {coordsA.yEciKm.toFixed(0)}, {coordsA.zEciKm.toFixed(0)}]</div>
                 </div>
 
                 {/* Secondary Debris */}
-                <div className="p-2 rounded-lg bg-red-950/40 border border-red-500/30 text-[10px] font-mono space-y-0.5">
+                <div className="p-1.5 rounded-lg bg-red-950/40 border border-red-500/30 text-[10px] font-mono space-y-0.5">
                   <div className="flex items-center justify-between text-red-400 font-bold">
                     <span className="truncate">{secondary.name}</span>
                     <span className="text-[8px] px-1 rounded bg-red-900/60">DEB</span>
                   </div>
-                  <div className="text-zinc-400 text-[9px]">Alt: <span className="text-zinc-200">{secondary.altitude.toFixed(1)} km</span></div>
+                  <div className="text-zinc-400 text-[9px]">Alt: <span className="text-zinc-200">{secondary.altitude.toFixed(0)} km</span></div>
                   <div className="text-zinc-400 text-[9px]">Inc: <span className="text-zinc-200">{coordsB.kep.inclination.toFixed(1)}°</span></div>
-                  <div className="text-zinc-500 text-[8px] truncate">ECI: [{coordsB.xEciKm.toFixed(0)}, {coordsB.yEciKm.toFixed(0)}, {coordsB.zEciKm.toFixed(0)}]</div>
                 </div>
               </div>
 
               {/* Live Distance Vector Gauge */}
-              <div className="bg-black/80 rounded-lg p-2.5 border border-red-500/40 font-mono space-y-1.5">
+              <div className="bg-black/80 rounded-lg p-2 border border-red-500/40 font-mono space-y-1">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                    <span>Live Relative Distance:</span>
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                    <span>Relative Distance:</span>
                   </span>
                   <span className="text-amber-400 font-extrabold text-sm tracking-wide">
                     {distDisplay}
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center text-[10px] pt-1 border-t border-border/40 text-muted-foreground">
-                  <span>Relative Velocity: <strong className="text-zinc-200">{vRel.toFixed(2)} km/s</strong></span>
-                  <span className={`font-semibold flex items-center gap-1 ${isClosing ? "text-red-400" : "text-sky-400"}`}>
-                    <span>{isClosing ? "🔻 CLOSING" : "🔺 SEPARATING"}</span>
-                    <span>({Math.abs(rangeRate).toFixed(2)} km/s)</span>
+                <div className="flex justify-between items-center text-[9px] pt-1 border-t border-border/40 text-muted-foreground">
+                  <span>Velocity: <strong className="text-zinc-200">{vRel.toFixed(2)} km/s</strong></span>
+                  <span className={`font-semibold ${isClosing ? "text-red-400" : "text-sky-400"}`}>
+                    {isClosing ? "🔻 CLOSING" : "🔺 SEPARATING"} ({Math.abs(rangeRate).toFixed(2)} km/s)
                   </span>
                 </div>
               </div>
 
               {/* Expandable Mathematical Formulary & Vector Calculations */}
-              <div className="mt-2 pt-2 border-t border-border/50 font-mono text-[10px]">
+              <div className="mt-1.5 pt-1.5 border-t border-border/50 font-mono text-[9.5px]">
                 <button
                   type="button"
                   onClick={() => setShowMathDetails((prev) => !prev)}
                   className="w-full flex items-center justify-between text-muted-foreground hover:text-foreground font-bold py-1 px-1.5 rounded bg-zinc-900/60 border border-border/40"
                 >
                   <span className="text-primary flex items-center gap-1">
-                    <span>📐 Astrodynamics Relative Vector Math</span>
+                    <span>📐 Relative Vector Mathematics</span>
                   </span>
                   <span>{showMathDetails ? "▲ Hide" : "▼ Expand Math"}</span>
                 </button>
 
                 {showMathDetails && liveVectorTelemetry && (
-                  <div className="mt-2 p-2 rounded-lg bg-zinc-900/90 border border-border/60 space-y-2 text-[9px] text-zinc-300">
+                  <div className="mt-1.5 p-2 rounded-lg bg-zinc-900/90 border border-border/60 space-y-1.5 text-[8.5px] text-zinc-300">
                     {/* 1. Relative Position Vector */}
                     <div>
-                      <div className="text-sky-400 font-bold">1. Relative Position Vector (Δr = r_DEB - r_SAT):</div>
-                      <div className="pl-2 font-mono text-zinc-400">
+                      <div className="text-sky-400 font-bold">1. Relative Vector (Δr = r_DEB - r_SAT):</div>
+                      <div className="pl-1.5 font-mono text-zinc-400">
                         Δr = [{liveVectorTelemetry.dx >= 0 ? "+" : ""}{liveVectorTelemetry.dx.toFixed(1)}, {liveVectorTelemetry.dy >= 0 ? "+" : ""}{liveVectorTelemetry.dy.toFixed(1)}, {liveVectorTelemetry.dz >= 0 ? "+" : ""}{liveVectorTelemetry.dz.toFixed(1)}] km
                       </div>
                     </div>
@@ -1905,7 +1966,7 @@ export default function GlobeView({
                     {/* 2. Euclidean Distance Formula */}
                     <div>
                       <div className="text-amber-400 font-bold">2. Euclidean Separation:</div>
-                      <div className="pl-2 font-mono text-zinc-400">
+                      <div className="pl-1.5 font-mono text-zinc-400">
                         ||Δr|| = √( ΔX² + ΔY² + ΔZ² ) = <span className="text-amber-300 font-bold">{distDisplay}</span>
                       </div>
                     </div>
@@ -1913,13 +1974,13 @@ export default function GlobeView({
                     {/* 3. Range Rate Formula */}
                     <div>
                       <div className="text-emerald-400 font-bold">3. Range Rate (Closing Velocity):</div>
-                      <div className="pl-2 font-mono text-zinc-400">
+                      <div className="pl-1.5 font-mono text-zinc-400">
                         ρ̇ = (Δr · Δv) / ||Δr|| = <span className={isClosing ? "text-red-400 font-bold" : "text-sky-400"}>{rangeRate.toFixed(3)} km/s</span>
                       </div>
                     </div>
 
                     {/* 4. Foster Collision Integral Formulation */}
-                    <div className="pt-1 border-t border-border/40 text-[8.5px] text-zinc-400 leading-relaxed">
+                    <div className="pt-1 border-t border-border/40 text-[8px] text-zinc-400 leading-relaxed">
                       <div className="text-rose-400 font-bold">4. Collision Probability Pc (Foster-1992):</div>
                       <div>Pc = (1 / 2πσ_ξ σ_ζ √(1-ρ²)) ∬ exp(-0.5 Q(ξ, ζ)) dξ dζ</div>
                       <div className="text-zinc-400">
@@ -1931,25 +1992,25 @@ export default function GlobeView({
               </div>
 
               {/* Camera Direct Quick-Jump Buttons */}
-              <div className="grid grid-cols-2 gap-1.5 mt-2 pt-2 border-t border-border/50">
+              <div className="grid grid-cols-2 gap-1 mt-1.5 pt-1.5 border-t border-border/50">
                 <button
                   type="button"
                   onClick={() => {
                     globeInstanceRef.current?.pointOfView({ lat: coordsA.latDeg, lng: coordsA.lngDeg, altitude: 1.45 }, 800);
                   }}
-                  className="py-1 px-2 rounded bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/30 text-[10px] font-mono font-semibold flex items-center justify-center gap-1 transition-colors"
+                  className="py-1 px-1.5 rounded bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/30 text-[9.5px] font-mono font-semibold flex items-center justify-center gap-1 transition-colors"
                 >
-                  <OrbitIcon className="w-3 h-3 text-sky-400" />
-                  <span>Focus Satellite</span>
+                  <OrbitIcon className="w-2.5 h-2.5 text-sky-400" />
+                  <span>Focus Sat</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     globeInstanceRef.current?.pointOfView({ lat: coordsB.latDeg, lng: coordsB.lngDeg, altitude: 1.45 }, 800);
                   }}
-                  className="py-1 px-2 rounded bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-500/30 text-[10px] font-mono font-semibold flex items-center justify-center gap-1 transition-colors"
+                  className="py-1 px-1.5 rounded bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-500/30 text-[9.5px] font-mono font-semibold flex items-center justify-center gap-1 transition-colors"
                 >
-                  <Crosshair className="w-3 h-3 text-red-400" />
+                  <Crosshair className="w-2.5 h-2.5 text-red-400" />
                   <span>Focus Debris</span>
                 </button>
               </div>
