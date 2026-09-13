@@ -9,6 +9,13 @@
  * - Strictly optimized prompt execution with instant JSON output parsing
  */
 
+import dns from "node:dns";
+try {
+  dns.setDefaultResultOrder?.("ipv4first");
+} catch {
+  // Ignore if not supported in environment
+}
+
 export interface GeminiKeyStatus {
   keyIndex: number;
   keyMask: string;
@@ -33,20 +40,27 @@ export class GeminiRotator {
   private readonly callCounts = new Map<number, number>();
   private readonly failCounts = new Map<number, number>();
   private readonly quarantined = new Set<number>();
-  private readonly candidateModels = [
-    process.env.GEMINI_MODEL || "gemini-2.0-flash",
-    "gemini-2.5-flash",
-    "gemini-1.5-flash",
-    "gemini-flash-latest",
-    "gemini-2.5-flash-lite",
-    "gemini-flash-lite-latest",
-    "gemini-2.5-pro",
-    "gemini-3.1-flash-lite",
-  ];
+  private readonly candidateModels: string[] = [];
   private readonly loggedQuarantines = new Set<number>();
 
   constructor() {
     this.loadKeys();
+    const specified = process.env.GEMINI_MODEL;
+    const defaults = [
+      "gemini-2.5-flash",
+      "gemini-3.6-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash-lite",
+      "gemini-flash-latest",
+      "gemini-2.0-flash",
+    ];
+    if (specified && !defaults.includes(specified)) {
+      this.candidateModels = [specified, ...defaults];
+    } else if (specified) {
+      this.candidateModels = [specified, ...defaults.filter((m) => m !== specified)];
+    } else {
+      this.candidateModels = defaults;
+    }
   }
 
   private loadKeys(): void {
@@ -134,6 +148,7 @@ export class GeminiRotator {
       if (excludedIndices.has(idx) || this.quarantined.has(idx)) continue;
 
       const time = this.cooldowns.get(`${idx}:${model}`) ?? 0;
+      if (time >= Number.MAX_SAFE_INTEGER - 1000) continue; // Model unsupported for this key
       if (time < earliestTime) {
         earliestTime = time;
         earliestIdx = idx;
@@ -168,16 +183,16 @@ export class GeminiRotator {
   public async generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
     let lastError: Error | null = null;
     const startTime = Date.now();
-    const maxBudgetMs = 3500;
+    const maxBudgetMs = 30000;
     let totalAttempts = 0;
-    const maxGlobalAttempts = 6;
+    const maxGlobalAttempts = 20;
 
-    // Try candidate models in order: gemini-flash-latest -> gemini-2.5-flash -> gemini-2.5-flash-lite
+    // Try candidate models in order: gemini-2.5-flash -> gemini-3.6-flash -> gemini-3.1-flash-lite -> ...
     for (const model of this.candidateModels) {
       if (Date.now() - startTime > maxBudgetMs || totalAttempts >= maxGlobalAttempts) break;
 
       const excludedIndices = new Set<number>();
-      const maxKeyAttempts = Math.min(3, Math.max(1, this.keys.length - this.quarantined.size));
+      const maxKeyAttempts = Math.min(8, Math.max(1, this.keys.length - this.quarantined.size));
 
       for (let attempt = 0; attempt < maxKeyAttempts; attempt++) {
         if (Date.now() - startTime > maxBudgetMs || totalAttempts >= maxGlobalAttempts) break;
@@ -210,7 +225,7 @@ export class GeminiRotator {
           }
 
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 6_000);
+          const timeout = setTimeout(() => controller.abort(), 12_000);
 
           const response = await fetch(url, {
             method: "POST",
@@ -250,6 +265,7 @@ export class GeminiRotator {
           // 5. Model Not Available / Invalid model name (rotate to next model candidate, do not quarantine key)
           if (response.status === 404) {
             console.warn(`[GeminiRotator] Model '${model}' returned 404 for Key #${index + 1}. Trying next candidate model...`);
+            this.cooldowns.set(`${index}:${model}`, Number.MAX_SAFE_INTEGER);
             continue;
           }
 
@@ -278,6 +294,9 @@ export class GeminiRotator {
             this.markCooldown(index, model, 20_000);
             continue;
           }
+          console.warn(`[GeminiRotator] Key #${index + 1} failed on ${model}: ${lastError.message}. Rotating key...`);
+          this.markCooldown(index, model, 15_000);
+          continue;
         }
       }
     }
