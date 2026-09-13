@@ -392,6 +392,21 @@ export default function GlobeView({
   const prevLayerRef = useRef<"all" | "satellites" | "debris" | "critical">("all");
   const prevCountRef = useRef(0);
   const [selectedObject, setSelectedObject] = useState<TrackedObject | null>(null);
+  const [activeEncounterPair, setActiveEncounterPair] = useState<{
+    primary: TrackedObject;
+    secondary: TrackedObject;
+    conjunction?: ConjunctionEvent;
+  } | null>(null);
+  const activeEncounterPairRef = useRef<{
+    primary: TrackedObject;
+    secondary: TrackedObject;
+    conjunction?: ConjunctionEvent;
+  } | null>(null);
+  activeEncounterPairRef.current = activeEncounterPair;
+
+  const [liveEncounterDistKm, setLiveEncounterDistKm] = useState<number | null>(null);
+  const encounterVectorGroupRef = useRef<THREE.Group | null>(null);
+
   const telemetryCount = React.useMemo(() => {
     let satellites = 0;
     let debris = 0;
@@ -649,8 +664,36 @@ export default function GlobeView({
       });
     }
 
-    // 3. User Selected Object Orbit: highlighted with radiant 1px hairline derived from telemetry
-    if (selectedObject) {
+    // 3. Active Encounter Pair: Render both intersecting orbital planes with maximum radiance
+    if (activeEncounterPair) {
+      const { primary, secondary } = activeEncounterPair;
+      const kepP = (primary.orbitalElements && primary.orbitalElements.inclination != null)
+        ? primary.orbitalElements
+        : deriveKeplerianElements(primary.position, primary.velocity);
+      group.add(
+        createKeplerianOrbitRing(
+          kepP.inclination,
+          kepP.raan,
+          primary.altitude,
+          0x38bdf8,
+          0.95
+        )
+      );
+
+      const kepS = (secondary.orbitalElements && secondary.orbitalElements.inclination != null)
+        ? secondary.orbitalElements
+        : deriveKeplerianElements(secondary.position, secondary.velocity);
+      group.add(
+        createKeplerianOrbitRing(
+          kepS.inclination,
+          kepS.raan,
+          secondary.altitude,
+          0xef4444,
+          0.95
+        )
+      );
+    } else if (selectedObject) {
+      // 4. User Selected Single Object Orbit: highlighted with radiant 1px hairline derived from telemetry
       const isDebris = selectedObject.type === "debris";
       const ringColor = isDebris ? 0xef4444 : 0x38bdf8;
       const kep = (selectedObject.orbitalElements && selectedObject.orbitalElements.inclination != null)
@@ -666,7 +709,7 @@ export default function GlobeView({
         )
       );
     }
-  }, [satellitesData, selectedObject, orbitDisplayMode, conjunctions, objects]);
+  }, [satellitesData, selectedObject, activeEncounterPair, orbitDisplayMode, conjunctions, objects]);
 
   // 4. Initialize Globe.gl WebGL Canvas
   useEffect(() => {
@@ -774,6 +817,11 @@ export default function GlobeView({
     globe.scene().add(reticleGroup);
     targetReticleGroupRef.current = reticleGroup;
 
+    // Attach Three.js group for 3D Dual-Orbit Encounter Relative Distance Vector
+    const encounterGroup = new THREE.Group();
+    globe.scene().add(encounterGroup);
+    encounterVectorGroupRef.current = encounterGroup;
+
     // Initial camera position
     globe.pointOfView({ lat: 25, lng: 45, altitude: 2.2 }, 1000);
 
@@ -853,7 +901,6 @@ export default function GlobeView({
     const handleResize = () => {
       if (containerRef.current && globeInstanceRef.current) {
         const { clientWidth, clientHeight } = containerRef.current;
-        // Guard: never set the WebGL renderer to 0-dimension — this causes a permanent black canvas
         const w = clientWidth || containerRef.current.offsetWidth || window.innerWidth;
         const h = clientHeight || containerRef.current.offsetHeight || (typeof height === "number" ? height : 480);
         if (w > 0 && h > 0) {
@@ -952,7 +999,7 @@ export default function GlobeView({
               retGroup.add(ringMesh);
 
               // If Lock-On mode is active, smoothly update camera orientation to follow target in orbit
-              if (isTrackingLockedRef.current && globeInstanceRef.current) {
+              if (isTrackingLockedRef.current && globeInstanceRef.current && !activeEncounterPairRef.current) {
                 const u = selectedItem.data.currentTheta ?? selectedItem.data.phase ?? 0;
                 const incRad = (selectedItem.data.inclination * Math.PI) / 180;
                 const raanRad = (selectedItem.data.raan * Math.PI) / 180;
@@ -962,6 +1009,95 @@ export default function GlobeView({
                 const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
                 const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
                 globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg }, 0);
+              }
+            }
+          }
+        }
+
+        // Real-time 3D Dual-Orbit Encounter Relative Distance Vector Line
+        if (encounterVectorGroupRef.current) {
+          const encGroup = encounterVectorGroupRef.current;
+          while (encGroup.children.length > 0) {
+            const child = encGroup.children[0] as any;
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+              else child.material.dispose();
+            }
+            encGroup.remove(child);
+          }
+
+          const encPair = activeEncounterPairRef.current;
+          if (encPair) {
+            const meshA = satelliteMeshesRef.current.find((m) => m.data.id === encPair.primary.id)?.mesh;
+            const meshB = satelliteMeshesRef.current.find((m) => m.data.id === encPair.secondary.id)?.mesh;
+
+            if (meshA && meshB) {
+              const pA = meshA.position;
+              const pB = meshB.position;
+
+              // Glowing High-Visibility Relative Distance Laser Vector
+              const geom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
+              const mat = new THREE.LineBasicMaterial({
+                color: 0xef4444,
+                transparent: true,
+                opacity: 0.95,
+                depthWrite: false,
+              });
+              encGroup.add(new THREE.Line(geom, mat));
+
+              // Glowing Reticles at both endpoints
+              const ringA = new THREE.RingGeometry(0.9, 1.25, 20);
+              const matA = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+              const meshRingA = new THREE.Mesh(ringA, matA);
+              meshRingA.position.copy(pA);
+              meshRingA.lookAt(0, 0, 0);
+              encGroup.add(meshRingA);
+
+              const ringB = new THREE.RingGeometry(0.9, 1.25, 20);
+              const matB = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+              const meshRingB = new THREE.Mesh(ringB, matB);
+              meshRingB.position.copy(pB);
+              meshRingB.lookAt(0, 0, 0);
+              encGroup.add(meshRingB);
+
+              // Calculate live physical Euclidean separation in km:
+              const rKm1 = 6371 + (encPair.primary.altitude || 500);
+              const rKm2 = 6371 + (encPair.secondary.altitude || 500);
+              const u1 = currentThetaMapRef.current.get(encPair.primary.id) ?? 0;
+              const u2 = currentThetaMapRef.current.get(encPair.secondary.id) ?? 0;
+              const kep1 = (encPair.primary.orbitalElements && encPair.primary.orbitalElements.inclination != null)
+                ? encPair.primary.orbitalElements
+                : deriveKeplerianElements(encPair.primary.position, encPair.primary.velocity);
+              const kep2 = (encPair.secondary.orbitalElements && encPair.secondary.orbitalElements.inclination != null)
+                ? encPair.secondary.orbitalElements
+                : deriveKeplerianElements(encPair.secondary.position, encPair.secondary.velocity);
+
+              const incRad1 = (kep1.inclination * Math.PI) / 180;
+              const raanRad1 = (kep1.raan * Math.PI) / 180;
+              const x1 = rKm1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+              const y1 = rKm1 * (Math.sin(raanRad1) * Math.cos(u1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+              const z1 = rKm1 * Math.sin(incRad1) * Math.sin(u1);
+
+              const incRad2 = (kep2.inclination * Math.PI) / 180;
+              const raanRad2 = (kep2.raan * Math.PI) / 180;
+              const x2 = rKm2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+              const y2 = rKm2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+              const z2 = rKm2 * Math.sin(incRad2) * Math.sin(u2);
+
+              const dx = x1 - x2;
+              const dy = y1 - y2;
+              const dz = z1 - z2;
+              const liveDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+              setLiveEncounterDistKm(liveDist);
+
+              // If camera follow is active, center on the midpoint between both objects
+              if (isTrackingLockedRef.current && globeInstanceRef.current) {
+                const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
+                const midZ = (z1 + z2) / 2;
+                const geoMid = eciToGeodeticCoords({ x: midX, y: midY, z: midZ }, new Date());
+                globeInstanceRef.current.pointOfView({ lat: geoMid.latitudeDeg, lng: geoMid.longitudeDeg }, 0);
               }
             }
           }
@@ -1070,6 +1206,18 @@ export default function GlobeView({
         targetReticleGroupRef.current.clear();
       }
       targetReticleGroupRef.current = null;
+
+      if (encounterVectorGroupRef.current) {
+        encounterVectorGroupRef.current.traverse((child: any) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+            else child.material.dispose();
+          }
+        });
+        encounterVectorGroupRef.current.clear();
+      }
+      encounterVectorGroupRef.current = null;
 
       try {
         const globe = globeInstanceRef.current as any;
@@ -1305,9 +1453,42 @@ export default function GlobeView({
     }
   }, [conjunctions, objects, getLiveEntityCoordinates, onSelectObject]);
 
+  const handleStartDualEncounter = useCallback(() => {
+    if (!globeInstanceRef.current) return;
+    // 1. Check active/critical conjunction
+    const conj = conjunctions.find((c) => c.status === "active" || c.riskLevel === "critical") || conjunctions[0];
+    let prim: TrackedObject | undefined;
+    let sec: TrackedObject | undefined;
+
+    if (conj) {
+      prim = objects.find((o) => o.id === conj.primaryObjectId);
+      sec = objects.find((o) => o.id === conj.secondaryObjectId);
+    }
+
+    // 2. Fallback: Pair active flagship satellite (ISS/Starlink) with high-hazard debris
+    if (!prim || !sec) {
+      prim = objects.find((o) => o.type === "satellite" && (o.name.includes("STARLINK") || o.name.includes("ISS") || o.name.includes("TIANGONG"))) || objects.find((o) => o.type === "satellite");
+      sec = objects.find((o) => o.type === "debris" || o.type === "rocket_body");
+    }
+
+    if (prim && sec) {
+      setActiveEncounterPair({ primary: prim, secondary: sec, conjunction: conj });
+      setSelectedObject(null);
+      setIsTrackingLocked(true);
+
+      const coordsA = getLiveEntityCoordinates(prim);
+      const coordsB = getLiveEntityCoordinates(sec);
+      const midLat = (coordsA.latDeg + coordsB.latDeg) / 2;
+      const midLng = (coordsA.lngDeg + coordsB.lngDeg) / 2;
+
+      globeInstanceRef.current.pointOfView({ lat: midLat, lng: midLng, altitude: 1.6 }, 1000);
+    }
+  }, [conjunctions, objects, getLiveEntityCoordinates]);
+
   const handleResetCamera = useCallback(() => {
     if (!globeInstanceRef.current) return;
     setIsTrackingLocked(false);
+    setActiveEncounterPair(null);
     globeInstanceRef.current.pointOfView(
       { lat: 25, lng: 45, altitude: 2.2 },
       1200
@@ -1336,16 +1517,143 @@ export default function GlobeView({
             <OrbitIcon className={`w-2.5 h-2.5 text-sky-400 ${isRevolving ? "animate-spin" : ""}`} />
             <span>{isRevolving ? `${orbitSpeedMultiplier}x Real-Time Orbit` : "Orbit Paused"}</span>
           </Badge>
-          {isTrackingLocked && (
+          {activeEncounterPair ? (
+            <Badge className="bg-red-600 text-white font-mono text-[10px] px-2.5 py-0.5 animate-pulse flex items-center gap-1 shadow-lg shadow-red-950">
+              <Crosshair className="w-3 h-3" />
+              <span>DUAL-ORBIT ENCOUNTER MODE</span>
+            </Badge>
+          ) : isTrackingLocked ? (
             <Badge className="bg-red-500/90 text-white font-mono text-[10px] px-2 py-0.5 animate-pulse flex items-center gap-1 shadow-lg shadow-red-950">
               <Crosshair className="w-2.5 h-2.5" />
               <span>LOCK-ON ACTIVE</span>
             </Badge>
-          )}
+          ) : null}
         </div>
 
-        {/* Selected Entity Card */}
-        {selectedObject ? (() => {
+        {/* 1. DUAL-ORBIT CONJUNCTION ENCOUNTER HUD CARD (When tracking Sat + Debris Together) */}
+        {activeEncounterPair ? (() => {
+          const { primary, secondary, conjunction } = activeEncounterPair;
+          const coordsA = getLiveEntityCoordinates(primary);
+          const coordsB = getLiveEntityCoordinates(secondary);
+          const distDisplay = liveEncounterDistKm != null
+            ? liveEncounterDistKm < 1.0
+              ? `${(liveEncounterDistKm * 1000).toFixed(0)} m`
+              : `${liveEncounterDistKm.toFixed(2)} km`
+            : "Calculating...";
+          const vRel = conjunction?.relativeVelocity ?? Math.abs(
+            Math.sqrt(primary.velocity.vx**2 + primary.velocity.vy**2 + primary.velocity.vz**2) -
+            Math.sqrt(secondary.velocity.vx**2 + secondary.velocity.vy**2 + secondary.velocity.vz**2)
+          );
+
+          return (
+            <div className="pointer-events-auto mt-1 max-w-sm w-full p-3.5 rounded-xl bg-zinc-950/95 border-2 border-red-500/80 backdrop-blur-xl shadow-2xl shadow-red-950/60 animate-in fade-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border/60">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+                  <span className="text-xs font-mono font-extrabold text-red-400 uppercase tracking-wider">
+                    Orbital Encounter Vector
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsTrackingLocked((prev) => !prev)}
+                    title={isTrackingLocked ? "Unlock camera" : "Lock camera to encounter midpoint"}
+                    className={`text-[9px] font-mono px-2 py-0.5 rounded border font-semibold flex items-center gap-1 transition-all ${
+                      isTrackingLocked
+                        ? "bg-red-600 text-white border-red-400 animate-pulse shadow-md shadow-red-950"
+                        : "bg-red-950/60 text-red-300 border-red-500/40 hover:bg-red-900/60"
+                    }`}
+                  >
+                    <Target className="w-2.5 h-2.5" />
+                    <span>{isTrackingLocked ? "Midpoint Locked" : "Lock Midpoint"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveEncounterPair(null);
+                      setIsTrackingLocked(false);
+                    }}
+                    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                    title="Close Dual Track"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Both Bodies Side-by-Side */}
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {/* Primary Satellite */}
+                <div className="p-2 rounded-lg bg-sky-950/40 border border-sky-500/30 text-[10px] font-mono space-y-0.5">
+                  <div className="flex items-center justify-between text-sky-400 font-bold">
+                    <span className="truncate">{primary.name}</span>
+                    <span className="text-[8px] px-1 rounded bg-sky-900/60">SAT</span>
+                  </div>
+                  <div className="text-zinc-400 text-[9px]">Alt: <span className="text-zinc-200">{primary.altitude.toFixed(1)} km</span></div>
+                  <div className="text-zinc-400 text-[9px]">Inc: <span className="text-zinc-200">{coordsA.kep.inclination.toFixed(1)}°</span></div>
+                </div>
+
+                {/* Secondary Debris */}
+                <div className="p-2 rounded-lg bg-red-950/40 border border-red-500/30 text-[10px] font-mono space-y-0.5">
+                  <div className="flex items-center justify-between text-red-400 font-bold">
+                    <span className="truncate">{secondary.name}</span>
+                    <span className="text-[8px] px-1 rounded bg-red-900/60">DEB</span>
+                  </div>
+                  <div className="text-zinc-400 text-[9px]">Alt: <span className="text-zinc-200">{secondary.altitude.toFixed(1)} km</span></div>
+                  <div className="text-zinc-400 text-[9px]">Inc: <span className="text-zinc-200">{coordsB.kep.inclination.toFixed(1)}°</span></div>
+                </div>
+              </div>
+
+              {/* Live Distance Vector Gauge */}
+              <div className="bg-black/80 rounded-lg p-2.5 border border-red-500/40 font-mono space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                    <span>Live Relative Distance:</span>
+                  </span>
+                  <span className="text-amber-400 font-extrabold text-sm tracking-wide">
+                    {distDisplay}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-[10px] pt-1 border-t border-border/40 text-muted-foreground">
+                  <span>Relative Velocity: <strong className="text-zinc-200">{vRel.toFixed(2)} km/s</strong></span>
+                  {conjunction ? (
+                    <span className="text-red-400 font-bold">Pc: {formatScientificPc(conjunction.collisionProbability)}</span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold">Cross-Plane Track</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Camera Direct Quick-Jump Buttons */}
+              <div className="grid grid-cols-2 gap-1.5 mt-2 pt-2 border-t border-border/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    globeInstanceRef.current?.pointOfView({ lat: coordsA.latDeg, lng: coordsA.lngDeg, altitude: 1.45 }, 800);
+                  }}
+                  className="py-1 px-2 rounded bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/30 text-[10px] font-mono font-semibold flex items-center justify-center gap-1 transition-colors"
+                >
+                  <OrbitIcon className="w-3 h-3 text-sky-400" />
+                  <span>Focus Satellite</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    globeInstanceRef.current?.pointOfView({ lat: coordsB.latDeg, lng: coordsB.lngDeg, altitude: 1.45 }, 800);
+                  }}
+                  className="py-1 px-2 rounded bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-500/30 text-[10px] font-mono font-semibold flex items-center justify-center gap-1 transition-colors"
+                >
+                  <Crosshair className="w-3 h-3 text-red-400" />
+                  <span>Focus Debris</span>
+                </button>
+              </div>
+            </div>
+          );
+        })() : selectedObject ? (() => {
           const isDebris = selectedObject.type === "debris" || selectedObject.type === "rocket_body";
           const coords = getLiveEntityCoordinates(selectedObject);
           const latStr = `${Math.abs(coords.latDeg).toFixed(2)}°${coords.latDeg >= 0 ? "N" : "S"}`;
@@ -1357,6 +1665,17 @@ export default function GlobeView({
           ) || 7.5;
           const curDebrisIdx = isDebris ? debrisList.findIndex((d) => d.id === selectedObject.id) : -1;
           const curSatIdx = !isDebris ? satelliteList.findIndex((s) => s.id === selectedObject.id) : -1;
+
+          // Check if this entity has an active conjunction partner
+          const conjPartner = conjunctions.find(
+            (c) => c.primaryObjectId === selectedObject.id || c.secondaryObjectId === selectedObject.id
+          );
+          const partnerObjId = conjPartner
+            ? conjPartner.primaryObjectId === selectedObject.id
+              ? conjPartner.secondaryObjectId
+              : conjPartner.primaryObjectId
+            : null;
+          const partnerObj = partnerObjId ? objects.find((o) => o.id === partnerObjId) : null;
 
           return (
             <div className={`pointer-events-auto mt-1 max-w-sm w-full p-3 rounded-xl bg-zinc-950/95 border backdrop-blur-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 ${
@@ -1404,6 +1723,28 @@ export default function GlobeView({
                   </button>
                 </div>
               </div>
+
+              {/* Conjunction Encounter Fast Track Button (if in close approach) */}
+              {partnerObj && (
+                <div className="mb-2 p-1.5 rounded-lg bg-red-950/40 border border-red-500/40 flex items-center justify-between gap-1 text-[10px] font-mono">
+                  <span className="text-red-300 truncate">⚡ Threat: {partnerObj.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveEncounterPair({
+                        primary: selectedObject.type === "satellite" ? selectedObject : partnerObj,
+                        secondary: selectedObject.type === "satellite" ? partnerObj : selectedObject,
+                        conjunction: conjPartner,
+                      });
+                      setSelectedObject(null);
+                      setIsTrackingLocked(true);
+                    }}
+                    className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white font-bold text-[9px] shrink-0 transition-colors"
+                  >
+                    Track Both Orbits
+                  </button>
+                </div>
+              )}
 
               {/* Navigation Steppers (Cycle through debris or satellites) */}
               {isDebris && debrisList.length > 1 ? (
@@ -1502,41 +1843,56 @@ export default function GlobeView({
           );
         })() : (
           /* Live Orbit Telemetry Guidance Banner (when browsing) */
-          <div className="pointer-events-auto mt-1 max-w-xs p-2.5 rounded-lg bg-zinc-950/90 border border-border/70 shadow-xl backdrop-blur-md animate-in fade-in duration-150">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-              <span className="text-[11px] font-mono font-bold text-foreground">
-                Orbital Surveillance Mode
-              </span>
+          <div className="pointer-events-auto mt-1 max-w-sm p-3 rounded-lg bg-zinc-950/90 border border-border/70 shadow-xl backdrop-blur-md animate-in fade-in duration-150">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                <span className="text-[11px] font-mono font-bold text-foreground">
+                  Orbital Surveillance Mode
+                </span>
+              </div>
             </div>
-            <p className="text-[10px] text-zinc-400 font-mono leading-relaxed mb-2">
-              Click any <span className="text-red-400 font-semibold">debris dot</span> (red) or <span className="text-emerald-400 font-semibold">satellite</span> (green) to lock real-time tracking.
+            <p className="text-[10px] text-zinc-400 font-mono leading-relaxed mb-2.5">
+              Click any <span className="text-red-400 font-semibold">debris</span> or <span className="text-emerald-400 font-semibold">satellite</span> to lock coordinates, or track both orbits together with real-time distance vector.
             </p>
-            <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-border/50">
+
+            {/* Quick Action Navigation Grid */}
+            <div className="space-y-1.5 pt-1.5 border-t border-border/50">
               <button
                 type="button"
-                onClick={handleFocusDebris}
-                className="text-[10px] font-mono py-1 px-1.5 rounded bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate"
+                onClick={handleStartDualEncounter}
+                className="w-full text-[11px] font-mono py-1.5 px-2 rounded bg-gradient-to-r from-sky-950/80 via-purple-950/80 to-red-950/80 hover:from-sky-900/90 hover:to-red-900/90 text-zinc-100 border border-red-500/50 flex items-center justify-center gap-2 font-bold shadow-lg shadow-red-950/40 transition-all cursor-pointer"
               >
-                <Crosshair className="w-3 h-3 text-red-400 shrink-0" />
-                <span>Track Debris</span>
+                <Crosshair className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                <span>⚡ Track Sat + Debris (Dual Orbits & Vector)</span>
               </button>
-              <button
-                type="button"
-                onClick={handleFocusSatellite}
-                className="text-[10px] font-mono py-1 px-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate"
-              >
-                <OrbitIcon className="w-3 h-3 text-emerald-400 shrink-0" />
-                <span>Track Sat</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleFocusISS}
-                className="text-[10px] font-mono py-1 px-1.5 rounded bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate"
-              >
-                <Radio className="w-3 h-3 text-sky-400 shrink-0" />
-                <span>Track ISS</span>
-              </button>
+
+              <div className="grid grid-cols-3 gap-1">
+                <button
+                  type="button"
+                  onClick={handleFocusDebris}
+                  className="text-[10px] font-mono py-1 px-1.5 rounded bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate cursor-pointer"
+                >
+                  <Crosshair className="w-3 h-3 text-red-400 shrink-0" />
+                  <span>Track Debris</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFocusSatellite}
+                  className="text-[10px] font-mono py-1 px-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate cursor-pointer"
+                >
+                  <OrbitIcon className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <span>Track Sat</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFocusISS}
+                  className="text-[10px] font-mono py-1 px-1.5 rounded bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate cursor-pointer"
+                >
+                  <Radio className="w-3 h-3 text-sky-400 shrink-0" />
+                  <span>Track ISS</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
