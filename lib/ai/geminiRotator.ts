@@ -29,12 +29,17 @@ export interface GenerateOptions {
 export class GeminiRotator {
   private readonly keys: string[] = [];
   private currentIndex = 0;
-  private readonly cooldowns = new Map<number, number>(); // index -> timestamp ms
+  private readonly cooldowns = new Map<string, number>(); // `${index}:${model}` -> timestamp ms
   private readonly callCounts = new Map<number, number>();
   private readonly failCounts = new Map<number, number>();
   private readonly quarantined = new Set<number>();
   private readonly candidateModels = [
     process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-pro",
+    "gemini-3.1-flash-lite",
   ];
   private readonly loggedQuarantines = new Set<number>();
 
@@ -93,14 +98,14 @@ export class GeminiRotator {
       totalCalls: this.callCounts.get(idx) ?? 0,
       failures: this.failCounts.get(idx) ?? 0,
       isQuarantined: this.quarantined.has(idx),
-      coolingUntil: Math.max(0, (this.cooldowns.get(idx) ?? 0) - now),
+      coolingUntil: Math.max(0, (this.cooldowns.get(`${idx}:${this.candidateModels[0]}`) ?? 0) - now),
     }));
   }
 
   /**
-   * Acquire the next healthy key using round-robin with exclusion and cooldown filtering
+   * Acquire the next healthy key using round-robin with exclusion and cooldown filtering for a specific model
    */
-  private acquireNextKey(excludedIndices: Set<number>): { key: string; index: number } | null {
+  private acquireNextKey(excludedIndices: Set<number>, model: string): { key: string; index: number } | null {
     if (this.keys.length === 0) {
       throw new Error("GeminiRotator: No Google API keys found in environment variables");
     }
@@ -113,7 +118,7 @@ export class GeminiRotator {
       const idx = (this.currentIndex + attempt) % total;
       if (excludedIndices.has(idx) || this.quarantined.has(idx)) continue;
 
-      const coolingUntil = this.cooldowns.get(idx) ?? 0;
+      const coolingUntil = this.cooldowns.get(`${idx}:${model}`) ?? 0;
       if (now >= coolingUntil) {
         this.currentIndex = (idx + 1) % total;
         return { key: this.keys[idx], index: idx };
@@ -126,7 +131,7 @@ export class GeminiRotator {
     for (let idx = 0; idx < total; idx++) {
       if (excludedIndices.has(idx) || this.quarantined.has(idx)) continue;
 
-      const time = this.cooldowns.get(idx) ?? 0;
+      const time = this.cooldowns.get(`${idx}:${model}`) ?? 0;
       if (time < earliestTime) {
         earliestTime = time;
         earliestIdx = idx;
@@ -141,14 +146,13 @@ export class GeminiRotator {
     return null;
   }
 
-  private markCooldown(index: number, durationMs = 30_000): void {
-    this.cooldowns.set(index, Date.now() + durationMs);
+  private markCooldown(index: number, model: string, durationMs = 30_000): void {
+    this.cooldowns.set(`${index}:${model}`, Date.now() + durationMs);
     this.failCounts.set(index, (this.failCounts.get(index) ?? 0) + 1);
   }
 
   private markQuarantined(index: number, reason: string): void {
     this.quarantined.add(index);
-    this.cooldowns.set(index, Date.now() + 24 * 60 * 60 * 1000);
     this.failCounts.set(index, (this.failCounts.get(index) ?? 0) + 1);
     if (!this.loggedQuarantines.has(index)) {
       this.loggedQuarantines.add(index);
@@ -161,14 +165,23 @@ export class GeminiRotator {
    */
   public async generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
     let lastError: Error | null = null;
+    const startTime = Date.now();
+    const maxBudgetMs = 3500;
+    let totalAttempts = 0;
+    const maxGlobalAttempts = 6;
 
-    // Try candidate models in order: gemini-flash-latest -> gemini-3.1-flash-lite -> gemini-2.5-flash
+    // Try candidate models in order: gemini-flash-latest -> gemini-2.5-flash -> gemini-2.5-flash-lite
     for (const model of this.candidateModels) {
+      if (Date.now() - startTime > maxBudgetMs || totalAttempts >= maxGlobalAttempts) break;
+
       const excludedIndices = new Set<number>();
-      const maxKeyAttempts = Math.max(1, this.keys.length - this.quarantined.size);
+      const maxKeyAttempts = Math.min(3, Math.max(1, this.keys.length - this.quarantined.size));
 
       for (let attempt = 0; attempt < maxKeyAttempts; attempt++) {
-        const keyItem = this.acquireNextKey(excludedIndices);
+        if (Date.now() - startTime > maxBudgetMs || totalAttempts >= maxGlobalAttempts) break;
+        totalAttempts++;
+
+        const keyItem = this.acquireNextKey(excludedIndices, model);
         if (!keyItem) break; // All available keys tried for this model
 
         const { key, index } = keyItem;
@@ -195,7 +208,7 @@ export class GeminiRotator {
           }
 
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 5_000);
+          const timeout = setTimeout(() => controller.abort(), 6_000);
 
           const response = await fetch(url, {
             method: "POST",
@@ -208,15 +221,15 @@ export class GeminiRotator {
 
           // 1. Quota Exhaustion / Rate Limit
           if (response.status === 429) {
-            console.warn(`[GeminiRotator] Key #${index + 1} hit 429 (Rate Limit) on ${model}. Cooling for 45s...`);
-            this.markCooldown(index, 45_000);
+            console.warn(`[GeminiRotator] Key #${index + 1} hit 429 (Rate Limit) on ${model}. Cooling for 30s...`);
+            this.markCooldown(index, model, 30_000);
             continue;
           }
 
           // 2. High Demand / Temporary Unavailable
           if (response.status === 503) {
             console.warn(`[GeminiRotator] Key #${index + 1} hit 503 on ${model}. Rotating...`);
-            this.markCooldown(index, 15_000);
+            this.markCooldown(index, model, 15_000);
             continue;
           }
 
@@ -232,9 +245,8 @@ export class GeminiRotator {
             continue;
           }
 
-          // 5. Model Not Available for this Key/Project
+          // 5. Model Not Available for this Key/Project (rotate to next model candidate, do not quarantine key permanently)
           if (response.status === 404) {
-            this.markQuarantined(index, `404 Model ${model} not enabled for this key`);
             continue;
           }
 
@@ -242,7 +254,7 @@ export class GeminiRotator {
             const errBody = await response.text().catch(() => "");
             if (errBody.includes("RESOURCE_EXHAUSTED") || errBody.includes("quota")) {
               console.warn(`[GeminiRotator] Key #${index + 1} quota exhausted on ${model}. Rotating...`);
-              this.markCooldown(index, 60_000);
+              this.markCooldown(index, model, 45_000);
               continue;
             }
             throw new Error(`Gemini API error ${response.status}: ${errBody}`);
@@ -260,7 +272,7 @@ export class GeminiRotator {
           const isAbort = lastError.name === "AbortError";
           if (isAbort) {
             console.warn(`[GeminiRotator] Key #${index + 1} timed out on ${model}. Rotating key...`);
-            this.markCooldown(index, 30_000);
+            this.markCooldown(index, model, 20_000);
             continue;
           }
         }

@@ -115,13 +115,18 @@ function AnalyticsContent() {
     return shells.find((s) => s.shellId === selectedShellId) || shells[0];
   }, [shells, selectedShellId]);
 
-  // Advisories linked to the selected shell
+  // Advisories linked to the selected shell (deduplicated & prioritized)
   const shellAdvisories = useMemo(() => {
     if (!selectedShell) return [];
+    const seen = new Set<string>();
     return advisories.filter((adv) => {
       const matchText = (adv.title || "").toLowerCase().includes(selectedShell.shellId.toLowerCase()) ||
                         (adv.body || "").toLowerCase().includes(selectedShell.shellId.toLowerCase());
-      return matchText;
+      if (!matchText) return false;
+      const key = `${adv.title || ""}-${(adv.body || "").slice(0, 40)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
   }, [selectedShell, advisories]);
 
@@ -823,7 +828,7 @@ function AnalyticsContent() {
             {/* Contextual Shell Advisories Card */}
             {shellAdvisories.length > 0 && (
               <Card className="border-border/80 bg-card/80 shadow-sm">
-                <CardHeader className="pb-2 border-b border-border/60">
+                <CardHeader className="p-3 pb-2 border-b border-border/60">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-bold font-mono uppercase flex items-center gap-1.5 text-foreground">
                       <Radio className="w-3.5 h-3.5 text-primary" />
@@ -834,20 +839,29 @@ function AnalyticsContent() {
                     </Link>
                   </div>
                 </CardHeader>
-                <CardContent className="p-3 space-y-2 font-mono text-xs">
-                  {shellAdvisories.map((adv) => (
-                    <div key={adv.id} className="p-2.5 rounded-lg border border-border/70 bg-muted/20">
+                <CardContent className="p-3 space-y-2 font-mono text-xs max-h-[220px] overflow-y-auto pr-1">
+                  {shellAdvisories.slice(0, 3).map((adv) => (
+                    <div key={adv.id} className="p-2 rounded-lg border border-border/70 bg-muted/20 hover:bg-muted/30 transition-colors">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="font-bold text-foreground text-xs leading-snug">{adv.title}</p>
-                        <Badge variant="outline" className="text-[9px] uppercase font-bold shrink-0">
+                        <p className="font-bold text-foreground text-[11px] leading-snug truncate">{adv.title}</p>
+                        <Badge variant="outline" className={`text-[8px] uppercase font-bold shrink-0 px-1 py-0 ${
+                          adv.severity === "critical" ? "text-red-400 border-red-500/40 bg-red-950/40" : "text-amber-400 border-amber-500/40"
+                        }`}>
                           {adv.severity}
                         </Badge>
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
                         {adv.body}
                       </p>
                     </div>
                   ))}
+                  {shellAdvisories.length > 3 && (
+                    <div className="pt-1 text-center">
+                      <Link href="/chat" className="text-[10px] font-mono text-primary hover:underline">
+                        + {shellAdvisories.length - 3} more advisories in Feed &rarr;
+                      </Link>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

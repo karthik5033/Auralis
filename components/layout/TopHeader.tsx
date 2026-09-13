@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/LanguageContext";
 import { useAuth } from "@/lib/AuthContext";
 import { useTheme } from "@/lib/ThemeContext";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { NotificationCenter } from "./NotificationCenter";
 import { CommandPalette } from "./CommandPalette";
 
@@ -65,10 +66,14 @@ export function TopHeader() {
           
           {/* Breadcrumbs */}
           <div className="text-sm font-medium hidden md:flex items-center gap-2 select-none">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/40 border border-border/60 text-[11px] font-mono text-zinc-400">
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/40 border border-border/60 text-[11px] font-mono text-zinc-400 hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer"
+              title="Return to Auralis Landing Page"
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>Auralis Mission Control</span>
-            </div>
+            </Link>
             <span className="text-zinc-600 font-mono text-xs">/</span>
             <span className="text-foreground font-bold text-xs font-mono tracking-wide">{title}</span>
           </div>
