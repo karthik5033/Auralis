@@ -52,7 +52,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export function CrimeTrendChart() {
+export function OrbitalTrendChart() {
   const [chartMode, setChartMode] = useState<"trends" | "telemetry">("trends");
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>([]);
   const [maneuvers, setManeuvers] = useState<ManeuverProposal[]>([]);
@@ -532,3 +532,5 @@ export function CrimeTrendChart() {
     </div>
   );
 }
+
+export const CrimeTrendChart = OrbitalTrendChart;

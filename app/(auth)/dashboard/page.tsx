@@ -36,7 +36,7 @@ import {
   Flame,
   X
 } from "lucide-react";
-import { CrimeTrendChart } from "@/components/charts/CrimeTrendChart";
+import { OrbitalTrendChart } from "@/components/charts/OrbitalTrendChart";
 import { LiveMap } from "@/components/dashboard/LiveMap";
 import { LiveEventFeed } from "@/components/dashboard/LiveEventFeed";
 import { EarlyWarningSection } from "@/components/dashboard/EarlyWarningSection";
@@ -332,7 +332,7 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-1 pb-3.5 min-w-0 w-full">
-              <CrimeTrendChart />
+              <OrbitalTrendChart />
             </CardContent>
           </Card>
         </div>

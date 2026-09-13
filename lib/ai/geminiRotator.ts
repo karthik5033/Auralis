@@ -34,7 +34,9 @@ export class GeminiRotator {
   private readonly failCounts = new Map<number, number>();
   private readonly quarantined = new Set<number>();
   private readonly candidateModels = [
-    process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    process.env.GEMINI_MODEL || "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash",
     "gemini-flash-latest",
     "gemini-2.5-flash-lite",
     "gemini-flash-lite-latest",
@@ -245,8 +247,9 @@ export class GeminiRotator {
             continue;
           }
 
-          // 5. Model Not Available for this Key/Project (rotate to next model candidate, do not quarantine key permanently)
+          // 5. Model Not Available / Invalid model name (rotate to next model candidate, do not quarantine key)
           if (response.status === 404) {
+            console.warn(`[GeminiRotator] Model '${model}' returned 404 for Key #${index + 1}. Trying next candidate model...`);
             continue;
           }
 
