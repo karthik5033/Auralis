@@ -59,7 +59,7 @@ export function PolarRadarView({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Radar Controls State
-  const [filterMode, setFilterMode] = useState<"all" | "conjunctions" | "satellites" | "debris">("conjunctions");
+  const [filterMode, setFilterMode] = useState<"all" | "conjunctions" | "satellites" | "debris">("all");
   const [rangeMode, setRangeMode] = useState<"leo_inner" | "leo_all" | "extended">("leo_all");
   const [isScanning, setIsScanning] = useState(true);
   const [scanSpeed, setScanSpeed] = useState<number>(1); // 1x, 2x, 4x
@@ -70,6 +70,7 @@ export function PolarRadarView({
 
   // Animation refs
   const sweepAngleRef = useRef(0);
+  const startTimeRef = useRef<number | null>(null);
   const lastTimeRef = useRef(0);
   const animFrameIdRef = useRef<number | null>(null);
   const radarNodesRef = useRef<RadarNode[]>([]);
@@ -109,9 +110,13 @@ export function PolarRadarView({
       } else if (obj.orbitalElements) {
         azimuthDeg = (obj.orbitalElements.raan + obj.orbitalElements.meanAnomaly) % 360;
       } else {
-        // Fallback hash by NORAD ID
         azimuthDeg = (obj.noradId * 137.5) % 360;
       }
+
+      // Keplerian angular motion speed in deg/s: n = sqrt(mu / a^3) * 180 / PI
+      const semiMajorAxis = obj.orbitalElements?.semiMajorAxis || (6371 + (obj.altitude || 500));
+      const angVelocityRadS = Math.sqrt(398600.4418 / Math.pow(semiMajorAxis, 3));
+      const angularSpeedDeg = (angVelocityRadS * 180) / Math.PI;
 
       // Radius normalized: Earth surface = 0.20, Max Alt = 0.92
       const minAlt = 150; // Karman line buffer
@@ -134,9 +139,11 @@ export function PolarRadarView({
         conjunctionPartnerName = partner?.name || `NORAD-${conjInfo.partnerId.slice(0, 5)}`;
       }
 
-      const node: RadarNode = {
+      const node: RadarNode & { baseAzimuth?: number; angularSpeedDeg?: number } = {
         object: obj,
         azimuthDeg,
+        baseAzimuth: azimuthDeg,
+        angularSpeedDeg,
         radiusNormalized,
         altitudeKm: obj.altitude || 500,
         x: 0,
@@ -149,7 +156,7 @@ export function PolarRadarView({
         blipIntensity: 0.15,
       };
 
-      return node;
+      return node as RadarNode;
     });
   }, [objects, conjMap, maxAltKm]);
 
@@ -411,8 +418,14 @@ export function PolarRadarView({
       const currentNodes = radarNodesRef.current;
       const nodePosMap = new Map<string, { x: number; y: number; node: RadarNode }>();
 
-      // Compute and update node canvas positions
+      // Compute and update node canvas positions with physical orbital propagation
       for (const node of currentNodes) {
+        if (isScanning) {
+          const angSpeed = (node as any).angularSpeedDeg ?? 0.06;
+          // Advance azimuth based on physical mean motion
+          node.azimuthDeg = (node.azimuthDeg + angSpeed * deltaTime * scanSpeed * 4) % 360;
+        }
+
         const nodeRad = (node.azimuthDeg * Math.PI) / 180;
         const nodeRadius = maxRadarRadius * node.radiusNormalized;
         node.x = cx + Math.cos(nodeRad) * nodeRadius;
@@ -780,13 +793,13 @@ export function PolarRadarView({
         />
 
         {/* Floating Top Left Tactical Telemetry Overlay */}
-        <div className="absolute top-3 left-3 z-20 pointer-events-none bg-zinc-950/80 border border-zinc-800/80 p-2.5 rounded-lg backdrop-blur-md text-[10px] font-mono space-y-1 text-zinc-400 shadow-xl max-w-[200px]">
+        <div className="absolute top-3 left-3 z-20 bg-zinc-950/85 border border-zinc-800/80 p-2.5 rounded-lg backdrop-blur-md text-[10px] font-mono space-y-1 text-zinc-400 shadow-xl max-w-[210px]">
           <div className="text-cyan-400 font-bold flex items-center gap-1 uppercase tracking-wider text-[11px]">
             <Compass className="w-3.5 h-3.5" /> Scope Telemetry
           </div>
           <div className="flex justify-between">
             <span>Projection:</span>
-            <span className="text-zinc-200">ECI J2000 Polar</span>
+            <span className="text-zinc-200">ECI Polar Plan</span>
           </div>
           <div className="flex justify-between">
             <span>Range Max:</span>
@@ -796,9 +809,41 @@ export function PolarRadarView({
             <span>Crit Conjunctions:</span>
             <span className="text-red-400 font-bold">{criticalCount}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Elevated Risk:</span>
-            <span className="text-amber-400 font-bold">{elevatedCount}</span>
+
+          <div className="pt-1.5 mt-1 border-t border-zinc-800/80 flex flex-col gap-1">
+            <span className="text-[9px] text-zinc-500 uppercase font-semibold">Quick Track:</span>
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const deb = allRadarNodes.find((n) => n.object.type === "debris" || n.object.type === "rocket_body");
+                  if (deb) setSelectedObjectId(deb.object.id);
+                }}
+                className="px-1 py-0.5 rounded bg-purple-950/60 border border-purple-500/40 text-purple-300 hover:bg-purple-900/60 text-[9px] font-bold text-center transition-colors"
+              >
+                Debris
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const sat = allRadarNodes.find((n) => n.object.type === "satellite");
+                  if (sat) setSelectedObjectId(sat.object.id);
+                }}
+                className="px-1 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60 text-[9px] font-bold text-center transition-colors"
+              >
+                Sat
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const iss = allRadarNodes.find((n) => n.object.name.includes("ISS") || n.object.noradId === 25544);
+                  if (iss) setSelectedObjectId(iss.object.id);
+                }}
+                className="px-1 py-0.5 rounded bg-sky-950/60 border border-sky-500/40 text-sky-300 hover:bg-sky-900/60 text-[9px] font-bold text-center transition-colors"
+              >
+                ISS
+              </button>
+            </div>
           </div>
         </div>
 

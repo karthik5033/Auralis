@@ -769,6 +769,11 @@ export default function GlobeView({
     globe.scene().add(laserGroup);
     conjunctionLasersGroupRef.current = laserGroup;
 
+    // Attach Three.js group for 3D Target Reticle
+    const reticleGroup = new THREE.Group();
+    globe.scene().add(reticleGroup);
+    targetReticleGroupRef.current = reticleGroup;
+
     // Initial camera position
     globe.pointOfView({ lat: 25, lng: 45, altitude: 2.2 }, 1000);
 
@@ -860,11 +865,8 @@ export default function GlobeView({
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(containerRef.current);
-    // Defer initial resize so CSS layout has finished computing container dimensions.
-    // Without this, Next.js dynamic imports + Turbopack can report 0x0 on first render.
     requestAnimationFrame(() => {
       handleResize();
-      // Secondary fallback: if dimensions still weren't ready after rAF, retry after paint
       setTimeout(handleResize, 120);
     });
 
@@ -912,6 +914,56 @@ export default function GlobeView({
             mesh.rotation.y += rotSpeed * 0.75;
           } else if (data.sizeCategory === "rocket_body") {
             mesh.rotation.y += 0.015;
+          }
+        }
+
+        // Real-time 3D Target Reticle on selected tracked object
+        if (targetReticleGroupRef.current) {
+          const retGroup = targetReticleGroupRef.current;
+          while (retGroup.children.length > 0) {
+            const child = retGroup.children[0] as any;
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+              else child.material.dispose();
+            }
+            retGroup.remove(child);
+          }
+
+          const curSelected = selectedObjectRef.current;
+          if (curSelected) {
+            const selectedItem = satelliteMeshesRef.current.find((m) => m.data.id === curSelected.id);
+            if (selectedItem && selectedItem.mesh) {
+              const pos = selectedItem.mesh.position;
+              const isDebris = curSelected.type === "debris" || curSelected.type === "rocket_body";
+              const retColor = isDebris ? 0xef4444 : 0x38bdf8;
+
+              // Reticle Pulsing Ring
+              const ringGeom = new THREE.RingGeometry(1.2, 1.45, 24);
+              const ringMat = new THREE.MeshBasicMaterial({
+                color: retColor,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.85,
+              });
+              const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+              ringMesh.position.copy(pos);
+              ringMesh.lookAt(0, 0, 0); // Face camera/origin
+              retGroup.add(ringMesh);
+
+              // If Lock-On mode is active, smoothly update camera orientation to follow target in orbit
+              if (isTrackingLockedRef.current && globeInstanceRef.current) {
+                const u = selectedItem.data.currentTheta ?? selectedItem.data.phase ?? 0;
+                const incRad = (selectedItem.data.inclination * Math.PI) / 180;
+                const raanRad = (selectedItem.data.raan * Math.PI) / 180;
+                const rKm = 6371 + (selectedItem.data.altitude || 500);
+                const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+                const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+                const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
+                const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
+                globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg }, 0);
+              }
+            }
           }
         }
 
@@ -1006,6 +1058,18 @@ export default function GlobeView({
         conjunctionLasersGroupRef.current.clear();
       }
       conjunctionLasersGroupRef.current = null;
+
+      if (targetReticleGroupRef.current) {
+        targetReticleGroupRef.current.traverse((child: any) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+            else child.material.dispose();
+          }
+        });
+        targetReticleGroupRef.current.clear();
+      }
+      targetReticleGroupRef.current = null;
 
       try {
         const globe = globeInstanceRef.current as any;
@@ -1108,22 +1172,64 @@ export default function GlobeView({
     getConjunctions({ limit: 50 }).then((res) => setConjunctions(res.data));
   });
 
-  // Camera Focus Actions
+  const [isTrackingLocked, setIsTrackingLocked] = useState(false);
+  const isTrackingLockedRef = useRef(false);
+  isTrackingLockedRef.current = isTrackingLocked;
+  const selectedObjectRef = useRef<TrackedObject | null>(selectedObject);
+  selectedObjectRef.current = selectedObject;
+
+  // Dedicated Three.js group for 3D Target Reticle
+  const targetReticleGroupRef = useRef<THREE.Group | null>(null);
+
+  // Helper to compute live Geodetic and ECI coordinates from real-time orbital state
+  const getLiveEntityCoordinates = useCallback((obj: TrackedObject) => {
+    const meshItem = satelliteMeshesRef.current.find((m) => m.data.id === obj.id);
+    const u = meshItem?.data.currentTheta ?? currentThetaMapRef.current.get(obj.id) ?? 0;
+    const kep = (obj.orbitalElements && obj.orbitalElements.inclination != null)
+      ? obj.orbitalElements
+      : deriveKeplerianElements(obj.position, obj.velocity);
+    const incRad = (kep.inclination * Math.PI) / 180;
+    const raanRad = (kep.raan * Math.PI) / 180;
+    const rKm = 6371 + (obj.altitude || 500);
+    const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+    const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+    const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
+    const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
+    return {
+      geo,
+      u,
+      rKm,
+      xEciKm,
+      yEciKm,
+      zEciKm,
+      kep,
+      latDeg: geo.latitudeDeg,
+      lngDeg: geo.longitudeDeg,
+    };
+  }, []);
+
+  // Camera Focus Actions: Live pinpoint tracking
   const handleFocusISS = useCallback(() => {
     if (!globeInstanceRef.current) return;
-    const iss = satellitesData.find((s) => s.name.includes("ISS"));
+    const iss = objects.find((s) => s.noradId === 25544 || s.name.toUpperCase().includes("ISS") || s.name.toUpperCase().includes("TIANGONG"));
     if (iss) {
+      const coords = getLiveEntityCoordinates(iss);
       globeInstanceRef.current.pointOfView(
-        { lat: iss.lat, lng: iss.lng, altitude: 1.4 },
-        1500
+        { lat: coords.latDeg, lng: coords.lngDeg, altitude: 1.45 },
+        1000
       );
-      setSelectedObject(iss.raw);
+      setSelectedObject(iss);
+      if (onSelectObject) onSelectObject(iss);
     }
-  }, [satellitesData]);
+  }, [objects, getLiveEntityCoordinates, onSelectObject]);
 
   const debrisList = React.useMemo(() => {
-    return satellitesData.filter((s) => s.type === "debris" || s.type === "rocket_body");
-  }, [satellitesData]);
+    return objects.filter((s) => s.type === "debris" || s.type === "rocket_body");
+  }, [objects]);
+
+  const satelliteList = React.useMemo(() => {
+    return objects.filter((s) => s.type === "satellite");
+  }, [objects]);
 
   const handleCycleDebris = useCallback((direction: 1 | -1) => {
     if (debrisList.length === 0) return;
@@ -1134,56 +1240,74 @@ export default function GlobeView({
 
     const target = debrisList[nextIdx];
     if (target) {
-      setSelectedObject(target.raw);
-      if (onSelectObject) onSelectObject(target.raw);
+      setSelectedObject(target);
+      if (onSelectObject) onSelectObject(target);
       if (globeInstanceRef.current) {
-        const u = target.currentTheta ?? target.phase ?? 0;
-        const incRad = (target.inclination * Math.PI) / 180;
-        const raanRad = (target.raan * Math.PI) / 180;
-        const rKm = 6371 + (target.altitude || 500);
-        const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
-        const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
-        const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
-        const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
-        globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.45 }, 800);
+        const coords = getLiveEntityCoordinates(target);
+        globeInstanceRef.current.pointOfView({ lat: coords.latDeg, lng: coords.lngDeg, altitude: 1.45 }, 800);
       }
     }
-  }, [debrisList, selectedObject, onSelectObject]);
+  }, [debrisList, selectedObject, onSelectObject, getLiveEntityCoordinates]);
 
   const handleFocusDebris = useCallback(() => {
     if (!globeInstanceRef.current || debrisList.length === 0) return;
     const randomIdx = Math.floor(Math.random() * debrisList.length);
     const debris = debrisList[randomIdx];
     if (debris) {
-      setSelectedObject(debris.raw);
-      if (onSelectObject) onSelectObject(debris.raw);
-      const u = debris.currentTheta ?? debris.phase ?? 0;
-      const incRad = (debris.inclination * Math.PI) / 180;
-      const raanRad = (debris.raan * Math.PI) / 180;
-      const rKm = 6371 + (debris.altitude || 500);
-      const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
-      const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
-      const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
-      const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date());
-      globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.45 }, 1000);
+      setSelectedObject(debris);
+      if (onSelectObject) onSelectObject(debris);
+      const coords = getLiveEntityCoordinates(debris);
+      globeInstanceRef.current.pointOfView({ lat: coords.latDeg, lng: coords.lngDeg, altitude: 1.45 }, 1000);
     }
-  }, [debrisList, onSelectObject]);
+  }, [debrisList, onSelectObject, getLiveEntityCoordinates]);
+
+  const handleCycleSatellite = useCallback((direction: 1 | -1) => {
+    if (satelliteList.length === 0) return;
+    const curIdx = selectedObject ? satelliteList.findIndex((s) => s.id === selectedObject.id) : -1;
+    let nextIdx = curIdx + direction;
+    if (nextIdx >= satelliteList.length) nextIdx = 0;
+    if (nextIdx < 0) nextIdx = satelliteList.length - 1;
+
+    const target = satelliteList[nextIdx];
+    if (target) {
+      setSelectedObject(target);
+      if (onSelectObject) onSelectObject(target);
+      if (globeInstanceRef.current) {
+        const coords = getLiveEntityCoordinates(target);
+        globeInstanceRef.current.pointOfView({ lat: coords.latDeg, lng: coords.lngDeg, altitude: 1.45 }, 800);
+      }
+    }
+  }, [satelliteList, selectedObject, onSelectObject, getLiveEntityCoordinates]);
+
+  const handleFocusSatellite = useCallback(() => {
+    if (!globeInstanceRef.current || satelliteList.length === 0) return;
+    const randomIdx = Math.floor(Math.random() * satelliteList.length);
+    const sat = satelliteList[randomIdx];
+    if (sat) {
+      setSelectedObject(sat);
+      if (onSelectObject) onSelectObject(sat);
+      const coords = getLiveEntityCoordinates(sat);
+      globeInstanceRef.current.pointOfView({ lat: coords.latDeg, lng: coords.lngDeg, altitude: 1.45 }, 1000);
+    }
+  }, [satelliteList, onSelectObject, getLiveEntityCoordinates]);
 
   const handleFocusConjunction = useCallback(() => {
     if (!globeInstanceRef.current) return;
-    const crit = conjunctions.find((c) => c.riskLevel === "critical");
+    const crit = conjunctions.find((c) => c.riskLevel === "critical") || conjunctions[0];
     if (crit) {
       const obj = objects.find((o) => o.id === crit.primaryObjectId);
       if (obj) {
-        const { lat, lng } = eciToGeodetic(obj.position, obj.altitude);
-        globeInstanceRef.current.pointOfView({ lat, lng, altitude: 1.5 }, 1500);
+        const coords = getLiveEntityCoordinates(obj);
+        globeInstanceRef.current.pointOfView({ lat: coords.latDeg, lng: coords.lngDeg, altitude: 1.5 }, 1200);
         setSelectedObject(obj);
+        if (onSelectObject) onSelectObject(obj);
       }
     }
-  }, [conjunctions, objects]);
+  }, [conjunctions, objects, getLiveEntityCoordinates, onSelectObject]);
 
   const handleResetCamera = useCallback(() => {
     if (!globeInstanceRef.current) return;
+    setIsTrackingLocked(false);
     globeInstanceRef.current.pointOfView(
       { lat: 25, lng: 45, altitude: 2.2 },
       1200
@@ -1212,31 +1336,27 @@ export default function GlobeView({
             <OrbitIcon className={`w-2.5 h-2.5 text-sky-400 ${isRevolving ? "animate-spin" : ""}`} />
             <span>{isRevolving ? `${orbitSpeedMultiplier}x Real-Time Orbit` : "Orbit Paused"}</span>
           </Badge>
+          {isTrackingLocked && (
+            <Badge className="bg-red-500/90 text-white font-mono text-[10px] px-2 py-0.5 animate-pulse flex items-center gap-1 shadow-lg shadow-red-950">
+              <Crosshair className="w-2.5 h-2.5" />
+              <span>LOCK-ON ACTIVE</span>
+            </Badge>
+          )}
         </div>
 
         {/* Selected Entity Card */}
         {selectedObject ? (() => {
           const isDebris = selectedObject.type === "debris" || selectedObject.type === "rocket_body";
-          const meshItem = satelliteMeshesRef.current.find((m) => m.data.id === selectedObject.id);
-          const u = meshItem?.data.currentTheta ?? currentThetaMapRef.current.get(selectedObject.id) ?? 0;
-          const kep = (selectedObject.orbitalElements && selectedObject.orbitalElements.inclination != null)
-            ? selectedObject.orbitalElements
-            : deriveKeplerianElements(selectedObject.position, selectedObject.velocity);
-          const incRad = (kep.inclination * Math.PI) / 180;
-          const raanRad = (kep.raan * Math.PI) / 180;
-          const rKm = 6371 + (selectedObject.altitude || 500);
-          const xEciKm = rKm * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
-          const yEciKm = rKm * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
-          const zEciKm = rKm * Math.sin(incRad) * Math.sin(u);
-          const geo = eciToGeodeticCoords({ x: xEciKm, y: yEciKm, z: zEciKm }, new Date(liveEpoch));
-          const latStr = `${Math.abs(geo.latitudeDeg).toFixed(2)}°${geo.latitudeDeg >= 0 ? "N" : "S"}`;
-          const lngStr = `${Math.abs(geo.longitudeDeg).toFixed(2)}°${geo.longitudeDeg >= 0 ? "E" : "W"}`;
+          const coords = getLiveEntityCoordinates(selectedObject);
+          const latStr = `${Math.abs(coords.latDeg).toFixed(2)}°${coords.latDeg >= 0 ? "N" : "S"}`;
+          const lngStr = `${Math.abs(coords.lngDeg).toFixed(2)}°${coords.lngDeg >= 0 ? "E" : "W"}`;
           const v = Math.sqrt(
             selectedObject.velocity.vx ** 2 +
             selectedObject.velocity.vy ** 2 +
             selectedObject.velocity.vz ** 2
           ) || 7.5;
           const curDebrisIdx = isDebris ? debrisList.findIndex((d) => d.id === selectedObject.id) : -1;
+          const curSatIdx = !isDebris ? satelliteList.findIndex((s) => s.id === selectedObject.id) : -1;
 
           return (
             <div className={`pointer-events-auto mt-1 max-w-sm w-full p-3 rounded-xl bg-zinc-950/95 border backdrop-blur-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 ${
@@ -1254,23 +1374,29 @@ export default function GlobeView({
                   <button
                     type="button"
                     onClick={() => {
+                      setIsTrackingLocked((prev) => !prev);
                       if (globeInstanceRef.current) {
-                        globeInstanceRef.current.pointOfView({ lat: geo.latitudeDeg, lng: geo.longitudeDeg, altitude: 1.45 }, 800);
+                        globeInstanceRef.current.pointOfView({ lat: coords.latDeg, lng: coords.lngDeg, altitude: 1.45 }, 600);
                       }
                     }}
-                    title="Center camera on this target"
-                    className={`text-[9px] font-mono px-1.5 py-0.5 rounded border font-semibold flex items-center gap-1 transition-colors ${
-                      isDebris
+                    title={isTrackingLocked ? "Release camera lock" : "Lock camera to track object"}
+                    className={`text-[9px] font-mono px-2 py-0.5 rounded border font-semibold flex items-center gap-1 transition-all ${
+                      isTrackingLocked
+                        ? "bg-red-600 text-white border-red-400 animate-pulse shadow-md shadow-red-950"
+                        : isDebris
                         ? "bg-red-950/60 text-red-300 border-red-500/40 hover:bg-red-900/60"
                         : "bg-sky-950/60 text-sky-300 border-sky-500/40 hover:bg-sky-900/60"
                     }`}
                   >
                     <Target className="w-2.5 h-2.5" />
-                    <span>Track</span>
+                    <span>{isTrackingLocked ? "Locked" : "Lock-On"}</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSelectedObject(null)}
+                    onClick={() => {
+                      setSelectedObject(null);
+                      setIsTrackingLocked(false);
+                    }}
                     className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                     title="Close"
                   >
@@ -1279,8 +1405,8 @@ export default function GlobeView({
                 </div>
               </div>
 
-              {/* Debris Stepper Navigation (when inspecting debris) */}
-              {isDebris && debrisList.length > 1 && (
+              {/* Navigation Steppers (Cycle through debris or satellites) */}
+              {isDebris && debrisList.length > 1 ? (
                 <div className="flex items-center justify-between gap-1 mb-2 bg-red-950/30 px-2 py-1 rounded border border-red-500/20 text-[10px] font-mono">
                   <button
                     type="button"
@@ -1302,14 +1428,36 @@ export default function GlobeView({
                     <ChevronRight className="w-3 h-3" />
                   </button>
                 </div>
-              )}
+              ) : !isDebris && satelliteList.length > 1 ? (
+                <div className="flex items-center justify-between gap-1 mb-2 bg-sky-950/30 px-2 py-1 rounded border border-sky-500/20 text-[10px] font-mono">
+                  <button
+                    type="button"
+                    onClick={() => handleCycleSatellite(-1)}
+                    className="text-sky-400 hover:text-sky-200 flex items-center gap-0.5 font-bold transition-colors"
+                  >
+                    <ChevronLeft className="w-3 h-3" />
+                    <span>Prev</span>
+                  </button>
+                  <span className="text-zinc-400 text-[9px]">
+                    Payload #{curSatIdx >= 0 ? curSatIdx + 1 : 1} of {satelliteList.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCycleSatellite(1)}
+                    className="text-sky-400 hover:text-sky-200 flex items-center gap-0.5 font-bold transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : null}
 
               {/* Live Real-Time Coordinates Display */}
               <div className="bg-black/70 rounded-lg p-2.5 border border-border/50 font-mono space-y-1 text-[11px]">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Live Coordinates:</span>
+                    <span>Live Geodetic:</span>
                   </span>
                   <span className="text-sky-400 font-bold font-mono">
                     {latStr}, {lngStr}
@@ -1317,7 +1465,7 @@ export default function GlobeView({
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Altitude & Velocity:</span>
+                  <span className="text-muted-foreground">Altitude & Speed:</span>
                   <span className="text-foreground font-semibold">
                     {selectedObject.altitude.toFixed(1)} km @ <span className="text-amber-400 font-bold">{v.toFixed(2)} km/s</span>
                   </span>
@@ -1326,13 +1474,13 @@ export default function GlobeView({
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">ECI Cartesian:</span>
                   <span className="text-zinc-300 font-mono text-[10px]">
-                    [{xEciKm.toFixed(0)}, {yEciKm.toFixed(0)}, {zEciKm.toFixed(0)}] km
+                    [{coords.xEciKm.toFixed(0)}, {coords.yEciKm.toFixed(0)}, {coords.zEciKm.toFixed(0)}] km
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center text-[10px] pt-1 border-t border-border/40 text-muted-foreground">
                   <span>NORAD #{selectedObject.noradId} • {selectedObject.type.toUpperCase()}</span>
-                  <span>Inc: {kep.inclination.toFixed(1)}°</span>
+                  <span>Inc: {coords.kep.inclination.toFixed(1)}°</span>
                 </div>
               </div>
 
@@ -1340,7 +1488,7 @@ export default function GlobeView({
               <div className="mt-2 pt-1.5 border-t border-border/50 flex items-center justify-between">
                 <span className="text-[9px] font-mono text-emerald-400/80 flex items-center gap-1">
                   <Radio className="w-2.5 h-2.5 animate-pulse" />
-                  <span>SGP4 Live Propagating</span>
+                  <span>SGP4 Live Telemetry</span>
                 </span>
                 <Link
                   href={`/profiles/${selectedObject.id}`}
@@ -1356,29 +1504,37 @@ export default function GlobeView({
           /* Live Orbit Telemetry Guidance Banner (when browsing) */
           <div className="pointer-events-auto mt-1 max-w-xs p-2.5 rounded-lg bg-zinc-950/90 border border-border/70 shadow-xl backdrop-blur-md animate-in fade-in duration-150">
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-2 h-2 rounded-full bg-red-400 animate-ping shrink-0" />
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
               <span className="text-[11px] font-mono font-bold text-foreground">
                 Orbital Surveillance Mode
               </span>
             </div>
             <p className="text-[10px] text-zinc-400 font-mono leading-relaxed mb-2">
-              Click any <span className="text-red-400 font-semibold">debris dot</span> (red) or <span className="text-emerald-400 font-semibold">satellite</span> (green) on Earth to lock real-time coordinates.
+              Click any <span className="text-red-400 font-semibold">debris dot</span> (red) or <span className="text-emerald-400 font-semibold">satellite</span> (green) to lock real-time tracking.
             </p>
-            <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50">
+            <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-border/50">
               <button
                 type="button"
                 onClick={handleFocusDebris}
-                className="flex-1 text-[10px] font-mono py-1 px-2 rounded bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-500/40 flex items-center justify-center gap-1 font-semibold transition-colors"
+                className="text-[10px] font-mono py-1 px-1.5 rounded bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate"
               >
-                <Crosshair className="w-3 h-3 text-red-400" />
+                <Crosshair className="w-3 h-3 text-red-400 shrink-0" />
                 <span>Track Debris</span>
               </button>
               <button
                 type="button"
-                onClick={handleFocusISS}
-                className="flex-1 text-[10px] font-mono py-1 px-2 rounded bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/40 flex items-center justify-center gap-1 font-semibold transition-colors"
+                onClick={handleFocusSatellite}
+                className="text-[10px] font-mono py-1 px-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate"
               >
-                <Radio className="w-3 h-3 text-sky-400" />
+                <OrbitIcon className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>Track Sat</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleFocusISS}
+                className="text-[10px] font-mono py-1 px-1.5 rounded bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate"
+              >
+                <Radio className="w-3 h-3 text-sky-400 shrink-0" />
                 <span>Track ISS</span>
               </button>
             </div>

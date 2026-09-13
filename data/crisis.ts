@@ -26,7 +26,7 @@ export function generateBreakupFragments(options: BreakupOptions): TrackedObject
     altitudeKm,
     fragmentCount,
     sourceObject,
-    maxVelocityKickKmS = 0.08,
+    maxVelocityKickKmS = 0.12,
   } = options;
 
   const fragments: TrackedObject[] = [];
@@ -37,14 +37,25 @@ export function generateBreakupFragments(options: BreakupOptions): TrackedObject
   // Circular orbital speed at altitude: v = sqrt(mu / r)
   const vCirc = Math.sqrt(GM_EARTH_KM3_S2 / rBase);
 
-  // If source object provided, use its state vector as the collision point
+  // Default inclined orbit (e.g. 51.6° LEO or polar 98°) if no source object
+  const defaultIncRad = (51.6 * Math.PI) / 180;
+  const defaultRaanRad = (45.0 * Math.PI) / 180;
+
   const basePos = sourceObject
     ? { ...sourceObject.position }
-    : { x: rBase * Math.SQRT1_2, y: rBase * Math.SQRT1_2, z: 0.0 };
+    : {
+        x: rBase * Math.cos(defaultRaanRad) * Math.cos(Math.PI / 4),
+        y: rBase * Math.sin(defaultRaanRad) * Math.cos(Math.PI / 4),
+        z: rBase * Math.sin(defaultIncRad) * Math.sin(Math.PI / 4),
+      };
 
   const baseVel = sourceObject
     ? { ...sourceObject.velocity }
-    : { vx: -vCirc * Math.SQRT1_2, vy: vCirc * Math.SQRT1_2, vz: 0.0 };
+    : {
+        vx: -vCirc * Math.sin(defaultRaanRad),
+        vy: vCirc * Math.cos(defaultRaanRad) * Math.cos(defaultIncRad),
+        vz: vCirc * Math.sin(defaultIncRad) * 0.7,
+      };
 
   const baseNoradId = 90000 + Math.floor(Math.random() * 5000);
 
@@ -62,10 +73,10 @@ export function generateBreakupFragments(options: BreakupOptions): TrackedObject
     const dvy = randNorm() * (maxVelocityKickKmS / 2.0);
     const dvz = randNorm() * (maxVelocityKickKmS / 2.0);
 
-    // Minor spatial dispersion around the breakup epicenter (±0.5 km)
-    const dpx = (Math.random() - 0.5) * 1.0;
-    const dpy = (Math.random() - 0.5) * 1.0;
-    const dpz = (Math.random() - 0.5) * 1.0;
+    // Minor spatial dispersion around the breakup epicenter (±0.8 km)
+    const dpx = (Math.random() - 0.5) * 1.6;
+    const dpy = (Math.random() - 0.5) * 1.6;
+    const dpz = (Math.random() - 0.5) * 1.6;
 
     const pos = {
       x: Math.round((basePos.x + dpx) * 1000) / 1000,
@@ -84,6 +95,17 @@ export function generateBreakupFragments(options: BreakupOptions): TrackedObject
     const shellId = getShellId(alt);
     const orbitalElements = deriveKeplerianElements(pos, vel);
 
+    // For newly generated breakup fragments, assign tight localized covariance (0.02 - 0.08 km)
+    // reflecting high-density sensor tracking immediately after breakup
+    const fragCovariance: [number, number, number, number, number, number] = [
+      0.04 + (Math.random() * 0.02),
+      0.001,
+      0.001,
+      0.04 + (Math.random() * 0.02),
+      0.001,
+      0.04 + (Math.random() * 0.02),
+    ];
+
     fragments.push({
       id: randomUUID(),
       noradId: baseNoradId + i,
@@ -93,12 +115,12 @@ export function generateBreakupFragments(options: BreakupOptions): TrackedObject
       position: pos,
       velocity: vel,
       orbitalElements,
-      covarianceUpperTriangle: [...DEFAULT_COVARIANCE_UPPER_TRIANGLE],
+      covarianceUpperTriangle: fragCovariance,
       altitude: alt,
       shellId,
       epoch: now,
       lastUpdated: now,
-      status: "unknown",
+      status: "active",
     });
   }
 
