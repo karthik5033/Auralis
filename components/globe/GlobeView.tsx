@@ -1014,58 +1014,25 @@ export default function GlobeView({
           }
         }
 
-        // Real-time 3D Dual-Orbit Encounter Relative Distance Vector Line
-        if (encounterVectorGroupRef.current) {
-          const encGroup = encounterVectorGroupRef.current;
-          while (encGroup.children.length > 0) {
-            const child = encGroup.children[0] as any;
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) {
-              if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
-              else child.material.dispose();
+          // Real-time 3D Dual-Orbit Encounter Relative Distance Vector & Axis Lines
+          if (encounterVectorGroupRef.current) {
+            const encGroup = encounterVectorGroupRef.current;
+            while (encGroup.children.length > 0) {
+              const child = encGroup.children[0] as any;
+              if (child.geometry) child.geometry.dispose();
+              if (child.material) {
+                if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+                else child.material.dispose();
+              }
+              encGroup.remove(child);
             }
-            encGroup.remove(child);
-          }
 
-          const encPair = activeEncounterPairRef.current;
-          if (encPair) {
-            const meshA = satelliteMeshesRef.current.find((m) => m.data.id === encPair.primary.id)?.mesh;
-            const meshB = satelliteMeshesRef.current.find((m) => m.data.id === encPair.secondary.id)?.mesh;
+            const encPair = activeEncounterPairRef.current;
+            if (encPair) {
+              const meshA = satelliteMeshesRef.current.find((m) => String(m.data.id) === String(encPair.primary.id))?.mesh;
+              const meshB = satelliteMeshesRef.current.find((m) => String(m.data.id) === String(encPair.secondary.id))?.mesh;
 
-            if (meshA && meshB) {
-              const pA = meshA.position;
-              const pB = meshB.position;
-
-              // Glowing High-Visibility Relative Distance Laser Vector
-              const geom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
-              const mat = new THREE.LineBasicMaterial({
-                color: 0xef4444,
-                transparent: true,
-                opacity: 0.95,
-                depthWrite: false,
-              });
-              encGroup.add(new THREE.Line(geom, mat));
-
-              // Glowing Reticles at both endpoints
-              const ringA = new THREE.RingGeometry(0.9, 1.25, 20);
-              const matA = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
-              const meshRingA = new THREE.Mesh(ringA, matA);
-              meshRingA.position.copy(pA);
-              meshRingA.lookAt(0, 0, 0);
-              encGroup.add(meshRingA);
-
-              const ringB = new THREE.RingGeometry(0.9, 1.25, 20);
-              const matB = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
-              const meshRingB = new THREE.Mesh(ringB, matB);
-              meshRingB.position.copy(pB);
-              meshRingB.lookAt(0, 0, 0);
-              encGroup.add(meshRingB);
-
-              // Calculate live physical Euclidean separation in km:
-              const rKm1 = 6371 + (encPair.primary.altitude || 500);
-              const rKm2 = 6371 + (encPair.secondary.altitude || 500);
-              const u1 = currentThetaMapRef.current.get(encPair.primary.id) ?? 0;
-              const u2 = currentThetaMapRef.current.get(encPair.secondary.id) ?? 0;
+              // Astrodynamic calculations for both bodies:
               const kep1 = (encPair.primary.orbitalElements && encPair.primary.orbitalElements.inclination != null)
                 ? encPair.primary.orbitalElements
                 : deriveKeplerianElements(encPair.primary.position, encPair.primary.velocity);
@@ -1073,35 +1040,188 @@ export default function GlobeView({
                 ? encPair.secondary.orbitalElements
                 : deriveKeplerianElements(encPair.secondary.position, encPair.secondary.velocity);
 
+              const u1 = currentThetaMapRef.current.get(encPair.primary.id) ?? 0;
+              const u2 = currentThetaMapRef.current.get(encPair.secondary.id) ?? 0;
+
+              const alt1 = (encPair.primary.altitude || 500) / 6371;
+              const alt2 = (encPair.secondary.altitude || 500) / 6371;
+              const rSat1 = 100 * (1 + alt1);
+              const rSat2 = 100 * (1 + alt2);
+
               const incRad1 = (kep1.inclination * Math.PI) / 180;
               const raanRad1 = (kep1.raan * Math.PI) / 180;
-              const x1 = rKm1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
-              const y1 = rKm1 * (Math.sin(raanRad1) * Math.cos(u1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
-              const z1 = rKm1 * Math.sin(incRad1) * Math.sin(u1);
-
               const incRad2 = (kep2.inclination * Math.PI) / 180;
               const raanRad2 = (kep2.raan * Math.PI) / 180;
-              const x2 = rKm2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
-              const y2 = rKm2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
-              const z2 = rKm2 * Math.sin(incRad2) * Math.sin(u2);
 
-              const dx = x1 - x2;
-              const dy = y1 - y2;
-              const dz = z1 - z2;
+              // 3D Cartesian points on globe coordinate system:
+              const zEci1 = rSat1 * Math.sin(incRad1) * Math.sin(u1);
+              const xEci1 = rSat1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+              const yEci1 = rSat1 * (Math.sin(raanRad1) * Math.cos(u1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+
+              const zEci2 = rSat2 * Math.sin(incRad2) * Math.sin(u2);
+              const xEci2 = rSat2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+              const yEci2 = rSat2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+
+              const pA = meshA ? meshA.position.clone() : new THREE.Vector3(yEci1, zEci1, xEci1);
+              const pB = meshB ? meshB.position.clone() : new THREE.Vector3(yEci2, zEci2, xEci2);
+
+              // 1. Calculate live physical Euclidean separation in km
+              const rKm1 = 6371 + (encPair.primary.altitude || 500);
+              const rKm2 = 6371 + (encPair.secondary.altitude || 500);
+              const x1Km = rKm1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+              const y1Km = rKm1 * (Math.sin(raanRad1) * Math.cos(u1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
+              const z1Km = rKm1 * Math.sin(incRad1) * Math.sin(u1);
+
+              const x2Km = rKm2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+              const y2Km = rKm2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
+              const z2Km = rKm2 * Math.sin(incRad2) * Math.sin(u2);
+
+              const dx = x1Km - x2Km;
+              const dy = y1Km - y2Km;
+              const dz = z1Km - z2Km;
               const liveDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
               setLiveEncounterDistKm(liveDist);
 
-              // If camera follow is active, center on the midpoint between both objects
+              const isCriticalDist = liveDist < 50;
+              const isCautionDist = liveDist < 500;
+              const beamColor = isCriticalDist ? 0xef4444 : isCautionDist ? 0xf59e0b : 0x38bdf8;
+
+              // 2. Volumetric 3D Laser Beam joining the two orbital points
+              const distScene = pA.distanceTo(pB);
+              if (distScene > 0.01) {
+                const beamGeom = new THREE.CylinderGeometry(0.28, 0.28, distScene, 8, 1, true);
+                const beamMat = new THREE.MeshBasicMaterial({
+                  color: beamColor,
+                  transparent: true,
+                  opacity: 0.85,
+                  depthWrite: false,
+                  side: THREE.DoubleSide,
+                });
+                const beamMesh = new THREE.Mesh(beamGeom, beamMat);
+                beamMesh.position.copy(pA).add(pB).multiplyScalar(0.5);
+
+                const dir = new THREE.Vector3().subVectors(pB, pA).normalize();
+                const up = new THREE.Vector3(0, 1, 0);
+                const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
+                beamMesh.quaternion.copy(quat);
+                encGroup.add(beamMesh);
+
+                // Luminous outer aura sheath
+                const auraGeom = new THREE.CylinderGeometry(0.65, 0.65, distScene, 8, 1, true);
+                const auraMat = new THREE.MeshBasicMaterial({
+                  color: beamColor,
+                  transparent: true,
+                  opacity: 0.25,
+                  depthWrite: false,
+                  side: THREE.DoubleSide,
+                });
+                const auraMesh = new THREE.Mesh(auraGeom, auraMat);
+                auraMesh.position.copy(beamMesh.position);
+                auraMesh.quaternion.copy(quat);
+                encGroup.add(auraMesh);
+
+                // Core radiant hairline connector
+                const lineGeom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
+                const lineMat = new THREE.LineBasicMaterial({
+                  color: 0xffffff,
+                  transparent: true,
+                  opacity: 0.95,
+                  depthWrite: false,
+                });
+                encGroup.add(new THREE.Line(lineGeom, lineMat));
+
+                // Midpoint Pulsing 3D Sphere Beacon
+                const midPos = new THREE.Vector3().copy(pA).add(pB).multiplyScalar(0.5);
+                const midGeom = new THREE.SphereGeometry(0.65, 12, 12);
+                const midMat = new THREE.MeshBasicMaterial({
+                  color: beamColor,
+                  transparent: true,
+                  opacity: 0.9,
+                });
+                const midMesh = new THREE.Mesh(midGeom, midMat);
+                midMesh.position.copy(midPos);
+                encGroup.add(midMesh);
+
+                const midHaloGeom = new THREE.SphereGeometry(1.2, 12, 12);
+                const midHaloMat = new THREE.MeshBasicMaterial({
+                  color: beamColor,
+                  transparent: true,
+                  opacity: 0.3,
+                });
+                const midHaloMesh = new THREE.Mesh(midHaloGeom, midHaloMat);
+                midHaloMesh.position.copy(midPos);
+                encGroup.add(midHaloMesh);
+              }
+
+              // 3. Radial Projection Axes: Connect Earth surface to each orbital point (Altitude dropped axis)
+              const pAGround = pA.clone().normalize().multiplyScalar(100);
+              const pBGround = pB.clone().normalize().multiplyScalar(100);
+
+              // Satellite Radial Axis Line
+              const axisAGeom = new THREE.BufferGeometry().setFromPoints([pAGround, pA]);
+              const axisAMat = new THREE.LineBasicMaterial({
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.65,
+                depthWrite: false,
+              });
+              encGroup.add(new THREE.Line(axisAGeom, axisAMat));
+
+              // Debris Radial Axis Line
+              const axisBGeom = new THREE.BufferGeometry().setFromPoints([pBGround, pB]);
+              const axisBMat = new THREE.LineBasicMaterial({
+                color: 0xef4444,
+                transparent: true,
+                opacity: 0.65,
+                depthWrite: false,
+              });
+              encGroup.add(new THREE.Line(axisBGeom, axisBMat));
+
+              // Ground Projection Base Rings
+              const groundMarkerGeom = new THREE.SphereGeometry(0.4, 8, 8);
+              const groundAMesh = new THREE.Mesh(groundMarkerGeom, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+              groundAMesh.position.copy(pAGround);
+              encGroup.add(groundAMesh);
+
+              const groundBMesh = new THREE.Mesh(groundMarkerGeom, new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+              groundBMesh.position.copy(pBGround);
+              encGroup.add(groundBMesh);
+
+              // 4. Glowing 3D Gimbal Reticles & Crosshairs on Both Points
+              // Satellite Point A (Cyan Gimbal)
+              const ringA1 = new THREE.RingGeometry(1.1, 1.45, 24);
+              const matA1 = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+              const meshRingA1 = new THREE.Mesh(ringA1, matA1);
+              meshRingA1.position.copy(pA);
+              meshRingA1.lookAt(0, 0, 0);
+              encGroup.add(meshRingA1);
+
+              const orbA = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 10), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+              orbA.position.copy(pA);
+              encGroup.add(orbA);
+
+              // Debris Point B (Hazard Crimson Gimbal)
+              const ringB1 = new THREE.RingGeometry(1.1, 1.45, 24);
+              const matB1 = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+              const meshRingB1 = new THREE.Mesh(ringB1, matB1);
+              meshRingB1.position.copy(pB);
+              meshRingB1.lookAt(0, 0, 0);
+              encGroup.add(meshRingB1);
+
+              const orbB = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 10), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+              orbB.position.copy(pB);
+              encGroup.add(orbB);
+
+              // 5. Camera tracking midpoint follow
               if (isTrackingLockedRef.current && globeInstanceRef.current) {
-                const midX = (x1 + x2) / 2;
-                const midY = (y1 + y2) / 2;
-                const midZ = (z1 + z2) / 2;
+                const midX = (x1Km + x2Km) / 2;
+                const midY = (y1Km + y2Km) / 2;
+                const midZ = (z1Km + z2Km) / 2;
                 const geoMid = eciToGeodeticCoords({ x: midX, y: midY, z: midZ }, new Date());
                 globeInstanceRef.current.pointOfView({ lat: geoMid.latitudeDeg, lng: geoMid.longitudeDeg }, 0);
               }
             }
           }
-        }
 
         // Real-time 3D space conjunction targeting laser vectors
         if (conjunctionLasersGroupRef.current) {
