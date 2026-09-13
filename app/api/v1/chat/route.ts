@@ -152,8 +152,19 @@ Respond directly as the Advisory Agent Copilot:`;
     const queryLower = message.toLowerCase().trim();
     let fallbackResponse = "";
 
-    // 1. Capability & Identity Intent Matching
+    // 1. Greeting & Capability / Identity Intent Matching
+    const isGreeting =
+      queryLower === "hey" ||
+      queryLower === "hello" ||
+      queryLower === "hi" ||
+      queryLower === "yo" ||
+      queryLower === "sup" ||
+      queryLower.startsWith("hey ") ||
+      queryLower.startsWith("hello ") ||
+      queryLower.startsWith("hi ");
+
     const isCapabilityQuery =
+      isGreeting ||
       queryLower.includes("what can you do") ||
       queryLower.includes("who are you") ||
       queryLower.includes("capabilities") ||
@@ -227,8 +238,8 @@ I am the **Auralis Autonomous Mission Control Copilot**, powered by a distribute
 
 • **NORAD ID:** \`${foundObject.noradId ?? "CATALOGED"}\` | **Type:** \`${(foundObject.type ?? "satellite").toUpperCase()}\` | **Status:** \`${(foundObject.status ?? "active").toUpperCase()}\`
 • **Current Altitude:** **${alt.toFixed(1)} km** (Orbital Shell: \`${objShell?.shellId ?? "LEO-STD"}\`)
-• **Orbital Velocity:** **${(foundObject.velocity ?? 7.6).toFixed(2)} km/s**
-• **Inclination:** **${(foundObject.inclination ?? 51.6).toFixed(2)}°**
+• **Orbital Velocity:** **${Math.sqrt((foundObject.velocity?.vx ?? 0) ** 2 + (foundObject.velocity?.vy ?? 0) ** 2 + (foundObject.velocity?.vz ?? 0) ** 2).toFixed(2)} km/s**
+• **Inclination:** **${(foundObject.orbitalElements?.inclination ?? 51.6).toFixed(2)}°**
 • **Spatial Debris Exposure ($R_0$):** \`${(objShell?.r0 ?? 0.85).toFixed(2)}\` (${(objShell?.r0 ?? 0) >= 1.0 ? "Super-critical cascade risk" : "Nominal density"})
 
 **Conjunction Risk Screening:**
