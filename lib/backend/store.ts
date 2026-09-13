@@ -180,6 +180,39 @@ export class InMemoryStore {
       }
     }
 
+    // Ensure all conjunction participants exist in objectRecords
+    for (const conj of this.conjunctionRecords.values()) {
+      [conj.primaryObjectId, conj.secondaryObjectId].forEach((ref) => {
+        if (!this.objectRecords.has(ref)) {
+          const noradId = ref.startsWith("norad-") ? parseInt(ref.slice(6), 10) : undefined;
+          const stub: TrackedObject = {
+            id: ref,
+            noradId: noradId ?? Math.floor(10000 + Math.random() * 80000),
+            name: noradId ? `OBJECT ${noradId}` : ref,
+            type: "satellite",
+            status: "active",
+            operatorId: null,
+            position: { x: 0, y: 0, z: 0 },
+            velocity: { vx: 0, vy: 0, vz: 0 },
+            orbitalElements: {
+              semiMajorAxis: 7000,
+              eccentricity: 0.001,
+              inclination: 53.0,
+              raan: 0,
+              argOfPerigee: 0,
+              meanAnomaly: 0,
+            },
+            covarianceUpperTriangle: [1, 0, 0, 1, 0, 1],
+            altitude: 600,
+            shellId: "LEO_600_650",
+            epoch: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+          };
+          this.objectRecords.set(ref, stub);
+        }
+      });
+    }
+
     this.ensureManeuverProposals();
   }
 
@@ -314,6 +347,8 @@ export class InMemoryStore {
       };
 
       this.maneuverRecords.set(proposal.id, proposal);
+      conj.maneuverProposalId = proposal.id;
+      this.conjunctionRecords.set(conj.id, { ...conj, maneuverProposalId: proposal.id });
     }
   }
 }

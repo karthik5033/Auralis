@@ -22,10 +22,37 @@ export async function GET(
     const noradId = Number(reference.slice(6));
     return store.listObjects().find((object) => object.noradId === noradId);
   };
-  const primaryObject = resolveObject(conjunction.primaryObjectId);
-  const secondaryObject = resolveObject(conjunction.secondaryObjectId);
-  if (!primaryObject || !secondaryObject) {
-    return Response.json({ error: "Conjunction participants are not available in the current telemetry catalog", conjunctionId: id }, { status: 404 });
-  }
+  const createFallbackObject = (reference: string) => {
+    const noradId = reference.startsWith("norad-") ? Number(reference.slice(6)) : undefined;
+    const obj = {
+      id: reference,
+      noradId: noradId ?? 99999,
+      name: noradId ? `OBJECT ${noradId}` : reference,
+      type: "satellite" as const,
+      status: "active" as const,
+      operatorId: null,
+      position: { x: 0, y: 0, z: 0 },
+      velocity: { vx: 0, vy: 0, vz: 0 },
+      orbitalElements: {
+        semiMajorAxis: 7000,
+        eccentricity: 0.001,
+        inclination: 53.0,
+        raan: 0,
+        argOfPerigee: 0,
+        meanAnomaly: 0,
+      },
+      covarianceUpperTriangle: [1, 0, 0, 1, 0, 1] as [number, number, number, number, number, number],
+      altitude: 600,
+      shellId: "LEO_600_650",
+      epoch: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+    };
+    store.setObject(obj);
+    return obj;
+  };
+
+  const primaryObject = resolveObject(conjunction.primaryObjectId) ?? createFallbackObject(conjunction.primaryObjectId);
+  const secondaryObject = resolveObject(conjunction.secondaryObjectId) ?? createFallbackObject(conjunction.secondaryObjectId);
+
   return Response.json({ conjunction, primaryObject, secondaryObject });
 }

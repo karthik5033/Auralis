@@ -156,6 +156,12 @@ Return strict JSON:
         resolvedAt: now,
       };
       store.setManeuver(proposal);
+      store.setConjunction({
+        ...conj,
+        maneuverProposalId: proposal.id,
+        status: "mitigated",
+        updatedAt: now,
+      });
       await messageBus.publish(messageBus.createMessage({
         source: "maneuver_negotiation",
         target: "broadcast",

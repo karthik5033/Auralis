@@ -202,7 +202,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
-              {summary ? summary.totalTrackedObjects.toLocaleString() : "—"}
+              {summary ? (
+                summary.totalTrackedObjects.toLocaleString()
+              ) : loading ? (
+                <span className="inline-block h-7 w-20 bg-muted/60 rounded animate-pulse" />
+              ) : (
+                "—"
+              )}
             </div>
             <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">
               Catalog SGP4 synched
@@ -222,7 +228,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-emerald-400 font-mono">
-              {summary ? summary.activeSatellites.toLocaleString() : "—"}
+              {summary ? (
+                summary.activeSatellites.toLocaleString()
+              ) : loading ? (
+                <span className="inline-block h-7 w-16 bg-emerald-500/20 rounded animate-pulse" />
+              ) : (
+                "—"
+              )}
             </div>
             <p className="text-[10px] text-emerald-500/80 mt-1 font-mono truncate">
               Active LEO payloads
@@ -242,7 +254,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
-              {summary ? summary.debrisObjects.toLocaleString() : "—"}
+              {summary ? (
+                summary.debrisObjects.toLocaleString()
+              ) : loading ? (
+                <span className="inline-block h-7 w-20 bg-muted/60 rounded animate-pulse" />
+              ) : (
+                "—"
+              )}
             </div>
             <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">
               Non-steerable bodies
@@ -262,7 +280,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
-              {summary ? summary.activeConjunctions : "—"}
+              {summary ? (
+                summary.activeConjunctions
+              ) : loading ? (
+                <span className="inline-block h-7 w-12 bg-amber-500/20 rounded animate-pulse" />
+              ) : (
+                "—"
+              )}
             </div>
             <p className="text-[10px] text-amber-500 mt-1 font-mono truncate">
               Approaches in 72h
@@ -282,7 +306,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-red-400 font-mono">
-              {summary ? summary.criticalConjunctions : "—"}
+              {summary ? (
+                summary.criticalConjunctions
+              ) : loading ? (
+                <span className="inline-block h-7 w-12 bg-red-500/20 rounded animate-pulse" />
+              ) : (
+                "—"
+              )}
             </div>
             <p className="text-[10px] text-red-400 mt-1 font-mono truncate">
               Pc &ge; 10⁻³ action trigger
@@ -302,7 +332,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-3.5 pt-0">
             <div className="text-2xl font-extrabold tracking-tight text-amber-400 font-mono">
-              {summary ? summary.shellsAtRisk : "—"}
+              {summary ? (
+                summary.shellsAtRisk
+              ) : loading ? (
+                <span className="inline-block h-7 w-12 bg-amber-500/20 rounded animate-pulse" />
+              ) : (
+                "—"
+              )}
             </div>
             <p className="text-[10px] text-amber-400 mt-1 font-mono truncate">
               R₀ &ge; 1.0 Supercritical
