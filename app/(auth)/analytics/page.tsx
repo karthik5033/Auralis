@@ -54,7 +54,7 @@ import { downloadDataAsCsv } from "@/lib/utils";
 import Link from "next/link";
 import { AgenticRolesAndCascadeStack } from "@/components/analytics/AgenticRolesAndCascadeStack";
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
   const searchParams = useSearchParams();
   const requestedShellId = searchParams.get("shell");
   const [shells, setShells] = useState<ShellRiskSnapshot[]>([]);
@@ -959,5 +959,13 @@ export default function AnalyticsPage() {
       {/* 6 Autonomous Multi-Agent Swarm Roles & Complete Astrodynamics Stack */}
       <AgenticRolesAndCascadeStack />
     </div>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <React.Suspense fallback={<div className="p-6 text-xs font-mono text-muted-foreground animate-pulse">Initializing Orbital Analytics Engine...</div>}>
+      <AnalyticsContent />
+    </React.Suspense>
   );
 }

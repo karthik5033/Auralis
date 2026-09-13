@@ -96,3 +96,38 @@ export function parseGPToTrackedObject(
     status,
   };
 }
+
+/**
+ * Parses raw TLE line 1 and line 2 strings into a RawGPElement structure.
+ */
+export function parseTleLinesToGP(line1: string, line2: string, name: string = ""): RawGPElement {
+  const noradId = parseInt(line1.substring(2, 7).trim(), 10) || 99999;
+  const inc = parseFloat(line2.substring(8, 16).trim()) || 0;
+  const raan = parseFloat(line2.substring(17, 25).trim()) || 0;
+  const eccStr = "0." + line2.substring(26, 33).trim();
+  const ecc = parseFloat(eccStr) || 0.001;
+  const argp = parseFloat(line2.substring(34, 42).trim()) || 0;
+  const ma = parseFloat(line2.substring(43, 51).trim()) || 0;
+  const mm = parseFloat(line2.substring(52, 63).trim()) || 15.0;
+
+  return {
+    OBJECT_NAME: name || `OBJ-${noradId}`,
+    OBJECT_ID: line1.substring(9, 17).trim() || `${noradId}`,
+    EPOCH: new Date().toISOString(),
+    MEAN_MOTION: mm,
+    ECCENTRICITY: ecc,
+    INCLINATION: inc,
+    RA_OF_ASC_NODE: raan,
+    ARG_OF_PERICENTER: argp,
+    MEAN_ANOMALY: ma,
+    EPHEMERIS_TYPE: 0,
+    CLASSIFICATION_TYPE: line1.charAt(7) || "U",
+    NORAD_CAT_ID: noradId,
+    ELEMENT_SET_NO: 999,
+    REV_AT_EPOCH: parseInt(line2.substring(63, 68).trim(), 10) || 0,
+    BSTAR: 0.0001,
+    MEAN_MOTION_DOT: 0,
+    MEAN_MOTION_DDOT: 0,
+    OBJECT_TYPE: name.toUpperCase().includes("DEB") ? "DEBRIS" : name.toUpperCase().includes("R/B") ? "ROCKET BODY" : "PAYLOAD",
+  };
+}

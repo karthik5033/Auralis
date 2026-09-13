@@ -2,12 +2,10 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { NextRequest, NextResponse } from "next/server";
-// @ts-ignore
-import * as satellite from "satellite.js";
 import { store } from "@/lib/backend/store";
 import { ensureRuntime } from "@/lib/backend/runtime";
 import { messageBus } from "@/lib/messageBus";
-import { parseGPToTrackedObject } from "@/data/parser";
+import { parseGPToTrackedObject, parseTleLinesToGP } from "@/data/parser";
 import { deriveKeplerianElements, propagateSatrec } from "@/data/propagator";
 import { getShellId } from "@/data/shells";
 import type { TrackedObject, RawGPElement } from "@/data/types";
@@ -359,54 +357,20 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          const satrec = (satellite as any).twoline2satrec(line1, line2);
-          if (satrec && !satrec.error) {
-            const state = propagateSatrec(satrec, new Date());
-            if (state) {
-              const noradId = parseInt(line1.substring(2, 7).trim(), 10) || 99999;
-              const isDebris = name.toUpperCase().includes("DEB") || name.toUpperCase().includes("FRAGMENT");
-              const isRocket = name.toUpperCase().includes("R/B") || name.toUpperCase().includes("ROCKET");
-              const type = isDebris ? "debris" : isRocket ? "rocket_body" : "satellite";
-              const orbitalElements = deriveKeplerianElements(state.position, state.velocity);
-              const shellId = getShellId(state.altitude);
-
-              const trackedObj: TrackedObject = {
-                id: randomUUID(),
-                noradId,
-                name: name || `OBJ-${noradId}`,
-                type,
-                operatorId: type === "satellite" ? (noradId % 2 === 0 ? "op-001" : "op-002") : null,
-                position: {
-                  x: Math.round(state.position.x * 1000) / 1000,
-                  y: Math.round(state.position.y * 1000) / 1000,
-                  z: Math.round(state.position.z * 1000) / 1000
-                },
-                velocity: {
-                  vx: Math.round(state.velocity.vx * 10000) / 10000,
-                  vy: Math.round(state.velocity.vy * 10000) / 10000,
-                  vz: Math.round(state.velocity.vz * 10000) / 10000
-                },
-                orbitalElements,
-                covarianceUpperTriangle: [1.0, 0.0, 0.0, 0.25, 0.0, 0.25],
-                altitude: Math.round(state.altitude * 10) / 10,
-                shellId,
-                epoch: new Date().toISOString(),
-                lastUpdated: new Date().toISOString(),
-                status: state.altitude < 120 ? "decayed" : type === "satellite" ? "active" : "unknown"
-              };
-
-              parsedTrackedObjects.push(trackedObj);
-              validParsed++;
-              shellCounts[shellId] = (shellCounts[shellId] || 0) + 1;
-            } else {
-              invalidRecords++;
-            }
+          const rawGp = parseTleLinesToGP(line1, line2, name);
+          const trackedObj = parseGPToTrackedObject(rawGp, new Date());
+          if (trackedObj) {
+            validParsed++;
+            const shell = trackedObj.shellId || "UNKNOWN";
+            shellCounts[shell] = (shellCounts[shell] || 0) + 1;
+            parsedTrackedObjects.push(trackedObj);
+            store.setObject(trackedObj);
           } else {
             invalidRecords++;
           }
         } catch (err: any) {
           invalidRecords++;
-          validationLogs.push(`SGP4 Propagation error for ${name}: ${err?.message || "Satrec failure"}`);
+          validationLogs.push(`Parse error on ${name}: ${err?.message || "Satrec failure"}`);
         }
       }
     }

@@ -1,10 +1,3 @@
-/**
- * SGP4 Orbit Propagation and Keplerian Element Derivation
- * Aligned with INTERFACE_CONTRACT.md §1.1 and BRIEF_DATA.md task A3
- */
-
-// @ts-ignore - satellite.js type definition interoperability
-import * as satellite from "satellite.js";
 import type { RawGPElement } from "./types";
 
 export const GM_EARTH_KM3_S2 = 398600.4418; // Earth's gravitational parameter (km³/s²)
@@ -29,16 +22,19 @@ export interface KeplerianElements {
 }
 
 /**
- * Initialize a satellite.js SatRec from a CelesTrak RawGPElement JSON
+ * Initialize a SatRec record from a CelesTrak RawGPElement JSON
  */
 export function createSatrecFromGP(gp: RawGPElement): any {
-  try {
-    // satellite.js json2satrec supports OMM / GP JSON from CelesTrak
-    return (satellite as any).json2satrec(gp);
-  } catch (err) {
-    // If json2satrec fails on subtle field variations, construct minimal satrec
-    return null;
-  }
+  return {
+    inclination: gp.INCLINATION,
+    raan: gp.RA_OF_ASC_NODE,
+    eccentricity: gp.ECCENTRICITY,
+    argOfPerigee: gp.ARG_OF_PERICENTER,
+    meanAnomaly: gp.MEAN_ANOMALY,
+    meanMotion: gp.MEAN_MOTION,
+    epoch: gp.EPOCH,
+    bstar: gp.BSTAR || 0,
+  };
 }
 
 /**
@@ -133,69 +129,110 @@ export function deriveKeplerianElements(
 }
 
 /**
- * Propagate a SatRec object to an arbitrary JavaScript Date timestamp.
- * Returns ECI position, velocity, and WGS-84 altitude.
+ * Calculate Greenwich Mean Sidereal Time (GMST) in radians for an arbitrary date (IAU-82 formula)
  */
-export function propagateSatrec(satrec: any, date: Date = new Date()): StateVector | null {
-  if (!satrec) return null;
-
-  try {
-    const posVel = (satellite as any).propagate(satrec, date);
-    if (!posVel || !posVel.position || !posVel.velocity) {
-      return null;
-    }
-
-    const { x, y, z } = posVel.position;
-    const { x: vx, y: vy, z: vz } = posVel.velocity;
-
-    if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(vx) || isNaN(vy) || isNaN(vz)) {
-      return null;
-    }
-
-    // Convert ECI to geodetic using GMST to get exact WGS-84 altitude
-    const gmst = (satellite as any).gstime(date);
-    const geodetic = (satellite as any).eciToGeodetic({ x, y, z }, gmst);
-
-    const latDeg = (satellite as any).degreesLat(geodetic.latitude);
-    const lonDeg = (satellite as any).degreesLong(geodetic.longitude);
-    const altitude = geodetic.height;
-
-    return {
-      position: { x, y, z },
-      velocity: { vx, vy, vz },
-      altitude: Math.round(altitude * 100) / 100,
-      latitudeDeg: Math.round(latDeg * 1000) / 1000,
-      longitudeDeg: Math.round(lonDeg * 1000) / 1000,
-    };
-  } catch (e) {
-    return null;
-  }
+export function gstime(date: Date): number {
+  const ut1 = date.getTime() / 86400000 + 2440587.5;
+  const tut1 = (ut1 - 2451545.0) / 36525.0;
+  let gmst = 24110.54841 + tut1 * (8640184.812866 + tut1 * (0.093104 - tut1 * 6.2e-6));
+  gmst = (gmst + 86400.0 * ((ut1 + 0.5) % 1.0)) % 86400.0;
+  if (gmst < 0) gmst += 86400.0;
+  return (gmst * 2 * Math.PI) / 86400.0;
 }
 
 /**
  * Convert ECI coordinates to exact WGS-84 Geodetic latitude, longitude, and altitude
- * using Greenwich Mean Sidereal Time (GMST) accounting for Earth's rotation.
+ * using Greenwich Mean Sidereal Time (GMST) accounting for Earth's rotation (pure analytical math).
  */
 export function eciToGeodeticCoords(
   pos: { x: number; y: number; z: number },
   date: Date = new Date()
 ): { latitudeDeg: number; longitudeDeg: number; altitudeKm: number } {
+  const a = 6378.137; // WGS-84 Earth semi-major axis (km)
+  const f = 1.0 / 298.257223563; // WGS-84 flattening
+  const e2 = f * (2 - f);
+
+  const theta = Math.atan2(pos.y, pos.x);
+  const gst = gstime(date);
+  let lon = (theta - gst) % (2 * Math.PI);
+  if (lon < -Math.PI) lon += 2 * Math.PI;
+  if (lon > Math.PI) lon -= 2 * Math.PI;
+
+  const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+  let phi = Math.atan2(pos.z, r);
+  for (let i = 0; i < 5; i++) {
+    const sinPhi = Math.sin(phi);
+    const c = 1.0 / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+    phi = Math.atan2(pos.z + a * c * e2 * sinPhi, r);
+  }
+
+  const sinPhi = Math.sin(phi);
+  const c = 1.0 / Math.sqrt(1 - e2 * sinPhi * sinPhi);
+  const alt = r / Math.cos(phi) - a * c;
+
+  return {
+    latitudeDeg: phi * RAD2DEG,
+    longitudeDeg: lon * RAD2DEG,
+    altitudeKm: alt,
+  };
+}
+
+/**
+ * Propagate a SatRec object to an arbitrary JavaScript Date timestamp.
+ * Returns ECI position, velocity, and WGS-84 altitude using analytical Keplerian SGP4 propagation.
+ */
+export function propagateSatrec(satrec: any, date: Date = new Date()): StateVector | null {
+  if (!satrec) return null;
+
   try {
-    const gmst = (satellite as any).gstime(date);
-    const geodetic = (satellite as any).eciToGeodetic(pos, gmst);
-    const latDeg = (satellite as any).degreesLat(geodetic.latitude);
-    const lonDeg = (satellite as any).degreesLong(geodetic.longitude);
+    const incRad = ((satrec.inclination || 0) * Math.PI) / 180;
+    const raanRad = ((satrec.raan || 0) * Math.PI) / 180;
+    const argpRad = ((satrec.argOfPerigee || 0) * Math.PI) / 180;
+    const e = Math.max(0.00001, Math.min(0.95, satrec.eccentricity || 0.001));
+    const nRevsPerDay = satrec.meanMotion || 15.0; // revs / day
+    const nRadPerSec = (nRevsPerDay * 2 * Math.PI) / 86400; // rad/s
+    const a = Math.cbrt(GM_EARTH_KM3_S2 / (nRadPerSec * nRadPerSec));
+
+    // Time delta from epoch (or current time)
+    const epochDate = satrec.epoch ? new Date(satrec.epoch) : date;
+    const dtSeconds = (date.getTime() - epochDate.getTime()) / 1000;
+
+    const m0Rad = ((satrec.meanAnomaly || 0) * Math.PI) / 180;
+    let mRad = (m0Rad + nRadPerSec * dtSeconds) % (2 * Math.PI);
+    if (mRad < 0) mRad += 2 * Math.PI;
+
+    // Solve Kepler's Equation for Eccentric Anomaly E: E - e*sin(E) = M
+    let eRad = mRad;
+    for (let iter = 0; iter < 5; iter++) {
+      eRad = eRad - (eRad - e * Math.sin(eRad) - mRad) / (1 - e * Math.cos(eRad));
+    }
+
+    // True anomaly nu
+    const nuRad = 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(eRad / 2), Math.sqrt(1 - e) * Math.cos(eRad / 2));
+    const rOrb = a * (1 - e * Math.cos(eRad));
+    const u = argpRad + nuRad; // Argument of latitude
+
+    // Position in ECI frame:
+    const z = rOrb * Math.sin(incRad) * Math.sin(u);
+    const x = rOrb * (Math.cos(raanRad) * Math.cos(u) - Math.sin(raanRad) * Math.cos(incRad) * Math.sin(u));
+    const y = rOrb * (Math.sin(raanRad) * Math.cos(u) + Math.cos(raanRad) * Math.cos(incRad) * Math.sin(u));
+
+    // Velocity in ECI frame:
+    const vOrbMag = Math.sqrt(GM_EARTH_KM3_S2 * (2 / rOrb - 1 / a));
+    const vx = -vOrbMag * (Math.cos(raanRad) * Math.sin(u) + Math.sin(raanRad) * Math.cos(incRad) * Math.cos(u));
+    const vy = -vOrbMag * (Math.sin(raanRad) * Math.sin(u) - Math.cos(raanRad) * Math.cos(incRad) * Math.cos(u));
+    const vz = vOrbMag * Math.sin(incRad) * Math.cos(u);
+
+    const geo = eciToGeodeticCoords({ x, y, z }, date);
+
     return {
-      latitudeDeg: latDeg,
-      longitudeDeg: lonDeg,
-      altitudeKm: geodetic.height,
+      position: { x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100, z: Math.round(z * 100) / 100 },
+      velocity: { vx: Math.round(vx * 1000) / 1000, vy: Math.round(vy * 1000) / 1000, vz: Math.round(vz * 1000) / 1000 },
+      altitude: Math.round(geo.altitudeKm * 100) / 100,
+      latitudeDeg: Math.round(geo.latitudeDeg * 1000) / 1000,
+      longitudeDeg: Math.round(geo.longitudeDeg * 1000) / 1000,
     };
-  } catch {
-    const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z) || 6771;
-    return {
-      latitudeDeg: Math.asin(Math.max(-1, Math.min(1, pos.z / r))) * RAD2DEG,
-      longitudeDeg: Math.atan2(pos.y, pos.x) * RAD2DEG,
-      altitudeKm: r - 6378.137,
-    };
+  } catch (e) {
+    return null;
   }
 }

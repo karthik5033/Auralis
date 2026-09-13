@@ -114,6 +114,7 @@ class MockWebSocketService {
    * Starts the mock emission timers.
    */
   public start(): void {
+    if (typeof window === "undefined") return; // CRITICAL: Never start mock interval threads in SSR or Node build environment
     if (this.active) return;
     this.active = true;
 

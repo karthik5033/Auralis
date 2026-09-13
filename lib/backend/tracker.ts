@@ -147,7 +147,13 @@ export class TrackerAgent {
 
   start(): void {
     if (this.intervalHandle) return;
-    if (process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build") {
+    if (
+      process.env.NEXT_PHASE === "phase-production-build" ||
+      process.env.NEXT_PHASE === "phase-export" ||
+      process.env.npm_lifecycle_event === "build" ||
+      (Boolean(process.env.VERCEL) && !process.env.PORT) ||
+      (Boolean(process.env.CI) && !process.env.PORT)
+    ) {
       return;
     }
     void this.runOnce().catch(() => undefined);

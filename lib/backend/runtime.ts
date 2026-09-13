@@ -6,6 +6,16 @@ import { RiskAssessorAgent } from "./riskAssessor";
 import { TrackerAgent } from "./tracker";
 import { store } from "./store";
 
+function isBuildPhase(): boolean {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.NEXT_PHASE === "phase-export" ||
+    process.env.npm_lifecycle_event === "build" ||
+    (Boolean(process.env.VERCEL) && !process.env.PORT) ||
+    (Boolean(process.env.CI) && !process.env.PORT)
+  );
+}
+
 export class BackendRuntime {
   riskAssessor!: RiskAssessorAgent;
   maneuverNegotiation!: ManeuverNegotiationAgent;
@@ -23,7 +33,7 @@ export class BackendRuntime {
 
   start(): void {
     if (this.started) return;
-    if (process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build") {
+    if (isBuildPhase()) {
       return;
     }
     this.started = true;
