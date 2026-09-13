@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LatexMath } from "@/components/ui/LatexMath";
 
 export interface CanvasNode {
   id: string;
@@ -1599,8 +1600,8 @@ export function FlowchartCanvas() {
                   <span className="text-[11px] font-mono uppercase text-amber-400 font-bold block mb-1.5 flex items-center gap-1.5">
                     <Activity className="w-3.5 h-3.5" /> Governing Math & Physical Formulations:
                   </span>
-                  <div className="p-3 rounded-xl bg-amber-950/20 border border-amber-500/30 font-mono text-xs text-amber-300 leading-relaxed overflow-x-auto">
-                    {selectedNode.mathFormula}
+                  <div className="p-3 rounded-xl bg-zinc-900/90 border border-amber-500/40 text-amber-200 leading-relaxed overflow-x-auto shadow-sm">
+                    <LatexMath math={selectedNode.mathFormula} displayMode={true} />
                   </div>
                 </div>
               )}

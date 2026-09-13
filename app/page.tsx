@@ -57,6 +57,7 @@ import {
   Loader2
 } from "lucide-react";
 import { AuralisLogo } from "@/components/ui/AuralisLogo";
+import { LatexMath } from "@/components/ui/LatexMath";
 import { getDashboardSummary, getShells, getConjunctions, getManeuvers, getObjects } from "@/lib/api";
 import type { DashboardSummary, ShellRiskSnapshot, ConjunctionEvent, ManeuverProposal, TrackedObject } from "@/types/contract";
 import { formatDistance, formatOperator } from "@/lib/formatters";
@@ -1490,17 +1491,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-cyan-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-cyan-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-cyan-500/30 text-zinc-200 shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-cyan-400 font-bold flex items-center justify-between font-mono">
                   <span>FOSTER-1992 2D GAUSSIAN INTEGRAL</span>
                   <span className="text-zinc-500">B-Plane</span>
                 </div>
-                <div className="text-cyan-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"P_c = \\frac{1}{2\\pi \\sqrt{\\det(C_B)}} \\iint_{\\mathcal{A}} \\exp\\left(-\\frac{1}{2} \\mathbf{r}^T C_B^{-1} \\mathbf{r}\\right) dx\\, dy"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="P_c = \frac{1}{2\pi \sqrt{\det(C_B)}} \iint_{\mathcal{A}} \exp\left(-\frac{1}{2} \mathbf{r}^T C_B^{-1} \mathbf{r}\right) dx\, dy"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"C_B = P (C_1 + C_2) P^T"}</span>
-                  <span>{"R_{hard} = R_1 + R_2"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="C_B = P (C_1 + C_2) P^T" />
+                  <LatexMath math="R_{\text{hard}} = R_1 + R_2" />
                 </div>
               </div>
             </div>
@@ -1520,17 +1524,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-rose-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-rose-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-rose-500/30 text-zinc-200 shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-rose-400 font-bold flex items-center justify-between font-mono">
                   <span>NASA / ESA ACTION CRITERIA</span>
                   <span className="text-zinc-500">Tier Matrix</span>
                 </div>
-                <div className="text-rose-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"\\text{RiskTier} = \\begin{cases} \\text{CRITICAL} & P_c \\ge 10^{-4} \\\\ \\text{ELEVATED} & 10^{-5} \\le P_c < 10^{-4} \\\\ \\text{NOMINAL} & P_c < 10^{-5} \\end{cases}"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="\text{RiskTier} = \begin{cases} \text{CRITICAL} & P_c \ge 10^{-4} \\ \text{ELEVATED} & 10^{-5} \le P_c < 10^{-4} \\ \text{NOMINAL} & P_c < 10^{-5} \end{cases}"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"TCA \\le 72.0\\,\\text{h}"}</span>
-                  <span>{"\\Delta v_{\\text{req}} \\ge 0.28\\,\\text{m/s}"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="\text{TCA} \le 72.0\,\text{h}" />
+                  <LatexMath math="\Delta v_{\text{req}} \ge 0.28\,\text{m/s}" />
                 </div>
               </div>
             </div>
@@ -1555,17 +1562,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between font-mono">
                   <span>RIC COORDINATE ROTATION</span>
-                  <span className="text-zinc-500">{"\\sigma_{pos}"}</span>
+                  <LatexMath math="\sigma_{\text{pos}}" className="text-zinc-400" />
                 </div>
-                <div className="text-sky-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"\\mathbf{r}_{\\text{RIC}} = \\begin{bmatrix} \\hat{\\mathbf{r}} \\\\ \\hat{\\mathbf{i}} \\\\ \\hat{\\mathbf{c}} \\end{bmatrix} \\mathbf{r}_{\\text{ECI}}, \\quad \\sigma_{\\text{pos}} = \\sqrt{\\sigma_R^2 + \\sigma_I^2 + \\sigma_C^2}"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="\mathbf{r}_{\text{RIC}} = \begin{bmatrix} \hat{\mathbf{r}} \\ \hat{\mathbf{i}} \\ \hat{\mathbf{c}} \end{bmatrix} \mathbf{r}_{\text{ECI}}, \quad \sigma_{\text{pos}} = \sqrt{\sigma_R^2 + \sigma_I^2 + \sigma_C^2}"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"\\hat{\\mathbf{r}} = \\mathbf{r}/\\|\\mathbf{r}\\|"}</span>
-                  <span>{"\\hat{\\mathbf{c}} = (\\mathbf{r}\\times\\mathbf{v})/\\|\\mathbf{r}\\times\\mathbf{v}\\|"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="\hat{\mathbf{r}} = \mathbf{r}/\|\mathbf{r}\|" />
+                  <LatexMath math="\hat{\mathbf{c}} = (\mathbf{r}\times\mathbf{v})/\|\mathbf{r}\times\mathbf{v}\|" />
                 </div>
               </div>
             </div>
@@ -1643,17 +1653,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between font-mono">
                   <span>BILATERAL GAME-THEORETIC OPTIMIZATION</span>
-                  <span className="text-zinc-500">{"\\min J(\\Delta v)"}</span>
+                  <LatexMath math="\min J(\Delta v)" className="text-zinc-400" />
                 </div>
-                <div className="text-sky-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"\\min_{\\Delta \\mathbf{v}_1, \\Delta \\mathbf{v}_2} J = w_1 \\|\\Delta \\mathbf{v}_1\\|_2 + w_2 \\|\\Delta \\mathbf{v}_2\\|_2 \\quad \\text{s.t.} \\quad d_{\\text{miss}}(t_{\\text{TCA}}) \\ge 25.0\\,\\text{km}"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="\min_{\Delta \mathbf{v}_1, \Delta \mathbf{v}_2} J = w_1 \|\Delta \mathbf{v}_1\|_2 + w_2 \|\Delta \mathbf{v}_2\|_2 \quad \text{s.t.} \quad d_{\text{miss}}(t_{\text{TCA}}) \ge 25.0\,\text{km}"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"w_i = 1 / (\\text{Fuel}_i + \\epsilon)"}</span>
-                  <span>{"P_c(t_{\\text{post}}) \\le 10^{-7}"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="w_i = \frac{1}{\text{Fuel}_i + \epsilon}" />
+                  <LatexMath math="P_c(t_{\text{post}}) \le 10^{-7}" />
                 </div>
               </div>
             </div>
@@ -1708,17 +1721,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-emerald-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-emerald-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-emerald-500/30 text-zinc-200 shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-emerald-400 font-bold flex items-center justify-between font-mono">
                   <span>CLOHESSY-WILTSHIRE RELATIVE MOTION & RK4</span>
                   <span className="text-zinc-500">4th Order</span>
                 </div>
-                <div className="text-emerald-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"\\ddot{x} - 2n\\dot{y} - 3n^2x = f_x, \\quad \\ddot{y} + 2n\\dot{x} = f_y, \\quad \\ddot{z} + n^2z = f_z"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="\ddot{x} - 2n\dot{y} - 3n^2x = f_x, \quad \ddot{y} + 2n\dot{x} = f_y, \quad \ddot{z} + n^2z = f_z"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"\\mathbf{y}_{n+1} = \\mathbf{y}_n + \\frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)"}</span>
-                  <span>{"n = \\sqrt{\\mu / a^3}"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="\mathbf{y}_{n+1} = \mathbf{y}_n + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)" />
+                  <LatexMath math="n = \sqrt{\mu / a^3}" />
                 </div>
               </div>
             </div>
@@ -1783,17 +1799,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1 mb-6">
-                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 shadow-sm space-y-1 mb-6">
+                <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between font-mono">
                   <span>NASH BARGAINING & TSIOLKOVSKY EQUATION</span>
-                  <span className="text-zinc-500">{"\\Delta m_{\\text{fuel}}"}</span>
+                  <LatexMath math="\Delta m_{\text{fuel}}" className="text-zinc-400" />
                 </div>
-                <div className="text-sky-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"\\max_{(\\Delta \\mathbf{v}_A, \\Delta \\mathbf{v}_B)} (U_A - d_A)^{\\alpha}(U_B - d_B)^{1-\\alpha}, \\quad \\Delta m = m_0\\left(1 - e^{-\\frac{\\Delta v}{I_{\\text{sp}} g_0}}\\right)"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="\max_{(\Delta \mathbf{v}_A, \Delta \mathbf{v}_B)} (U_A - d_A)^{\alpha}(U_B - d_B)^{1-\alpha}, \quad \Delta m = m_0\left(1 - e^{-\frac{\Delta v}{I_{\text{sp}} g_0}}\right)"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"I_{\\text{sp}} = 300\\,\\text{s} \\text{ (Krypton/Ion)}"}</span>
-                  <span>{"g_0 = 9.80665\\,\\text{m/s}^2"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="I_{\text{sp}} = 300\,\text{s (Krypton/Ion)}" />
+                  <LatexMath math="g_0 = 9.80665\,\text{m/s}^2" />
                 </div>
               </div>
             </div>
@@ -1828,17 +1847,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-purple-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-purple-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-purple-500/30 text-zinc-200 shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-purple-400 font-bold flex items-center justify-between font-mono">
                   <span>KESSLER SYNDROME SIR EPIDEMIOLOGY</span>
-                  <span className="text-zinc-500">{"R_0 > 1.0"}</span>
+                  <LatexMath math="R_0 > 1.0" className="text-zinc-400" />
                 </div>
-                <div className="text-purple-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"\\frac{dS}{dt} = -\\beta S I + \\alpha, \\quad \\frac{dI}{dt} = \\beta S I - \\gamma I, \\quad R_0 = \\frac{\\beta S_0}{\\gamma}"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="\frac{dS}{dt} = -\beta S I + \alpha, \quad \frac{dI}{dt} = \beta S I - \gamma I, \quad R_0 = \frac{\beta S_0}{\gamma}"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"\\beta = \\sigma v_{\\text{rel}} / V_{\\text{shell}}"}</span>
-                  <span>{"\\gamma = 1 / \\tau_{\\text{decay}}"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="\beta = \frac{\sigma v_{\text{rel}}}{V_{\text{shell}}}" />
+                  <LatexMath math="\gamma = \frac{1}{\tau_{\text{decay}}}" />
                 </div>
               </div>
             </div>
@@ -1896,17 +1918,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-rose-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-rose-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-rose-500/30 text-zinc-200 shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-rose-400 font-bold flex items-center justify-between font-mono">
                   <span>MAHALANOBIS COVARIANCE ELLIPSOID DISTANCE</span>
-                  <span className="text-zinc-500">{"d_M \\le k_\\sigma"}</span>
+                  <LatexMath math="d_M \le k_\sigma" className="text-zinc-400" />
                 </div>
-                <div className="text-rose-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"d_M^2 = (\\mathbf{r}_1 - \\mathbf{r}_2)^T (C_1 + C_2)^{-1} (\\mathbf{r}_1 - \\mathbf{r}_2) \\le k_\\sigma^2"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="d_M^2 = (\mathbf{r}_1 - \mathbf{r}_2)^T (C_1 + C_2)^{-1} (\mathbf{r}_1 - \mathbf{r}_2) \le k_\sigma^2"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"k_\\sigma = 3.0 \\text{ (99.73% Envelope)}"}</span>
-                  <span>{"\\det(C_1 + C_2) \\ne 0"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="k_\sigma = 3.0 \text{ (99.73% Envelope)}" />
+                  <LatexMath math="\det(C_1 + C_2) \ne 0" />
                 </div>
               </div>
             </div>
@@ -1948,17 +1973,20 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-cyan-500/30 text-zinc-200 font-mono text-[11px] shadow-sm space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-cyan-400 font-bold flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-cyan-500/30 text-zinc-200 shadow-sm space-y-1">
+                <div className="text-[9px] uppercase tracking-wider text-cyan-400 font-bold flex items-center justify-between font-mono">
                   <span>SGP4 KOZAI-BROUWER MEAN MOTION HARMONICS</span>
-                  <span className="text-zinc-500">{"J_2 \\text{ Earth}"}</span>
+                  <LatexMath math="J_2 \text{ Earth}" className="text-zinc-400" />
                 </div>
-                <div className="text-cyan-300 text-xs py-1 tracking-wide font-sans italic border-y border-zinc-800 my-1 text-center font-mono">
-                  {"\\dot{M} = n_0 \\left[1 + \\frac{3}{2} J_2 \\frac{R_E^2}{p^2} \\sqrt{1 - e^2} \\left(1 - \\frac{3}{2} \\sin^2 i\\right)\\right]"}
+                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                  <LatexMath
+                    math="\dot{M} = n_0 \left[1 + \frac{3}{2} J_2 \frac{R_E^2}{p^2} \sqrt{1 - e^2} \left(1 - \frac{3}{2} \sin^2 i\right)\right]"
+                    displayMode={true}
+                  />
                 </div>
-                <div className="text-[10px] text-zinc-400 flex justify-between font-mono">
-                  <span>{"J_2 = 1.08263 \\times 10^{-3}"}</span>
-                  <span>{"p = a(1 - e^2)"}</span>
+                <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
+                  <LatexMath math="J_2 = 1.08263 \times 10^{-3}" />
+                  <LatexMath math="p = a(1 - e^2)" />
                 </div>
               </div>
             </div>
