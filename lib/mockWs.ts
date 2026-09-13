@@ -20,6 +20,7 @@ import type {
   TrackedObject,
   ConjunctionEvent,
   AgentStatus,
+  AgentType,
   Advisory,
 } from '@/types/contract';
 
@@ -193,22 +194,74 @@ class MockWebSocketService {
       this.emit('conjunction:updated', updatedEvent);
     }, 7000);
 
-    // Timer 3: agent:status (Every 10 seconds — simulate agent activity transitions)
-    const agentTimer = setInterval(() => {
-      const agentIndex = Math.floor(Math.random() * this.agentsState.length);
-      const agent = this.agentsState[agentIndex];
-      const nextState = agent.state === 'idle' ? 'processing' : agent.state === 'processing' ? 'idle' : 'processing';
-      const updatedAgent: AgentStatus = {
-        ...agent,
-        state: nextState,
-        lastHeartbeat: new Date().toISOString(),
-        currentTask: nextState === 'processing' ? `Screening epoch ${new Date().toISOString().slice(11, 19)}` : null,
-        processedCount: agent.processedCount + (nextState === 'idle' ? 1 : 0),
-      };
-      this.agentsState[agentIndex] = updatedAgent;
+    // Timer 3: agent:status (Every 3.5 seconds — continuous automated agentic workflow cycle)
+    const AGENT_TASKS: Record<AgentType, string[]> = {
+      tracker: [
+        "Propagating 631 SGP4 ephemeris state vectors",
+        "Ingesting CelesTrak GP orbital elements",
+        "Publishing WGS-84 coordinate state vectors",
+      ],
+      risk_assessor: [
+        "Screening close approach TCA spatial proximity",
+        "Computing Foster-1992 2D collision probability",
+        "Evaluating covariance inflation on high-risk pairs",
+      ],
+      maneuver_negotiation: [
+        "Evaluating Pareto-optimal dV burn solutions",
+        "Solving game-theoretic Nash equilibrium for op-001/op-002",
+        "Verifying post-maneuver radial clearance > 5km",
+      ],
+      epidemic_forecaster: [
+        "Integrating 50-year SIR Kessler cascade model",
+        "Evaluating orbital shell reproduction number R₀",
+        "Projecting debris cascade risk across LEO_750_800",
+      ],
+      anomaly: [
+        "Scanning orbital drift residuals across LEO shells",
+        "Detecting stationkeeping attitude deviations",
+        "Flagging high BSTAR atmospheric drag acceleration",
+      ],
+      advisory: [
+        "Synthesizing operator intelligence briefing narrative",
+        "Generating tactical conjunction advisory NOTAM",
+        "Publishing multi-agent consensus action recommendations",
+      ],
+    };
 
-      this.emit('agent:status', updatedAgent);
-    }, 10000);
+    let agentCycleIdx = 0;
+    const agentTimer = setInterval(() => {
+      if (this.agentsState.length === 0) return;
+      const targetAgent = this.agentsState[agentCycleIdx % this.agentsState.length];
+      agentCycleIdx++;
+
+      const tasks = AGENT_TASKS[targetAgent.agentType] || ["Executing autonomous analysis"];
+      const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
+
+      // 1. Enter Active Processing State
+      const activeAgent: AgentStatus = {
+        ...targetAgent,
+        state: "processing",
+        lastHeartbeat: new Date().toISOString(),
+        currentTask: randomTask,
+      };
+      const idx = this.agentsState.findIndex((a) => a.agentType === targetAgent.agentType);
+      if (idx >= 0) this.agentsState[idx] = activeAgent;
+      this.emit("agent:status", activeAgent);
+
+      // 2. Complete Task and Return to Idle after 1.8 seconds with incremented processed cycle count
+      setTimeout(() => {
+        const completedAgent: AgentStatus = {
+          ...activeAgent,
+          state: "idle",
+          lastHeartbeat: new Date().toISOString(),
+          currentTask: null,
+          processedCount: activeAgent.processedCount + 1,
+        };
+        const cIdx = this.agentsState.findIndex((a) => a.agentType === targetAgent.agentType);
+        if (cIdx >= 0) this.agentsState[cIdx] = completedAgent;
+        this.emit("agent:status", completedAgent);
+      }, 1800);
+    }, 3500);
 
     this.intervalIds = [objectsTimer, conjunctionTimer, agentTimer];
   }
