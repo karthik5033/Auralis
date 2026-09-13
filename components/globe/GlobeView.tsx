@@ -1057,8 +1057,8 @@ export default function GlobeView({
 
             const encPair = activeEncounterPairRef.current;
             if (encPair) {
-              const meshA = satelliteMeshesRef.current.find((m) => String(m.data.id) === String(encPair.primary.id))?.mesh;
-              const meshB = satelliteMeshesRef.current.find((m) => String(m.data.id) === String(encPair.secondary.id))?.mesh;
+              const itemA = satelliteMeshesRef.current.find((m) => String(m.data.id) === String(encPair.primary.id));
+              const itemB = satelliteMeshesRef.current.find((m) => String(m.data.id) === String(encPair.secondary.id));
 
               // Astrodynamic calculations for both bodies:
               const kep1 = (encPair.primary.orbitalElements && encPair.primary.orbitalElements.inclination != null)
@@ -1068,20 +1068,20 @@ export default function GlobeView({
                 ? encPair.secondary.orbitalElements
                 : deriveKeplerianElements(encPair.secondary.position, encPair.secondary.velocity);
 
-              const u1 = currentThetaMapRef.current.get(encPair.primary.id) ?? 0;
-              const u2 = currentThetaMapRef.current.get(encPair.secondary.id) ?? 0;
+              const u1 = itemA?.data.currentTheta ?? itemA?.data.phase ?? currentThetaMapRef.current.get(encPair.primary.id) ?? 0;
+              const u2 = itemB?.data.currentTheta ?? itemB?.data.phase ?? currentThetaMapRef.current.get(encPair.secondary.id) ?? 0;
 
-              const alt1 = (encPair.primary.altitude || 500) / 6371;
-              const alt2 = (encPair.secondary.altitude || 500) / 6371;
-              const rSat1 = 100 * (1 + alt1);
-              const rSat2 = 100 * (1 + alt2);
+              const altNorm1 = itemA ? itemA.data.alt : computeAltitudeNorm(encPair.primary.altitude);
+              const altNorm2 = itemB ? itemB.data.alt : computeAltitudeNorm(encPair.secondary.altitude);
+              const rSat1 = 100 * (1 + altNorm1);
+              const rSat2 = 100 * (1 + altNorm2);
 
               const incRad1 = (kep1.inclination * Math.PI) / 180;
               const raanRad1 = (kep1.raan * Math.PI) / 180;
               const incRad2 = (kep2.inclination * Math.PI) / 180;
               const raanRad2 = (kep2.raan * Math.PI) / 180;
 
-              // 3D Cartesian points on globe coordinate system:
+              // Fallback 3D Cartesian points on globe coordinate system:
               const zEci1 = rSat1 * Math.sin(incRad1) * Math.sin(u1);
               const xEci1 = rSat1 * (Math.cos(raanRad1) * Math.cos(u1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
               const yEci1 = rSat1 * (Math.sin(raanRad1) * Math.cos(u1) + Math.cos(raanRad1) * Math.cos(incRad1) * Math.sin(u1));
@@ -1090,9 +1090,9 @@ export default function GlobeView({
               const xEci2 = rSat2 * (Math.cos(raanRad2) * Math.cos(u2) - Math.sin(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
               const yEci2 = rSat2 * (Math.sin(raanRad2) * Math.cos(u2) + Math.cos(raanRad2) * Math.cos(incRad2) * Math.sin(u2));
 
-              // Exact 3D Coordinate positions of both orbital dots (matches Three.js scene space):
-              const pA = new THREE.Vector3(yEci1, zEci1, xEci1);
-              const pB = new THREE.Vector3(yEci2, zEci2, xEci2);
+              // Exact 3D Coordinate positions locked directly to the visible orbital dots in scene space:
+              const pA = itemA?.mesh ? itemA.mesh.position.clone() : new THREE.Vector3(yEci1, zEci1, xEci1);
+              const pB = itemB?.mesh ? itemB.mesh.position.clone() : new THREE.Vector3(yEci2, zEci2, xEci2);
 
               // 1. Calculate live physical Euclidean separation in km and ECI state vectors
               const rKm1 = 6371 + (encPair.primary.altitude || 500);
@@ -1142,10 +1142,10 @@ export default function GlobeView({
               const isCautionDist = liveDist < 500;
               const beamColor = isCriticalDist ? 0xef4444 : isCautionDist ? 0xf59e0b : 0x38bdf8;
 
-              // 2. Direct High-Precision 3D Laser Connector Line between Dot A and Dot B
+              // 2. Direct High-Precision 3D Laser Vector Line between Dot A and Dot B
               const distScene = pA.distanceTo(pB);
               if (distScene > 0.01) {
-                // High-visibility core line connecting exact dot centers
+                // High-visibility core laser line connecting exact dot centers
                 const lineGeom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
                 const lineMat = new THREE.LineBasicMaterial({
                   color: beamColor,
@@ -1155,39 +1155,22 @@ export default function GlobeView({
                 });
                 encGroup.add(new THREE.Line(lineGeom, lineMat));
 
-                // If objects are on opposite sides of Earth, render an elevated orbital space arc
-                if (distScene > 25) {
-                  const midPoint = new THREE.Vector3().copy(pA).add(pB).multiplyScalar(0.5);
-                  if (midPoint.length() < 105) {
-                    midPoint.normalize().multiplyScalar(Math.max(rSat1, rSat2) + 8);
-                  }
-                  const curve = new THREE.QuadraticBezierCurve3(pA, midPoint, pB);
-                  const arcGeom = new THREE.BufferGeometry().setFromPoints(curve.getPoints(36));
-                  const arcMat = new THREE.LineBasicMaterial({
-                    color: beamColor,
-                    transparent: true,
-                    opacity: 0.75,
-                    depthWrite: false,
-                  });
-                  encGroup.add(new THREE.Line(arcGeom, arcMat));
-                } else {
-                  // Volumetric tactical laser beam for close encounter proximity
-                  const beamGeom = new THREE.CylinderGeometry(0.2, 0.2, distScene, 8, 1, true);
-                  const beamMat = new THREE.MeshBasicMaterial({
-                    color: beamColor,
-                    transparent: true,
-                    opacity: 0.85,
-                    depthWrite: false,
-                    side: THREE.DoubleSide,
-                  });
-                  const beamMesh = new THREE.Mesh(beamGeom, beamMat);
-                  beamMesh.position.copy(pA).add(pB).multiplyScalar(0.5);
+                // Volumetric tactical laser glow beam
+                const beamGeom = new THREE.CylinderGeometry(0.18, 0.18, distScene, 8, 1, true);
+                const beamMat = new THREE.MeshBasicMaterial({
+                  color: beamColor,
+                  transparent: true,
+                  opacity: 0.35,
+                  depthWrite: false,
+                  side: THREE.DoubleSide,
+                });
+                const beamMesh = new THREE.Mesh(beamGeom, beamMat);
+                beamMesh.position.copy(pA).add(pB).multiplyScalar(0.5);
 
-                  const dir = new THREE.Vector3().subVectors(pB, pA).normalize();
-                  const up = new THREE.Vector3(0, 1, 0);
-                  beamMesh.quaternion.setFromUnitVectors(up, dir);
-                  encGroup.add(beamMesh);
-                }
+                const dir = new THREE.Vector3().subVectors(pB, pA).normalize();
+                const up = new THREE.Vector3(0, 1, 0);
+                beamMesh.quaternion.setFromUnitVectors(up, dir);
+                encGroup.add(beamMesh);
 
                 // Midpoint Beacon
                 const midPos = new THREE.Vector3().copy(pA).add(pB).multiplyScalar(0.5);
@@ -1195,7 +1178,7 @@ export default function GlobeView({
                 const midMat = new THREE.MeshBasicMaterial({
                   color: beamColor,
                   transparent: true,
-                  opacity: 0.85,
+                  opacity: 0.90,
                   depthWrite: false,
                 });
                 const midMesh = new THREE.Mesh(midGeom, midMat);
@@ -1204,20 +1187,22 @@ export default function GlobeView({
               }
 
               // 3. Glowing Target Reticles on Point A (Satellite Dot) and Point B (Debris Dot)
-              // Point A (Cyan Satellite Dot)
-              const ringA = new THREE.RingGeometry(1.2, 1.6, 24);
+              const camera = globeInstanceRef.current?.camera();
+
+              // Point A (Cyan Satellite Dot Reticle)
+              const ringA = new THREE.RingGeometry(0.9, 1.25, 24);
               const matA = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false });
               const meshRingA = new THREE.Mesh(ringA, matA);
               meshRingA.position.copy(pA);
-              meshRingA.lookAt(pA.x * 2, pA.y * 2, pA.z * 2);
+              if (camera) meshRingA.quaternion.copy(camera.quaternion);
               encGroup.add(meshRingA);
 
-              // Point B (Hazard Crimson Debris Dot)
-              const ringB = new THREE.RingGeometry(1.2, 1.6, 24);
+              // Point B (Hazard Crimson Debris Dot Reticle)
+              const ringB = new THREE.RingGeometry(0.9, 1.25, 24);
               const matB = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false });
               const meshRingB = new THREE.Mesh(ringB, matB);
               meshRingB.position.copy(pB);
-              meshRingB.lookAt(pB.x * 2, pB.y * 2, pB.z * 2);
+              if (camera) meshRingB.quaternion.copy(camera.quaternion);
               encGroup.add(meshRingB);
 
               // 4. Camera tracking midpoint follow (never blocks mouse/touch dragging)
@@ -1647,6 +1632,11 @@ export default function GlobeView({
 
     currentThetaMapRef.current.set(primary.id, bestU1);
     currentThetaMapRef.current.set(secondary.id, bestU2);
+
+    const itemA = satelliteMeshesRef.current.find((m) => String(m.data.id) === String(primary.id));
+    const itemB = satelliteMeshesRef.current.find((m) => String(m.data.id) === String(secondary.id));
+    if (itemA) itemA.data.currentTheta = bestU1;
+    if (itemB) itemB.data.currentTheta = bestU2;
 
     if (globeInstanceRef.current) {
       const xMid = rKm1 * (Math.cos(raanRad1) * Math.cos(bestU1) - Math.sin(raanRad1) * Math.cos(incRad1) * Math.sin(bestU1));
