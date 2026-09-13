@@ -1549,6 +1549,43 @@ export default function GlobeView({
     };
   }, []);
 
+  // 4 Priority Target Satellites definition (Flagship Human Stations & Constellation Assets)
+  const priorityTargets = React.useMemo(() => {
+    const iss = objects.find((s) => s.noradId === 25544 || s.name.toUpperCase().includes("ISS") || s.name.toUpperCase().includes("ZARYA"));
+    const tiangong = objects.find((s) => s.noradId === 48274 || s.name.toUpperCase().includes("TIANGONG") || s.name.toUpperCase().includes("CSS"));
+    const starlink = objects.find((s) => s.name.toUpperCase().includes("STARLINK") && s.type === "satellite") || objects.find((s) => s.type === "satellite" && s.operatorId === "op-001");
+    const threatConjunction = conjunctions.find((c) => c.status === "active" || c.riskLevel === "critical");
+    const threatSat = threatConjunction ? objects.find((o) => o.id === threatConjunction.primaryObjectId) : null;
+    const flagshipEO = objects.find((s) => s.name.toUpperCase().includes("SENTINEL") || s.name.toUpperCase().includes("ENVISAT") || s.name.toUpperCase().includes("TERRA")) || objects.find((s) => s.type === "satellite");
+
+    return [
+      { id: "iss", name: "ISS (ZARYA)", role: "Human Crewed", obj: iss, tag: "420 km", color: "sky" },
+      { id: "tiangong", name: "Tiangong CSS", role: "Space Station", obj: tiangong, tag: "390 km", color: "amber" },
+      { id: "starlink", name: starlink ? (starlink.name.length > 14 ? starlink.name.slice(0, 14) : starlink.name) : "Starlink Fleet", role: "Telecom Fleet", obj: starlink, tag: "550 km", color: "emerald" },
+      { id: "threat", name: threatSat ? (threatSat.name.length > 14 ? threatSat.name.slice(0, 14) : threatSat.name) : (flagshipEO?.name.slice(0, 14) || "Sentinel-1A"), role: threatSat ? "Conjunction Target" : "Earth Observation", obj: threatSat || flagshipEO, tag: "Monitored", color: "rose" },
+    ].filter((t) => t.obj != null) as Array<{ id: string; name: string; role: string; obj: TrackedObject; tag: string; color: string }>;
+  }, [objects, conjunctions]);
+
+  const [priorityTargetIdx, setPriorityTargetIdx] = useState(0);
+
+  const handleFocusPriorityTarget = useCallback((targetObj: TrackedObject) => {
+    if (!globeInstanceRef.current || !targetObj) return;
+    setSelectedObject(targetObj);
+    if (onSelectObject) onSelectObject(targetObj);
+    const coords = getLiveEntityCoordinates(targetObj);
+    globeInstanceRef.current.pointOfView({ lat: coords.latDeg, lng: coords.lngDeg, altitude: 1.45 }, 900);
+  }, [getLiveEntityCoordinates, onSelectObject]);
+
+  const handleCyclePriorityTarget = useCallback(() => {
+    if (priorityTargets.length === 0) return;
+    const nextIdx = (priorityTargetIdx + 1) % priorityTargets.length;
+    setPriorityTargetIdx(nextIdx);
+    const target = priorityTargets[nextIdx];
+    if (target && target.obj) {
+      handleFocusPriorityTarget(target.obj);
+    }
+  }, [priorityTargets, priorityTargetIdx, handleFocusPriorityTarget]);
+
   // Camera Focus Actions: Live pinpoint tracking
   const handleFocusISS = useCallback(() => {
     if (!globeInstanceRef.current) return;
@@ -2289,8 +2326,40 @@ export default function GlobeView({
               Click any <span className="text-red-400 font-semibold">debris</span> or <span className="text-emerald-400 font-semibold">satellite</span> to lock coordinates, or track both orbits together with real-time distance vector.
             </p>
 
-            {/* Quick Action Navigation Grid */}
+            {/* Priority Flagship Satellites Grid (4 Key Operational Targets) */}
             <div className="space-y-1.5 pt-1.5 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-zinc-300 flex items-center gap-1">
+                  <Target className="w-3 h-3 text-sky-400" />
+                  <span>Key Satellites Focus ({priorityTargets.length})</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCyclePriorityTarget}
+                  className="text-[9px] font-mono px-2 py-0.5 rounded bg-sky-950/80 hover:bg-sky-900 text-sky-300 border border-sky-500/40 font-bold transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <OrbitIcon className="w-2.5 h-2.5 text-sky-400 animate-spin" />
+                  <span>🎯 Locate Next Sat</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1">
+                {priorityTargets.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleFocusPriorityTarget(item.obj)}
+                    className="p-1.5 rounded-lg bg-zinc-900/80 hover:bg-zinc-800/90 border border-border/60 hover:border-sky-500/50 flex flex-col text-left transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between text-[9.5px] font-mono font-bold truncate">
+                      <span className="text-zinc-200 group-hover:text-sky-300 truncate">{item.name}</span>
+                      <span className="text-[8px] px-1 rounded bg-zinc-800 text-zinc-400 shrink-0 font-normal">{item.tag}</span>
+                    </div>
+                    <span className="text-[8.5px] text-zinc-400 font-mono truncate">{item.role}</span>
+                  </button>
+                ))}
+              </div>
+
               <button
                 type="button"
                 onClick={handleStartDualEncounter}
@@ -2315,7 +2384,7 @@ export default function GlobeView({
                   className="text-[10px] font-mono py-1 px-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-1 font-semibold transition-colors truncate cursor-pointer"
                 >
                   <OrbitIcon className="w-3 h-3 text-emerald-400 shrink-0" />
-                  <span>Track Sat</span>
+                  <span>Random Sat</span>
                 </button>
                 <button
                   type="button"
@@ -2513,6 +2582,18 @@ export default function GlobeView({
           >
             {isRevolving ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 text-emerald-400" />}
             {!compact && <span className="hidden md:inline ml-1.5">{isRevolving ? "Orbiting" : "Paused"}</span>}
+          </Button>
+
+          {/* Key Priority Satellites Cycle Shortcut */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCyclePriorityTarget}
+            className="h-7 px-2.5 bg-sky-950/60 backdrop-blur-md border-sky-500/50 text-sky-300 hover:text-sky-100 hover:bg-sky-900/60 font-mono text-xs shadow-md shrink-0 whitespace-nowrap cursor-pointer"
+            title="Cycle and locate key flagship satellites (ISS, Tiangong, Starlink, Sentinel)"
+          >
+            <OrbitIcon className="w-3.5 h-3.5 text-sky-400" />
+            {!compact && <span className="hidden md:inline ml-1.5">Key Sats</span>}
           </Button>
 
           {/* Track Debris Shortcut */}
