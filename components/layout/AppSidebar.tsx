@@ -47,8 +47,8 @@ export function AppSidebar() {
   const router = useRouter();
   const { user, role } = useAuth();
   
-  const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Operator Vance';
-  const displayInitials = user ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'EV' : 'EV';
+  const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Orbital Scientist';
+  const displayInitials = user ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'OS' : 'OS';
 
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const { t } = useLanguage();

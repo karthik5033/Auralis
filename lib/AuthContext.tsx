@@ -27,16 +27,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRoleState] = useState<Role>("OPERATOR");
-  const [userId, setUserId] = useState<string>("OP-4482");
+  const [userId, setUserId] = useState<string>("SCI-4482");
   const [user, setUser] = useState<MockUser | null>({
-    id: "OP-4482",
-    firstName: "Elena",
-    lastName: "Vance",
-    email: "e.vance@auralis.space",
+    id: "SCI-4482",
+    firstName: "Orbital",
+    lastName: "Scientist",
+    email: "scientist@auralis.space",
     role: "OPERATOR",
-    badgeNumber: "AURALIS-FDC-04",
-    department: "Conjunction Assessment & Autonomous Avoidance Desk",
-    callsign: "Auralis Flight Dynamics"
+    badgeNumber: "SCI-AURALIS-01",
+    department: "Astrodynamics & Orbital Science Research Desk",
+    callsign: "Lead Orbital Scientist"
   });
 
   useEffect(() => {
@@ -49,6 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
+          // If legacy Elena Vance is stored, migrate to Orbital Scientist
+          if (parsed.firstName === "Elena" && parsed.lastName === "Vance") {
+            parsed.firstName = "Orbital";
+            parsed.lastName = "Scientist";
+            parsed.email = "scientist@auralis.space";
+            parsed.badgeNumber = "SCI-AURALIS-01";
+            parsed.department = "Astrodynamics & Orbital Science Research Desk";
+            parsed.callsign = "Lead Orbital Scientist";
+            localStorage.setItem("auralis_operator_user", JSON.stringify(parsed));
+          }
           setUser((prev) => ({ ...prev, ...parsed, role: savedRole || prev?.role || "OPERATOR" }));
         } catch {
           // ignore error

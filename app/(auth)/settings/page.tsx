@@ -54,13 +54,13 @@ export default function SettingsPage() {
 
   // Form State initialized from AuthContext
   const [profileForm, setProfileForm] = useState({
-    firstName: user?.firstName || "Elena",
-    lastName: user?.lastName || "Vance",
-    badgeNumber: user?.badgeNumber || "OP-AURALIS-4092",
-    email: user?.email || "e.vance@auralis.space",
-    department: user?.department || "Conjunction Assessment & Autonomous Avoidance Desk",
-    callsign: user?.callsign || "Auralis Flight Dynamics Lead",
-    dutyShift: "Alpha Shift (08:00–16:00 UTC)",
+    firstName: user?.firstName || "Orbital",
+    lastName: user?.lastName || "Scientist",
+    badgeNumber: user?.badgeNumber || "SCI-AURALIS-01",
+    email: user?.email || "scientist@auralis.space",
+    department: user?.department || "Astrodynamics & Orbital Science Research Desk",
+    callsign: user?.callsign || "Lead Orbital Scientist",
+    dutyShift: "Alpha Science Shift (08:00–16:00 UTC)",
     dutySector: "LEO Low & Mid Altitude (200–1000 km)",
     fingerprint: "SHA256:7f4a9b...e21c88",
   });
