@@ -52,6 +52,7 @@ import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import type { ShellRiskSnapshot, Advisory } from "@/types/contract";
 import { downloadDataAsCsv } from "@/lib/utils";
 import Link from "next/link";
+import { AgenticRolesAndCascadeStack } from "@/components/analytics/AgenticRolesAndCascadeStack";
 
 export default function AnalyticsPage() {
   const searchParams = useSearchParams();
@@ -954,6 +955,9 @@ export default function AnalyticsPage() {
           </table>
         </CardContent>
       </Card>
+
+      {/* 6 Autonomous Multi-Agent Swarm Roles & Complete Astrodynamics Stack */}
+      <AgenticRolesAndCascadeStack />
     </div>
   );
 }
