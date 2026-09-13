@@ -15,6 +15,13 @@ import type { ConjunctionEvent, ConjunctionStatus, TrackedObject } from "@/types
 import { classifyRisk } from "@/lib/backend/risk";
 import { parseGPToTrackedObject } from "./parser";
 import type { RawGPElement } from "./types";
+import dns from "node:dns";
+
+try {
+  dns.setDefaultResultOrder?.("ipv4first");
+} catch {
+  // Ignore in browser or non-node runtimes
+}
 
 interface SpaceTrackCDM {
   CDM_ID: string;
@@ -42,8 +49,8 @@ class SpaceTrackClient {
   private gpCacheTime = 0;
 
   private readonly CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
-  private readonly FAILURE_COOLDOWN_MS = 60 * 1000; // 60s cooldown on failure
-  private readonly TIMEOUT_MS = 3000; // 3-second max timeout
+  private readonly FAILURE_COOLDOWN_MS = 15 * 1000; // 15s cooldown on failure
+  private readonly TIMEOUT_MS = 15000; // 15-second max timeout for live queries
   private readonly BASE_URL = "https://www.space-track.org";
 
   private getCredentials(): { user: string; pass: string } | null {

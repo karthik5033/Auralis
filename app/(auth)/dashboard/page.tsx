@@ -44,7 +44,6 @@ import { AgentStatusBar } from "@/components/dashboard/AgentStatusBar";
 import { QuickMLBar } from "@/components/dashboard/QuickMLBar";
 import { CrisisInjectionModal } from "@/components/dashboard/CrisisInjectionModal";
 import { getDashboardSummary, getConjunctions, getObjects } from "@/lib/api";
-import { mockDashboardSummary } from "@/lib/mockApi";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import { formatScientificPc } from "@/lib/formatters";
 import type { DashboardSummary, ConjunctionEvent, TrackedObject, CrisisInjectionResponse } from "@/types/contract";
@@ -52,12 +51,10 @@ import { downloadDataAsCsv } from "@/lib/utils";
 import Link from "next/link";
 
 export default function DashboardPage() {
-  const [summary, setSummary] = useState<DashboardSummary | null>(() => ({
-    ...mockDashboardSummary,
-  }));
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [conjunctions, setConjunctions] = useState<ConjunctionEvent[]>([]);
   const [objectsMap, setObjectsMap] = useState<Record<string, TrackedObject>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isCrisisModalOpen, setIsCrisisModalOpen] = useState(false);
   const [crisisAlert, setCrisisAlert] = useState<string | null>(null);
 

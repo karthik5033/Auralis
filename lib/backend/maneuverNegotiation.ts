@@ -59,6 +59,14 @@ export class ManeuverNegotiationAgent {
       const conj = payload.conjunction;
       const now = new Date().toISOString();
 
+      if (conj.maneuverProposalId) {
+        const existing = store.getManeuver(conj.maneuverProposalId);
+        if (existing) {
+          this.updateStatus({ state: "idle", currentTask: null });
+          return existing;
+        }
+      }
+
       const primaryManeuverable = primary.type === "satellite" && primary.status === "active";
       const secondaryManeuverable = secondary.type === "satellite" && secondary.status === "active";
       const primaryOp = primary.operatorId ?? "Operator-Primary";

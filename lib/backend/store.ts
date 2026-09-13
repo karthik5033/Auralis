@@ -133,10 +133,21 @@ export class InMemoryStore {
     // Independent default seeders if any collection is empty
     if (this.objectRecords.size === 0) {
       try {
-        const { mockObjects } = require("@/lib/mockApi");
-        mockObjects?.forEach((object: TrackedObject) => this.objectRecords.set(object.id, object));
+        const { loadCuratedCatalog, parseGPToTrackedObject } = require("@/data");
+        const rawCatalog = loadCuratedCatalog();
+        const realObjects = rawCatalog.map((gp: any) => parseGPToTrackedObject(gp)).filter(Boolean);
+        if (realObjects && realObjects.length > 0) {
+          realObjects.forEach((object: TrackedObject) => this.objectRecords.set(object.id, object));
+        } else {
+          const { mockObjects } = require("@/lib/mockApi");
+          mockObjects?.forEach((object: TrackedObject) => this.objectRecords.set(object.id, object));
+        }
       } catch (err) {
-        console.warn("[Auralis] Could not seed default mock objects:", err);
+        console.warn("[Auralis] Could not seed real objects from catalog, trying fallback:", err);
+        try {
+          const { mockObjects } = require("@/lib/mockApi");
+          mockObjects?.forEach((object: TrackedObject) => this.objectRecords.set(object.id, object));
+        } catch {}
       }
     }
 
@@ -151,10 +162,21 @@ export class InMemoryStore {
 
     if (this.shellRecords.size === 0) {
       try {
-        const { mockShells } = require("@/lib/mockApi");
-        mockShells?.forEach((shell: ShellRiskSnapshot) => this.shellRecords.set(shell.shellId, shell));
+        const { buildAllShellRiskSnapshots } = require("@/data");
+        const currentObjects = this.listObjects();
+        const realShells = buildAllShellRiskSnapshots(currentObjects);
+        if (realShells && realShells.length > 0) {
+          realShells.forEach((shell: ShellRiskSnapshot) => this.shellRecords.set(shell.shellId, shell));
+        } else {
+          const { mockShells } = require("@/lib/mockApi");
+          mockShells?.forEach((shell: ShellRiskSnapshot) => this.shellRecords.set(shell.shellId, shell));
+        }
       } catch (err) {
-        console.warn("[Auralis] Could not seed default mock shells:", err);
+        console.warn("[Auralis] Could not seed real shells, trying fallback:", err);
+        try {
+          const { mockShells } = require("@/lib/mockApi");
+          mockShells?.forEach((shell: ShellRiskSnapshot) => this.shellRecords.set(shell.shellId, shell));
+        } catch {}
       }
     }
 

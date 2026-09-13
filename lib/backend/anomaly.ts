@@ -14,6 +14,7 @@ const SEMI_MAJOR_AXIS_THRESHOLD_KM = 10;
 const INCLINATION_THRESHOLD_DEG = 0.5;
 
 export class AnomalyAgent {
+  private readonly aiAnalysisCache = new Map<string, { summary: string; anomalyType: AnomalyDetectedPayload["anomalyType"]; timestamp: number }>();
   private readonly previousElements = new Map<string, TrackedObject["orbitalElements"]>();
   private readonly unsubscribe: () => void;
   private status: AgentStatus = {
@@ -40,6 +41,8 @@ export class AnomalyAgent {
     this.updateStatus({ state: "processing", currentTask: "Comparing orbital elements" });
     try {
       const detected: AnomalyDetectedPayload[] = [];
+      let aiCallsThisBatch = 0;
+
       for (const object of payload.objects) {
         const current = object.orbitalElements;
         const previous = this.previousElements.get(object.id);
@@ -59,8 +62,15 @@ export class AnomalyAgent {
         let anomalyType: AnomalyDetectedPayload["anomalyType"] = absoluteSemiMajorAxisDelta > 25 ? "possible_breakup" : "orbit_change";
         let summary = `${object.name} changed by ${absoluteSemiMajorAxisDelta.toFixed(2)} km in semi-major axis and ${absoluteInclinationDelta.toFixed(2)}° in inclination`;
 
-        try {
-          const prompt = `Forensic Astrodynamic Anomaly Analysis:
+        const nowMs = Date.now();
+        const cached = this.aiAnalysisCache.get(object.id);
+        if (cached && nowMs - cached.timestamp < 15 * 60 * 1000) {
+          anomalyType = cached.anomalyType;
+          summary = cached.summary;
+        } else if (aiCallsThisBatch < 1) {
+          aiCallsThisBatch++;
+          try {
+            const prompt = `Forensic Astrodynamic Anomaly Analysis:
 Object: "${object.name}" (Type: ${object.type}, Operator: ${object.operatorId ?? "Unknown"}, Shell: ${object.shellId})
 Delta Semi-Major Axis: ${delta.semiMajorAxis.toFixed(2)} km
 Delta Inclination: ${delta.inclination.toFixed(3)} deg
@@ -72,15 +82,17 @@ Return strict JSON:
   "summary": "one concise sentence giving technical assessment of what physically occurred (e.g. thruster burn, collision, breakup, or station-keeping anomaly)"
 }`;
 
-          const ai = await geminiRotator.generateJSON<{ anomalyType: "possible_breakup" | "orbit_change"; summary: string }>(prompt, {
-            systemPrompt: "You are an orbital intelligence astrodynamics forensic specialist. Output concise JSON.",
-            temperature: 0.1,
-            maxOutputTokens: 256,
-          });
-          if (ai.anomalyType) anomalyType = ai.anomalyType;
-          if (ai.summary) summary = ai.summary;
-        } catch {
-          // Fallback to deterministic message
+            const ai = await geminiRotator.generateJSON<{ anomalyType: "possible_breakup" | "orbit_change"; summary: string }>(prompt, {
+              systemPrompt: "You are an orbital intelligence astrodynamics forensic specialist. Output concise JSON.",
+              temperature: 0.1,
+              maxOutputTokens: 256,
+            });
+            if (ai.anomalyType) anomalyType = ai.anomalyType;
+            if (ai.summary) summary = ai.summary;
+            this.aiAnalysisCache.set(object.id, { anomalyType, summary, timestamp: nowMs });
+          } catch {
+            // Fallback to deterministic message
+          }
         }
 
         const detectedAt = new Date().toISOString();
