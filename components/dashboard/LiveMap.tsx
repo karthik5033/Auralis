@@ -31,10 +31,7 @@ const GlobeView = dynamic(loadGlobe, {
   ),
 });
 
-// Immediately pre-fetch GlobeView chunk so it renders instantaneously
-if (typeof window !== "undefined") {
-  loadGlobe();
-}
+// GlobeView is dynamically imported on demand when viewMode === "3d"
 
 import { PolarRadarView } from "@/components/dashboard/PolarRadarView";
 

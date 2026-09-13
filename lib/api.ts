@@ -56,36 +56,83 @@ export function isMockMode(): boolean {
 }
 
 // ============================================================================
-// Internal HTTP Request Helper (for Live Mode)
+// Internal HTTP Request Helper (for Live Mode) with In-Memory Cache & Dedup
 // ============================================================================
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const apiGetCache = new Map<string, CacheEntry<unknown>>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
+const GET_CACHE_TTL_MS = 8_000; // 8-second client memory cache for snappy route switching
+
+export function clearApiCache() {
+  apiGetCache.clear();
+}
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  
-  const headers = new Headers(options?.headers);
-  if (!headers.has('Content-Type') && options?.body) {
-    headers.set('Content-Type', 'application/json');
+  const isGet = !options?.method || options.method.toUpperCase() === 'GET';
+
+  // Any mutation busts the read cache
+  if (!isGet) {
+    clearApiCache();
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    let errorDetail = '';
-    try {
-      const errJson = await response.json();
-      errorDetail = errJson.error || errJson.message || JSON.stringify(errJson);
-    } catch {
-      errorDetail = await response.text();
+  // Check read cache for instantaneous responses
+  if (isGet) {
+    const cached = apiGetCache.get(url);
+    if (cached && Date.now() - cached.timestamp < GET_CACHE_TTL_MS) {
+      return cached.data as T;
     }
-    throw new Error(
-      `API error [${response.status} ${response.statusText}] at ${endpoint}: ${errorDetail}`
-    );
+
+    // Reuse in-flight request if another component requested the same URL simultaneously
+    if (inFlightRequests.has(url)) {
+      return inFlightRequests.get(url)! as Promise<T>;
+    }
   }
 
-  return response.json() as Promise<T>;
+  const fetchPromise = (async () => {
+    const headers = new Headers(options?.headers);
+    if (!headers.has('Content-Type') && options?.body) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      let errorDetail = '';
+      try {
+        const errJson = await response.json();
+        errorDetail = errJson.error || errJson.message || JSON.stringify(errJson);
+      } catch {
+        errorDetail = await response.text();
+      }
+      throw new Error(
+        `API error [${response.status} ${response.statusText}] at ${endpoint}: ${errorDetail}`
+      );
+    }
+
+    const data = (await response.json()) as T;
+    if (isGet) {
+      apiGetCache.set(url, { data, timestamp: Date.now() });
+    }
+    return data;
+  })();
+
+  if (isGet) {
+    inFlightRequests.set(url, fetchPromise);
+    fetchPromise.finally(() => {
+      inFlightRequests.delete(url);
+    });
+  }
+
+  return fetchPromise;
 }
 
 function buildQueryString(params?: Record<string, string | number | undefined | null>): string {

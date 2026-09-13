@@ -13,10 +13,15 @@ export default function AuthLayout({
   const pathname = usePathname();
   const mainRef = useRef<HTMLElement>(null);
 
+  const [isNavigating, setIsNavigating] = React.useState(false);
+
   useEffect(() => {
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;
     }
+    setIsNavigating(true);
+    const timer = setTimeout(() => setIsNavigating(false), 400);
+    return () => clearTimeout(timer);
   }, [pathname]);
 
   return (
@@ -29,6 +34,9 @@ export default function AuthLayout({
           <TopHeader />
         </div>
         <main ref={mainRef} className="flex-1 flex flex-col relative overflow-y-auto bg-slate-50/50 dark:bg-background/95">
+          {isNavigating && (
+            <div className="absolute top-0 left-0 right-0 z-40 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse" />
+          )}
           {children}
         </main>
       </div>

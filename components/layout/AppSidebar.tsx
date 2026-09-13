@@ -20,7 +20,8 @@ import {
   PanelLeftOpen,
   ShieldCheck,
   Database,
-  Orbit
+  Orbit,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -46,6 +47,11 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, role } = useAuth();
+  const [navigatingTo, setNavigatingTo] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setNavigatingTo(null);
+  }, [pathname]);
   
   const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Orbital Scientist';
   const displayInitials = user ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'OS' : 'OS';
@@ -86,36 +92,51 @@ export function AppSidebar() {
         </div>
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"));
+          const isNavigating = navigatingTo === item.href && !isActive;
           const name = t(item.key as any) || item.label;
           return (
             <Link
               key={item.key}
               href={item.href}
               prefetch={true}
+              onMouseEnter={() => {
+                try {
+                  router.prefetch(item.href);
+                } catch {
+                  // Ignore prefetch errors
+                }
+              }}
               title={isCollapsed ? name : undefined}
               className={cn(
                 "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 overflow-hidden cursor-pointer select-none",
                 isActive 
                   ? "bg-primary/15 text-primary font-semibold shadow-xs" 
+                  : isNavigating
+                  ? "bg-primary/10 text-primary animate-pulse"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 isCollapsed ? "justify-center" : "justify-between"
               )}
               onClick={(e) => {
                 if (pathname === item.href) {
                   e.preventDefault();
+                  return;
                 }
+                setNavigatingTo(item.href);
               }}
             >
               <div className="flex items-center">
                 <item.icon className={cn(
                   "shrink-0 transition-colors", 
                   isCollapsed ? "h-5 w-5" : "mr-3 h-4 w-4",
-                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  (isActive || isNavigating) ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                 )} />
                 {!isCollapsed && <span className="whitespace-nowrap">{name}</span>}
               </div>
               {!isCollapsed && isActive && (
                 <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary animate-pulse ml-2" />
+              )}
+              {!isCollapsed && isNavigating && (
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary ml-2" />
               )}
             </Link>
           );
