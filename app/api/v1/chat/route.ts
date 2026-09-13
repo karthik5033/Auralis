@@ -82,7 +82,7 @@ export async function POST(request: Request): Promise<Response> {
           type: "shell",
           id: s.shellId,
           name: `Shell ${s.shellId} (R₀: ${r0Str})`,
-          url: `/shells`,
+          url: `/analytics?shell=${encodeURIComponent(s.shellId)}`,
         });
       }
     });
@@ -134,7 +134,7 @@ Respond directly as the Advisory Agent Copilot:`;
       const aiResponse = await geminiRotator.generateText(fullPrompt, {
         systemPrompt,
         temperature: 0.2,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 2048,
       });
 
       if (aiResponse && aiResponse.trim().length > 0) {
