@@ -1653,14 +1653,14 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 shadow-sm space-y-1">
+              <div className="p-2.5 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 shadow-sm space-y-1">
                 <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between font-mono">
                   <span>BILATERAL GAME-THEORETIC OPTIMIZATION</span>
                   <LatexMath math="\min J(\Delta v)" className="text-zinc-400" />
                 </div>
-                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                <div className="py-0.5 my-0.5 border-y border-zinc-800 text-center">
                   <LatexMath
-                    math="\min_{\Delta \mathbf{v}_1, \Delta \mathbf{v}_2} J = w_1 \|\Delta \mathbf{v}_1\|_2 + w_2 \|\Delta \mathbf{v}_2\|_2 \quad \text{s.t.} \quad d_{\text{miss}}(t_{\text{TCA}}) \ge 25.0\,\text{km}"
+                    math="\min_{\Delta \mathbf{v}} J = w_1 \|\Delta \mathbf{v}_1\| + w_2 \|\Delta \mathbf{v}_2\| \quad \text{s.t. } d_{\text{miss}} \ge 25\,\text{km}"
                     displayMode={true}
                   />
                 </div>
@@ -1799,19 +1799,19 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 shadow-sm space-y-1 mb-6">
+              <div className="p-2.5 rounded-xl bg-zinc-900/90 border border-sky-500/30 text-zinc-200 shadow-sm space-y-1 mb-6">
                 <div className="text-[9px] uppercase tracking-wider text-sky-400 font-bold flex items-center justify-between font-mono">
                   <span>NASH BARGAINING & TSIOLKOVSKY EQUATION</span>
                   <LatexMath math="\Delta m_{\text{fuel}}" className="text-zinc-400" />
                 </div>
-                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                <div className="py-0.5 my-0.5 border-y border-zinc-800 text-center">
                   <LatexMath
-                    math="\max_{(\Delta \mathbf{v}_A, \Delta \mathbf{v}_B)} (U_A - d_A)^{\alpha}(U_B - d_B)^{1-\alpha}, \quad \Delta m = m_0\left(1 - e^{-\frac{\Delta v}{I_{\text{sp}} g_0}}\right)"
+                    math="\max (U_A - d_A)^{\alpha}(U_B - d_B)^{1-\alpha} \implies \Delta m = m_0(1 - e^{-\frac{\Delta v}{I_{\text{sp}} g_0}})"
                     displayMode={true}
                   />
                 </div>
                 <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
-                  <LatexMath math="I_{\text{sp}} = 300\,\text{s (Krypton/Ion)}" />
+                  <LatexMath math="I_{\text{sp}} = 300\,\text{s}" />
                   <LatexMath math="g_0 = 9.80665\,\text{m/s}^2" />
                 </div>
               </div>
@@ -1847,14 +1847,14 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-purple-500/30 text-zinc-200 shadow-sm space-y-1">
+              <div className="p-2.5 rounded-xl bg-zinc-900/90 border border-purple-500/30 text-zinc-200 shadow-sm space-y-1">
                 <div className="text-[9px] uppercase tracking-wider text-purple-400 font-bold flex items-center justify-between font-mono">
                   <span>KESSLER SYNDROME SIR EPIDEMIOLOGY</span>
                   <LatexMath math="R_0 > 1.0" className="text-zinc-400" />
                 </div>
-                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                <div className="py-0.5 my-0.5 border-y border-zinc-800 text-center">
                   <LatexMath
-                    math="\frac{dS}{dt} = -\beta S I + \alpha, \quad \frac{dI}{dt} = \beta S I - \gamma I, \quad R_0 = \frac{\beta S_0}{\gamma}"
+                    math="\frac{dS}{dt} = -\beta S I, \quad \frac{dI}{dt} = \beta S I - \gamma I, \quad R_0 = \frac{\beta S_0}{\gamma}"
                     displayMode={true}
                   />
                 </div>
@@ -1918,19 +1918,19 @@ export default function Home() {
               </div>
 
               {/* Mathematical Physics Equation Callout */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-rose-500/30 text-zinc-200 shadow-sm space-y-1">
+              <div className="p-2.5 rounded-xl bg-zinc-900/90 border border-rose-500/30 text-zinc-200 shadow-sm space-y-1">
                 <div className="text-[9px] uppercase tracking-wider text-rose-400 font-bold flex items-center justify-between font-mono">
                   <span>MAHALANOBIS COVARIANCE ELLIPSOID DISTANCE</span>
                   <LatexMath math="d_M \le k_\sigma" className="text-zinc-400" />
                 </div>
-                <div className="py-1 my-1 border-y border-zinc-800 text-center">
+                <div className="py-0.5 my-0.5 border-y border-zinc-800 text-center">
                   <LatexMath
                     math="d_M^2 = (\mathbf{r}_1 - \mathbf{r}_2)^T (C_1 + C_2)^{-1} (\mathbf{r}_1 - \mathbf{r}_2) \le k_\sigma^2"
                     displayMode={true}
                   />
                 </div>
                 <div className="text-[10px] text-zinc-400 flex justify-between items-center font-mono">
-                  <LatexMath math="k_\sigma = 3.0 \text{ (99.73% Envelope)}" />
+                  <LatexMath math="k_\sigma = 3.0 \text{ (99.73%)}" />
                   <LatexMath math="\det(C_1 + C_2) \ne 0" />
                 </div>
               </div>

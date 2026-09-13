@@ -27,7 +27,7 @@ export function LatexMath({ math, displayMode = false, className = "" }: LatexMa
   if (displayMode) {
     return (
       <div
-        className={`katex-display-container overflow-x-auto py-1 px-2 my-1.5 rounded bg-zinc-950/70 border border-zinc-800/80 text-cyan-200 select-none ${className}`}
+        className={`katex-display-container text-center py-1 px-1 my-0.5 rounded bg-zinc-950/60 border border-zinc-800/80 text-cyan-200 select-none overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&_.katex-display]:my-0 [&_.katex]:text-[11px] sm:[&_.katex]:text-xs [&_.katex]:leading-tight max-w-full ${className}`}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );
@@ -35,7 +35,7 @@ export function LatexMath({ math, displayMode = false, className = "" }: LatexMa
 
   return (
     <span
-      className={`katex-inline-container inline-block align-middle text-cyan-200 ${className}`}
+      className={`katex-inline-container inline-block align-middle text-cyan-200 overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&_.katex]:text-[10px] sm:[&_.katex]:text-[11px] [&_.katex]:leading-tight max-w-full ${className}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
